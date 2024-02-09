@@ -12,35 +12,7 @@ read (**`r`**), write (**`w`**), and execute (**`x`**)
 
 2. Symbolic Mode
 
-   : In symbolic mode, you can use symbols to represent permission changes. The symbols are 
-
-   `+`
-
-    to add permissions, 
-
-   ``
-
-    to remove permissions, and 
-
-   `=`
-
-    to set permissions explicitly. You can use the following symbols along with user categories (
-
-   `u`
-
-    for owner, 
-
-   `g`
-
-    for group, 
-
-   `o`
-
-    for others, and 
-
-   `a`
-
-    for all):
+   : In symbolic mode, you can use symbols to represent permission changes. The symbols are `+` to add permissions,  to remove permissions, and  `=` to set permissions explicitly. You can use the following symbols along with user categories (`u` for owner, `g` for group, `o` for others, and `a` for all):
 
    - **`chmod u+x file.txt`**: Adds execute permission to the owner.
    - **`chmod go-w file.txt`**: Removes write permission from the group and others.
