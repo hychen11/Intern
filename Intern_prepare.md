@@ -171,6 +171,163 @@ std::for_each(f.begin(),f.end(),[](const int &element){
 
 就是不改变，如果heap顶部和真实值不一样，就不断删除！
 
+# LFU
+
+freq_table存的是freq, Node list
+
+freq_table存的是key, Node list iterator
+
+```c++
+struct Node{
+    int key_,val_,freq_;
+    Node(int key,int value,int freq):key_(key),val_(value),freq_(freq){}
+};
+class LFUCache {
+    unordered_map<int,list<Node>::iterator> key_table;
+    unordered_map<int,list<Node>> freq_table;
+    int minfreq{},capacity{};
+public:
+    LFUCache(int capacity):minfreq(0),capacity(capacity) {
+        key_table.clear();
+        freq_table.clear();
+    }
+    
+    int get(int key) {
+        if(capacity==0) return -1;
+        if(key_table.find(key)==key_table.end()) return -1;
+        int val=(*key_table[key]).val_;
+        int freq=(*key_table[key]).freq_;
+        freq_table[freq].erase(key_table[key]);
+        if(freq_table[freq].size()==0){
+            freq_table.erase(freq);
+            if(minfreq==freq) minfreq+=1;
+        }
+        freq_table[freq+1].push_front(Node(key,val,freq+1));
+        key_table[key]=freq_table[freq+1].begin();
+        return val;
+    }
+    
+    void put(int key, int value) {
+        if(capacity==0) return;
+        if(key_table.find(key)==key_table.end()){
+            if(key_table.size()==capacity){
+                auto it=freq_table[minfreq].back();
+                key_table.erase(it.key_);
+                freq_table[minfreq].pop_back();
+                if(freq_table[minfreq].size()==0){
+                    freq_table.erase(minfreq);
+                }
+            }
+            freq_table[1].push_front(Node(key,value,1));
+            key_table[key]=freq_table[1].begin();
+            minfreq=1;
+        }
+        else{
+            auto node=key_table[key];
+            int freq=(*node).freq_;
+            freq_table[freq].erase(node);
+            if(freq_table[freq].size()==0){
+                freq_table.erase(freq);
+                if(minfreq==freq)
+                    minfreq+=1;
+            }
+            freq_table[freq+1].push_front(Node(key,value,freq+1));
+            key_table[key]=freq_table[freq+1].begin();
+        }
+    }
+};
+```
+
+# Dijkstra
+
+```c++
+class Graph {
+public:
+    vector<vector<int>> g;
+    Graph(int n, vector<vector<int>>& edges) :g(n, vector<int>(n, INT_MAX / 2)){
+        for(auto &edge:edges){
+            g[edge[0]][edge[1]]=edge[2];
+        }
+    }
+    
+    void addEdge(vector<int> edge) {
+        g[edge[0]][edge[1]]=edge[2];
+    }
+    
+    int shortestPath(int node1, int node2) {
+        int n = g.size();
+        vector<int> dis(n,INT_MAX/2),vis(n);
+        dis[node1]=0;
+        while(1){
+            int x=-1;
+            for(int i=0;i<n;i++){
+                if(!vis[i]&&(x<0||dis[i]<dis[x])){
+                    x=i;
+                }
+            }
+            if(x<0||dis[x]==INT_MAX/2){
+                return -1;
+            }
+            if(x==node2){
+                return dis[x];
+            }
+            vis[x]=true;
+            for(int y=0;y<n;y++){
+                dis[y]=min(dis[y],dis[x]+g[x][y]);
+            }
+        }
+    }
+};
+
+/**
+ * Your Graph object will be instantiated and called as such:
+ * Graph* obj = new Graph(n, edges);
+ * obj->addEdge(edge);
+ * int param_2 = obj->shortestPath(node1,node2);
+ */
+```
+
+```c++
+class Graph {
+    vector<vector<pair<int, int>>> g; // 邻接表
+public:
+    Graph(int n, vector<vector<int>> &edges) : g(n) {
+        for (auto &e : edges) {
+            g[e[0]].emplace_back(e[1], e[2]);
+        }
+    }
+
+    void addEdge(vector<int> e) {
+        g[e[0]].emplace_back(e[1], e[2]);
+    }
+
+    int shortestPath(int start, int end) {
+        // dis[i] 表示从起点 start 出发，到节点 i 的最短路长度
+        vector<int> dis(g.size(), INT_MAX);
+        dis[start] = 0;
+        priority_queue<pair<int, int>, vector<pair<int, int>>, greater<>> pq;
+        pq.emplace(0, start);
+        while (!pq.empty()) {
+            auto [d, x] = pq.top();
+            pq.pop();
+            if (x == end) { // 计算出从起点到终点的最短路长度
+                return d;
+            }
+            if (d > dis[x]) { // x 之前出堆过，无需更新邻居的最短路
+                continue;
+            }
+            for (auto &[y, w] : g[x]) {
+                if (d + w < dis[y]) {
+                    dis[y] = d + w; // 更新最短路长度
+                    pq.push({dis[y], y});
+                }
+            }
+        }
+        return -1; // 无法到达终点
+    }
+};
+```
+
 
 
 # Redis
@@ -280,3 +437,16 @@ ET
 使用边缘触发模式时，最好使用**非阻塞的文件描述符**，这样可以避免阻塞其他等待读写的任务。
 
 **水平触发模式**在第5步的函数调用中不会被挂起，而是返回 rfd，因为缓冲区中仍然存在没有读完的数据。
+
+# COW copy on write
+
+# Lazy Allocation
+
+
+
+# Wound-Wait
+
+**Wound**（伤害）: 如果请求资源的进程具有较早的时间戳（即较高的优先级），那么持有资源的进程将被“伤害”，这意味着持有资源的进程需要释放资源并回滚其操作。然后，资源将被分配给请求资源的进程。
+
+**Wait**（等待）: 如果请求资源的进程具有较晚的时间戳（即较低的优先级），那么它将被迫等待，直到资源变为可用。
+
