@@ -1,3 +1,22 @@
+# C++
+
+```c++
+#include<bits/stdc++.h>
+std::copy(src.begin(),src.end(),target.begin());//terget cap must larger than src!! else error!
+std::copy(src.begin(), src.end(), std::back_inserter(dest));//recommand!
+
+std::vector<int> src = {1, 2, 3, 4, 5};
+std::vector<int> dest(10); // 假设dest已经被一些方式填充了
+//if dest has reserve cap, and fill from back
+std::copy_backward(src.begin(), src.end(), dest.end());//fill the last 5 elements!
+
+std::move(src.begin(), src.end(), dest.begin());//Attention!! use this must reserve place!! or segment fault!
+std::move(src.begin(), src.end(), std::back_inserter(dest));
+std::move_backward(src.begin(), src.end(), dest.end());//move content to dest
+
+std::advance(it,j);// move iterator it forward j step, j can be positive or negative!
+```
+
 # Trie Tree
 
 ```c++
@@ -328,7 +347,66 @@ public:
 };
 ```
 
+# Shuffle
 
+```c++
+class Solution {
+public:
+    Solution(vector<int>& nums) {
+        this->nums = nums;
+        this->original.resize(nums.size());
+        copy(nums.begin(), nums.end(), original.begin());
+    }
+    
+    vector<int> reset() {
+        copy(original.begin(), original.end(), nums.begin());
+        return nums;
+    }
+    
+    vector<int> shuffle() {
+        vector<int> shuffled = vector<int>(nums.size());
+        list<int> lst(nums.begin(), nums.end());
+      
+        for (int i = 0; i < nums.size(); ++i) {
+            int j = rand()%(lst.size());
+            auto it = lst.begin();
+            advance(it, j);
+            shuffled[i] = *it;
+            lst.erase(it);
+        }
+        copy(shuffled.begin(), shuffled.end(), nums.begin());
+        return nums;
+    }
+private:
+    vector<int> nums;
+    vector<int> original;
+};
+```
+
+```c++
+class Solution {
+private:
+    vector<int> ans;
+public:
+    Solution(vector<int>& nums):ans(nums){}
+    
+    vector<int> reset() {
+        return ans;
+    }
+    
+    int randInt(int min,int max){
+        return rand()%(max-min+1)+min;
+    }
+    vector<int> shuffle() {
+        auto shuffle=ans;
+        for(int i=0;i<shuffle.size();i++){
+            int j=randInt(i,shuffle.size()-1);
+            swap(shuffle[i],shuffle[j]);
+        }
+        return shuffle;
+    }
+};
+```
 
 # Redis
 
@@ -442,7 +520,15 @@ ET
 
 # Lazy Allocation
 
+# Soft Link
 
+# Cache Ring
+
+
+
+# mmap & mumap
+
+在`mmap`用于访问设备内存（例如，通过PCIe连接的硬件设备）时，DMA可以发挥作用
 
 # Wound-Wait
 
@@ -450,3 +536,43 @@ ET
 
 **Wait**（等待）: 如果请求资源的进程具有较晚的时间戳（即较低的优先级），那么它将被迫等待，直到资源变为可用。
 
+
+
+
+
+# Message Queue(MQ) &Kafka
+
+https://juejin.cn/post/6844903495670169607#heading-5
+
+Kafka 的消息队列一般分为两种模式：点对点模式和发布订阅模式
+
+Kafka 中会有一个或者多个消费者，如果一个生产者生产的消息由一个消费者进行消费的话，那么这种模式就是点对点模式
+
+如果一个生产者或者多个生产者产生的消息能够被多个消费者同时消费的情况，这样的消息队列成为发布订阅模式的消息队列
+
+Kafka 有四个核心API，它们分别是
+
+- Producer API，它允许应用程序向一个或多个 topics 上发送消息记录
+- Consumer API，允许应用程序订阅一个或多个 topics 并处理为其生成的记录流
+- Streams API，它允许应用程序作为流处理器，从一个或多个主题中消费输入流并为其生成输出流，有效的将输入流转换为输出流。
+- Connector API，它允许构建和运行将 Kafka 主题连接到现有应用程序或数据系统的可用生产者和消费者。例如，关系数据库的连接器可能会捕获对表的所有更改
+
+# Zero-Copy
+
+在没有零拷贝的情况下，数据通常需要经过以下步骤从一个地方传输到另一个地方：
+
+1. **从磁盘读取数据到内核空间**的缓冲区。
+2. **从内核空间复制数据到用户空间**的缓冲区。
+3. **从用户空间复制数据回到内核空间**的网络缓冲区。
+4. **从内核空间发送数据**到网络。
+
+零拷贝技术通过以下几种方式减少或消除这些复制操作：
+
+- **直接内存访问（DMA）传输**：允许硬件设备（如网络接口卡）直接读写内存，绕过CPU。
+- **内存映射（Memory Mapped I/O）**：应用程序通过将文件映射到其地址空间的一部分，直接在内存中访问文件数据，避免读取文件内容到用户空间的缓冲区。
+- **发送文件（sendfile）系统调用**：允许在内核中直接将数据从文件系统传输到网络，无需将数据复制到用户空间。
+- **使用分散/聚集I/O（Scatter/Gather I/O）**：允许应用程序在单个系统调用中读写到多个缓冲区，减少上下文切换和缓冲区的复制。
+
+- **减少CPU负载**：通过减少数据复制操作，CPU可以用于处理其他任务，从而提高整体系统性能。
+- **降低延迟**：数据传输操作更高效，减少了处理时间。
+- **减少内存带宽的消耗**：避免了多次数据复制对内存带宽的需求。
