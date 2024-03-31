@@ -1,16 +1,27 @@
 # Google Test
 
-- UT (Unit test)
-- Alpha
-- Beta
-- Gamma
-- Product
+```c++
+#include "gtest/gtest.h"
 
-Gtest
+ASSERT_*  // terminate immediately!
+ASSERT_TRUE,ASSERT_FALSE,ASSERT_EQ
 
-GMock
+EXPECT_*  // allow multiply test(dont terminate!)
+EXPECT_TRUE,EXPECT_FALSE,EXPECT_EQ    
+```
 
-example
+## Test Case
+
+```c++
+TEST(Test,InsertTEST){
+	int ans=1;
+	EXPECT_EQ(ans,1);
+}
+```
+
+## Mock
+
+can mock objects
 
 ```c++
 #include <gtest/gtest.h>

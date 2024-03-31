@@ -1,4 +1,114 @@
-# Makefile & GDB
+# CMake
+
+CMakeLists.txt
+
+假设所有测试文件都在test文件夹下并且命名为 *_test.cpp，可以在test文件夹下
+
+```cmake
+file(GLOB_RECURSE TEST_CPPS "${PROJECT_SOURCE_DIR}/tests/*test.cpp")
+```
+
+用于递归地搜索所有匹配的文件，并将它们的列表存储在变量`TEST_CPPS`中
+
+```cmake
+foreach (test_source ${TEST_CPPS})
+    ...
+endforeach ()
+```
+
+这个循环遍历所有找到的测试文件。对于每个文件，它执行以下操作：
+
+- 获取文件名，去除`.cpp`后缀，创建一个易读的测试名称（`mySTL_test_name`）。
+- 使用`add_executable`为每个测试文件创建一个可执行文件。
+- 使用`target_link_libraries`将Google Test主库链接到每个测试可执行文件。
+- 调用`gtest_discover_tests`来发现和注册测试，设置额外的参数和属性，包括输出格式（XML），是否捕获异常，测试发现超时和测试超时。
+- 设置每个测试目标的属性，确保测试的可执行文件被放置在预期的目录，并指定运行测试的命令。
+
+然后只需要在根路径下的`CMakeLists`中包含这个模块即可:
+
+```cmake
+add_subdirectory(tests)
+```
+
+之后自己新建的单元测试就可以被自动发现了
+
+```cmake
+cmake_minimum_required(VERSION 3.10)
+
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+include(GoogleTest)
+
+enable_testing()
+
+file(GLOB_RECURSE TEST_CPPS "${PROJECT_SOURCE_DIR}/tests/*test.cpp")
+
+foreach (test_source ${TEST_CPPS})
+    # Create a human readable name.
+    get_filename_component(test_filename ${test_source} NAME)
+    string(REPLACE ".cpp" "" mySTL_test_name ${test_filename})
+
+    # Add the test target separately and as part of "make check-tests".
+    add_executable(${mySTL_test_name}  ${test_source})
+    target_link_libraries(${mySTL_test_name} GTest::gtest_main)
+
+
+    gtest_discover_tests(${mySTL_test_name}
+            EXTRA_ARGS
+            --gtest_color=auto
+            --gtest_output=xml:${CMAKE_BINARY_DIR}/test/${mySTL_test_name}.xml
+            --gtest_catch_exceptions=0
+            DISCOVERY_TIMEOUT 120
+            PROPERTIES
+            TIMEOUT 120
+            )
+
+    # Set test target properties and dependencies.
+    set_target_properties(${mySTL_test_name}
+            PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test"
+            COMMAND ${mySTL_test_name}
+            )
+endforeach ()
+```
+
+第一目录下的CMakeList.txt
+
+```cmake
+cmake_minimum_required(VERSION 3.16)
+
+project(ProjectName)  
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_GLIBCXX_DEBUG")
+
+# GoogleTest requires at least C++14
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+
+include_directories(include)
+
+add_subdirectory(tests)
+
+add_executable(a main.cpp) #source file is main.cpp
+```
+
+```shell
+mkdir build&&cd build
+cmake ..
+make -j
+./a
+```
+
+# Makefile
 
 > DRW Codility 2023.9.22
 
@@ -325,406 +435,7 @@ qemu: $K/kernel fs.img
 
 ### **Qemu Makefile**
 
-```makefile
-# To compile and run with a lab solution, set the lab name in conf/lab.mk
-# (e.g., LAB=util).  Run make grade to test solution with the lab's
-# grade script (e.g., grade-lab-util).
-
--include conf/lab.mk
-
-K=kernel
-U=user
-
-OBJS = \\
-  $K/entry.o \\
-  $K/kalloc.o \\
-  $K/string.o \\
-  $K/main.o \\
-  $K/vm.o \\
-  $K/proc.o \\
-  $K/swtch.o \\
-  $K/trampoline.o \\
-  $K/trap.o \\
-  $K/syscall.o \\
-  $K/sysproc.o \\
-  $K/bio.o \\
-  $K/fs.o \\
-  $K/log.o \\
-  $K/sleeplock.o \\
-  $K/file.o \\
-  $K/pipe.o \\
-  $K/exec.o \\
-  $K/sysfile.o \\
-  $K/kernelvec.o \\
-  $K/plic.o \\
-  $K/virtio_disk.o
-
-OBJS_KCSAN = \\
-  $K/start.o \\
-  $K/console.o \\
-  $K/printf.o \\
-  $K/uart.o \\
-  $K/spinlock.o
-
-ifdef KCSAN
-OBJS_KCSAN += \\
-    $K/kcsan.o
-endif
-
-ifeq ($(LAB),$(filter $(LAB), lock))
-OBJS += \\
-    $K/stats.o\\
-    $K/sprintf.o
-endif
-
-ifeq ($(LAB),net)
-OBJS += \\
-    $K/e1000.o \\
-    $K/net.o \\
-    $K/sysnet.o \\
-    $K/pci.o
-endif
-
-# riscv64-unknown-elf- or riscv64-linux-gnu-
-# perhaps in /opt/riscv/bin
-#TOOLPREFIX =
-
-# Try to infer the correct TOOLPREFIX if not set
-ifndef TOOLPREFIX
-TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \\
-    then echo 'riscv64-unknown-elf-'; \\
-    elif riscv64-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \\
-    then echo 'riscv64-linux-gnu-'; \\
-    elif riscv64-unknown-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \\
-    then echo 'riscv64-unknown-linux-gnu-'; \\
-    else echo "***" 1>&2; \\
-    echo "*** Error: Couldn't find a riscv64 version of GCC/binutils." 1>&2; \\
-    echo "*** To turn off this error, run 'gmake TOOLPREFIX= ...'." 1>&2; \\
-    echo "***" 1>&2; exit 1; fi)
-endif
-
-QEMU = qemu-system-riscv64
-
-CC = $(TOOLPREFIX)gcc
-AS = $(TOOLPREFIX)gas
-LD = $(TOOLPREFIX)ld
-OBJCOPY = $(TOOLPREFIX)objcopy
-OBJDUMP = $(TOOLPREFIX)objdump
-
-CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -gdwarf-2
-
-ifdef LAB
-LABUPPER = $(shell echo $(LAB) | tr a-z A-Z)
-XCFLAGS += -DSOL_$(LABUPPER) -DLAB_$(LABUPPER)
-endif
-
-CFLAGS += $(XCFLAGS)
-CFLAGS += -MD
-CFLAGS += -mcmodel=medany
-CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
-CFLAGS += -I.
-CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-
-ifeq ($(LAB),net)
-CFLAGS += -DNET_TESTS_PORT=$(SERVERPORT)
-endif
-
-ifdef KCSAN
-CFLAGS += -DKCSAN
-KCSANFLAG = -fsanitize=thread
-endif
-
-# Disable PIE when possible (for Ubuntu 16.10 toolchain)
-ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
-CFLAGS += -fno-pie -no-pie
-endif
-ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]nopie'),)
-CFLAGS += -fno-pie -nopie
-endif
-
-LDFLAGS = -z max-page-size=4096
-
-$K/kernel: $(OBJS) $(OBJS_KCSAN) $K/kernel.ld $U/initcode
-    $(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) $(OBJS_KCSAN)
-    $(OBJDUMP) -S $K/kernel > $K/kernel.asm
-    $(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
-
-$(OBJS): EXTRAFLAG := $(KCSANFLAG)
-
-$K/%.o: $K/%.c
-    $(CC) $(CFLAGS) $(EXTRAFLAG) -c -o $@ $<
-
-$U/initcode: $U/initcode.S
-    $(CC) $(CFLAGS) -march=rv64g -nostdinc -I. -Ikernel -c $U/initcode.S -o $U/initcode.o
-    $(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $U/initcode.out $U/initcode.o
-    $(OBJCOPY) -S -O binary $U/initcode.out $U/initcode
-    $(OBJDUMP) -S $U/initcode.o > $U/initcode.asm
-
-tags: $(OBJS) _init
-    etags *.S *.c
-
-ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o
-
-ifeq ($(LAB),$(filter $(LAB), lock))
-ULIB += $U/statistics.o
-endif
-
-_%: %.o $(ULIB)
-    $(LD) $(LDFLAGS) -T $U/user.ld -o $@ $^
-    $(OBJDUMP) -S $@ > $*.asm
-    $(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
-
-$U/usys.S : $U/usys.pl
-    perl $U/usys.pl > $U/usys.S
-
-$U/usys.o : $U/usys.S
-    $(CC) $(CFLAGS) -c -o $U/usys.o $U/usys.S
-
-$U/_forktest: $U/forktest.o $(ULIB)
-    # forktest has less library code linked in - needs to be small
-    # in order to be able to max out the proc table.
-    $(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
-    $(OBJDUMP) -S $U/_forktest > $U/forktest.asm
-
-mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
-    gcc $(XCFLAGS) -Werror -Wall -I. -o mkfs/mkfs mkfs/mkfs.c
-
-# Prevent deletion of intermediate files, e.g. cat.o, after first build, so
-# that disk image changes after first build are persistent until clean.  More
-# details:
-# <http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html>
-.PRECIOUS: %.o
-
-UPROGS=\\
-    $U/_cat\\
-    $U/_echo\\
-    $U/_forktest\\
-    $U/_grep\\
-    $U/_init\\
-    $U/_kill\\
-    $U/_ln\\
-    $U/_ls\\
-    $U/_mkdir\\
-    $U/_rm\\
-    $U/_sh\\
-    $U/_stressfs\\
-    $U/_usertests\\
-    $U/_grind\\
-    $U/_wc\\
-    $U/_zombie\\
-
-ifeq ($(LAB),$(filter $(LAB), lock))
-UPROGS += \\
-    $U/_stats
-endif
-
-ifeq ($(LAB),traps)
-UPROGS += \\
-    $U/_call\\
-    $U/_bttest
-endif
-
-ifeq ($(LAB),lazy)
-UPROGS += \\
-    $U/_lazytests
-endif
-
-ifeq ($(LAB),cow)
-UPROGS += \\
-    $U/_cowtest
-endif
-
-ifeq ($(LAB),thread)
-UPROGS += \\
-    $U/_uthread
-
-$U/uthread_switch.o : $U/uthread_switch.S
-    $(CC) $(CFLAGS) -c -o $U/uthread_switch.o $U/uthread_switch.S
-
-$U/_uthread: $U/uthread.o $U/uthread_switch.o $(ULIB)
-    $(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_uthread $U/uthread.o $U/uthread_switch.o $(ULIB)
-    $(OBJDUMP) -S $U/_uthread > $U/uthread.asm
-
-ph: notxv6/ph.c
-    gcc -o ph -g -O2 $(XCFLAGS) notxv6/ph.c -pthread
-
-barrier: notxv6/barrier.c
-    gcc -o barrier -g -O2 $(XCFLAGS) notxv6/barrier.c -pthread
-endif
-
-ifeq ($(LAB),pgtbl)
-UPROGS += \\
-    $U/_pgtbltest
-endif
-
-ifeq ($(LAB),lock)
-UPROGS += \\
-    $U/_kalloctest\\
-    $U/_bcachetest
-endif
-
-ifeq ($(LAB),fs)
-UPROGS += \\
-    $U/_bigfile
-endif
-
-ifeq ($(LAB),net)
-UPROGS += \\
-    $U/_nettests
-endif
-
-UEXTRA=
-ifeq ($(LAB),util)
-    UEXTRA += user/xargstest.sh
-endif
-
-fs.img: mkfs/mkfs README $(UEXTRA) $(UPROGS)
-    mkfs/mkfs fs.img README $(UEXTRA) $(UPROGS)
-
--include kernel/*.d user/*.d
-
-clean:
-    rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \\
-    */*.o */*.d */*.asm */*.sym \\
-    $U/initcode $U/initcode.out $K/kernel fs.img \\
-    mkfs/mkfs .gdbinit \\
-        $U/usys.S \\
-    $(UPROGS) \\
-    ph barrier
-
-# try to generate a unique GDB port
-GDBPORT = $(shell expr `id -u` % 5000 + 25000)
-# QEMU's gdb stub command line changed in 0.11
-QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \\
-    then echo "-gdb tcp::$(GDBPORT)"; \\
-    else echo "-s -p $(GDBPORT)"; fi)
-ifndef CPUS
-CPUS := 3
-endif
-ifeq ($(LAB),fs)
-CPUS := 1
-endif
-
-FWDPORT = $(shell expr `id -u` % 5000 + 25999)
-
-QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
-QEMUOPTS += -global virtio-mmio.force-legacy=false
-QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
-QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
-
-ifeq ($(LAB),net)
-QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT)-:2000 -object filter-dump,id=net0,netdev=net0,file=packets.pcap
-QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
-endif
-
-qemu: $K/kernel fs.img
-    $(QEMU) $(QEMUOPTS)
-
-.gdbinit: .gdbinit.tmpl-riscv
-    sed "s/:1234/:$(GDBPORT)/" < $^ > $@
-
-qemu-gdb: $K/kernel .gdbinit fs.img
-    @echo "*** Now run 'gdb' in another window." 1>&2
-    $(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
-
-ifeq ($(LAB),net)
-# try to generate a unique port for the echo server
-SERVERPORT = $(shell expr `id -u` % 5000 + 25099)
-
-server:
-    python3 server.py $(SERVERPORT)
-
-ping:
-    python3 ping.py $(FWDPORT)
-endif
-
-##
-##  FOR testing lab grading script
-##
-
-ifneq ($(V),@)
-GRADEFLAGS += -v
-endif
-
-print-gdbport:
-    @echo $(GDBPORT)
-
-grade:
-    @echo $(MAKE) clean
-    @$(MAKE) clean || \\
-          (echo "'make clean' failed.  HINT: Do you have another running instance of xv6?" && exit 1)
-    ./grade-lab-$(LAB) $(GRADEFLAGS)
-
-##
-## FOR web handin
-##
-
-WEBSUB := <https://6828.scripts.mit.edu/2022/handin.py>
-
-handin: tarball-pref myapi.key
-    @SUF=$(LAB); \\
-    curl -f -F file=@lab-$$SUF-handin.tar.gz -F key=\\<myapi.key $(WEBSUB)/upload \\
-        > /dev/null || { \\
-        echo ; \\
-        echo Submit seems to have failed.; \\
-        echo Please go to $(WEBSUB)/ and upload the tarball manually.; }
-
-handin-check:
-    @if ! test -d .git; then \\
-        echo No .git directory, is this a git repository?; \\
-        false; \\
-    fi
-    @if test "$$(git symbolic-ref HEAD)" != refs/heads/$(LAB); then \\
-        git branch; \\
-        read -p "You are not on the $(LAB) branch.  Hand-in the current branch? [y/N] " r; \\
-        test "$$r" = y; \\
-    fi
-    @if ! git diff-files --quiet || ! git diff-index --quiet --cached HEAD; then \\
-        git status -s; \\
-        echo; \\
-        echo "You have uncomitted changes.  Please commit or stash them."; \\
-        false; \\
-    fi
-    @if test -n "`git status -s`"; then \\
-        git status -s; \\
-        read -p "Untracked files will not be handed in.  Continue? [y/N] " r; \\
-        test "$$r" = y; \\
-    fi
-
-UPSTREAM := $(shell git remote -v | grep -m 1 "xv6-labs-2022" | awk '{split($$0,a," "); print a[1]}')
-
-tarball: handin-check
-    git archive --format=tar HEAD | gzip > lab-$(LAB)-handin.tar.gz
-
-tarball-pref: handin-check
-    @SUF=$(LAB); \\
-    git archive --format=tar HEAD > lab-$$SUF-handin.tar; \\
-    git diff $(UPSTREAM)/$(LAB) > /tmp/lab-$$SUF-diff.patch; \\
-    tar -rf lab-$$SUF-handin.tar /tmp/lab-$$SUF-diff.patch; \\
-    gzip -c lab-$$SUF-handin.tar > lab-$$SUF-handin.tar.gz; \\
-    rm lab-$$SUF-handin.tar; \\
-    rm /tmp/lab-$$SUF-diff.patch; \\
-
-myapi.key:
-    @echo Get an API key for yourself by visiting $(WEBSUB)/
-    @read -p "Please enter your API key: " k; \\
-    if test `echo "$$k" |tr -d '\\n' |wc -c` = 32 ; then \\
-        TF=`mktemp -t tmp.XXXXXX`; \\
-        if test "x$$TF" != "x" ; then \\
-            echo "$$k" |tr -d '\\n' > $$TF; \\
-            mv -f $$TF $@; \\
-        else \\
-            echo mktemp failed; \\
-            false; \\
-        fi; \\
-    else \\
-        echo Bad API key: $$k; \\
-        echo An API key should be 32 characters long.; \\
-        false; \\
-    fi;
-
-.PHONY: handin tarball tarball-pref clean grade handin-check
-```
+https://github.com/mit-pdos/xv6-public/blob/eeb7b415dbcb12cc362d0783e41c3d1f44066b17/Makefile#L1
 
 # GDB
 
