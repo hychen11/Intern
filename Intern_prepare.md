@@ -1,5 +1,34 @@
 # C++
 
+### 强制类型转换
+
+### `static_cast<type>(expression)`
+
+- **用途**：用于非多态类型的转换。可以用来转换基础数据类型（如int转float，或指针类型之间的转换，只要不涉及底层const的转换）。
+- **例子**：`int a = 10; float b = static_cast<float>(a);`
+
+### 2. `dynamic_cast<type>(expression)`
+
+- **用途**：主要用于处理多态性，安全地将基类指针或引用转换为派生类指针或引用，而且在转换不成功时能够检测到。
+- **例子**：`Base* b = new Derived(); Derived* d = dynamic_cast<Derived*>(b);`
+- **注意**：`dynamic_cast`要求基类有虚函数，因为它使用运行时类型信息（RTTI）来检查转换的安全性。
+
+### 3. `const_cast<type>(expression)`
+
+- **用途**：用于修改类型的const或volatile属性。最常用于去除指针或引用的const属性。
+- **例子**：`const int a = 10; int* b = const_cast<int*>(&a);`
+
+### 4. `reinterpret_cast<type>(expression)`
+
+- **用途**：提供低级别的重新解释转换，几乎可以进行任何指针、整型之间的转换。但使用时需非常小心，因为它可能导致平台依赖的代码。
+- **例子**：`int* a = new int(65); char* b = reinterpret_cast<char*>(a);`
+
+hash底层std::vector<std::list<int>> table; 
+
+map->RBT
+
+智能指针: .get()
+
 ```c++
 #include<bits/stdc++.h>
 std::copy(src.begin(),src.end(),target.begin());//terget cap must larger than src!! else error!
@@ -799,9 +828,15 @@ VMA (virtual memory area) !!!!
 
 VMA会记录一些有关连续虚拟内存地址段的信息。在一个地址空间中，可能包含了多个section，每一个section都由一个连续的地址段构成，对于每个section，都有一个VMA对象。连续地址段中的所有Page都有相同的权限，并且都对应同一个对象VMA（例如一个进程的代码是一个section，数据是另一个section，它们对应不同的VMA，VMA还可以表示属于进程的映射关系，例如下面提到的Memory Mapped File）
 
+The VMA should contain a pointer to a `struct file` for the file being mapped; `mmap` should increase the file's reference count so that the structure doesn't disappear when the file is closed
+
+这里vma包含了对fd，用了要+refcnt！munmap里文件无ref就write back to disk！
+
+find the VMA for the address range and unmap the specified pages (hint: use `uvmunmap`). If `munmap` removes all pages of a previous `mmap`, it should decrement the reference count of the corresponding `struct file`. If an unmapped page has been modified and the file is mapped `MAP_SHARED`, write the page back to the file. Look at `filewrite` for inspiration.
+
 # Malloc
 
-sbrk(size)
+sbrk(size) 用linked list实现
 
 free!
 
@@ -903,7 +938,7 @@ head+ flexible array
 
 Search
 
-二分
+lower_bound+distance
 
 Insert
 
@@ -911,7 +946,487 @@ Delete
 
 iterator
 
+这里都是只加R Lock
+
 Concurrency
 
-# Perf & Test & makefile
+先锁住 parent page， 2. 再锁住 child page， 3. 假设 child page 是*安全*的，则释放 parent page 的锁。*安全*指当前 page 在当前操作下一定不会发生 split/steal/merge。同时，*安全*对不同操作的定义是不同的，Search 时，任何节点都安全；Insert 时，判断 max size；Delete 时，判断 min size。
 
+因此可以提前释放掉其祖先的锁来提高并发性能。
+
+Search 只加读锁
+
+Insert 写锁，判断是否split
+
+在 child page 不安全时，需要持续持有祖先的写锁。并在出现安全的 child page 后，释放所有祖先写锁。
+
+然后向上递归插入的时候还是会持有锁，所以直接从page set里拿page指针，不用再加锁
+
+然后这里的祖先会存在transaction的pageset里，然后delete的页page id也会存在delete page set里
+
+Delete写锁，判断size是否改变，也需要对 sibling 加锁。并在完成 steal/merge 后马上释放
+
+### RAII
+
+```cpp
+std::scoped_lock<std::mutex> lock(mutex_);
+```
+
+这里其实就是一个经典的 RAII。在初始化 lock 时，调用 `mutex_.Lock()`，在析构 lock 时，调用 `mutex_.Unlock()`。这样就通过简单的一行代码成功保证了在 lock 的作用域中对 mutex 全程上锁。离开 lock 的作用域后，由于 lock 析构，锁自动释放。
+
+会出现死锁，leaf index 左到右，delete 锁sibling，就死锁了，这里iterator得不到锁就自动放弃
+
+乐观锁
+
+split/steal/merge，对沿途的节点上读锁，并及时释放，对 leaf page 上写锁。当发现操作对 leaf page 确实不会造成 split/steal/merge 时，可以直接完成操作。当发现操作会使 leaf page split/steal/merge 时，则放弃所有持有的锁，从 root page 开始重新悲观地进行这次操作，即沿途上写锁。
+
+
+
+1. **`std::unique_lock<std::mutex> lock(lock_request_queue->latch_);`**
+   - 这条语句在构造`unique_lock`对象时自动对互斥锁`lock_request_queue->latch_`上锁。这意味着不需要显式调用`.lock()`，互斥锁将在`unique_lock`对象作用域结束时自动解锁（这得益于RAII - 资源获取即初始化机制）。
+   - 这种用法在确保互斥锁在作用域内总是被正确锁定和解锁的情况下非常有用，即使在作用域内抛出异常时也是如此。
+2. **`std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);`**
+   - 当互斥锁在创建`unique_lock`对象之前已经手动锁定时，使用这种语句。`std::adopt_lock`标志表示`unique_lock`应该接管对互斥锁的现有锁定的所有权，而不是尝试再次上锁。
+   - 这意味着你必须在这行代码之前手动调用过`lock_request_queue->latch_`的`.lock()`。然后`unique_lock`负责在其作用域结束时解锁互斥锁。这种用法适用于需要在创建`unique_lock`对象之前锁定互斥锁的更复杂的锁定逻辑，可能是由于条件锁定或为了与需要手动锁定的代码接口。
+   - 重要的是，使用`std::adopt_lock`时必须确保互斥锁确实已经被锁定，因为未这样做将导致未定义行为。
+
+总结来说，主要区别在于锁定的管理：
+
+- 不使用`std::adopt_lock`时，`std::unique_lock`会在构造时尝试锁定互斥锁。
+- 使用`std::adopt_lock`时，`std::unique_lock`假定互斥锁已经被锁定，并接管解锁的责任，而不再尝试锁定。
+
+# 火山模型
+
+Iterator Model，或 Pipeline Model，或火山模型。每个算子都有 `Init()` 和 `Next()` 两个方法。`Init()` 对算子进行初始化工作。`Next()` 则是向下层算子请求下一条数据。当 `Next()` 返回 false 时，则代表下层算子已经没有剩余数据，迭代结束。可以看到，火山模型一次调用请求一条数据，占用内存较小，但函数调用开销大，特别是虚函数调用造成 cache miss 等问题。
+
+
+
+executor里的plan是查询计划
+
+
+
+seqscan就是用Table Itertor，
+
+Insert
+
+Delete要更新index，这里一个table有多个index
+
+```
+ table_index_ = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
+ 这里对每一个table_index_
+ it->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction());
+```
+
+这里就是Insert和Delete都从Next里读出我们要操作的tuple，然后从里面读出key和index
+
+![](/home/hychen11/Desktop/Intern/assert/project-structure.jpg)
+
+![](./assert/seqscan.jpg)
+
+# TopN
+
+Sort 也是 pipeline breaker。在 `Init()` 中读取所有下层算子的 tuple，并按 ORDER BY 的字段升序或降序排序。Sort 算子说起来比较简单，实现也比较简单，主要需要自定义 `std::sort()`
+
+limit和 SeqScan 基本一模一样，只不过在内部维护一个 count，记录已经 emit 了多少 tuple。当下层算子空了或 count 达到规定上限后，不再返回新的 tuple。
+
+TopN就是priority_queue，Init读出所有的下层算子tuple，加入queue然后再取前n个
+
+# Optimizer
+
+在 Optimizer 生成的查询计划中，Join 会被优化成具体的 HashJoin 或 NestedIndexJoin 等等
+
+# Aggregation
+
+Aggregation 是 pipeline breaker。也就是说，Aggregation 算子会打破 iteration model 的规则。原因是，在 Aggregation 的 `Init()` 函数中，我们就要将所有结果全部计算出来。
+
+```c++
+void AggregationExecutor::Init() {
+  child_->Init();
+  Tuple tuple;
+  RID rid;
+  while (child_->Next(&tuple, &rid)) {
+    auto agg_key = MakeAggregateKey(&tuple);
+    auto agg_val = MakeAggregateValue(&tuple);
+    aht_.InsertCombine(agg_key, agg_val);
+  }
+  aht_iterator_ = aht_.Begin();
+}
+```
+
+key和val全部存在aht里 aggregation hash table
+
+count *计算总行数，不管是不是null
+
+count(column) 计算非null的行
+
+```sql
+SELECT min(t.z), max(t.z), sum(t.z) FROM t GROUP BY t.x, t.y;
+```
+
+group by（AggregateKey）为 `{t.x, t.y}`，aggregate（AggregateValue）为 `{t.z, t.z, t.z}`。aggregate 规则为 `{min, max, sum}`。
+
+如果是aht是null的话，要填入空值
+
+**收集数据**：在`Init()`函数中，Aggregation算子通过遍历整个输入表或数据源，将需要聚合的数据根据`GROUP BY`字段收集起来
+
+然后这里有InsertCombine就是得到min，max，sum等规则，也就是真正存入的是满足条件的 
+
+# NestedLoopJoin 
+
+1. **外层循环**：选择一个表作为外表（通常是左表），遍历这个表中的每一行。
+2. **内层循环**：对于外层循环中的每一行，遍历另一个表（内表，通常是右表）的每一行。
+3. **匹配条件**：对于外表的当前行和内表的每一行，检查它们是否满足连接条件（如`ON`子句中指定的条件）。如果满足，就将这两行的组合作为结果集的一部分。
+4. **重复**：重复步骤2和3，直到外表的所有行都被处理过。
+
+有inner join和left join，区别就是是否null的也输出
+
+https://www.jianshu.com/p/e7e6ce1200a4
+
+# 聚簇索引（Clustered Index）
+
+- **物理存储**：在聚簇索引中，表中的数据行物理上按索引键的顺序存储。这意味着聚簇索引决定了数据在磁盘上的物理排列。因为这种安排，每个表只能有一个聚簇索引，因为数据只能按照一种顺序物理存储。
+- **检索效率**：聚簇索引对于经常按顺序查询的数据非常有效，例如，当你需要基于范围的查询时（如查找所有在特定日期之间的订单），由于数据行在物理上是连续的，所以可以更快地访问这些数据。
+- **例子**：假设你有一个员工表，以员工ID作为聚簇索引。这意味着所有员工记录都将按员工ID的顺序存储在磁盘上。
+
+# 非聚簇索引（Non-Clustered Index）
+
+遍历 B+ 树叶子节点。由于我们实现的是非聚簇索引，在叶子节点只能获取到 RID，需要拿着 RID 去 table 查询对应的 tuple。
+
+- **物理存储**：非聚簇索引和数据的物理存储无关。非聚簇索引包含索引键和指向数据行的指针（或引用），因此，即使索引是有序的，数据本身可以以任意顺序存储。这允许一个表拥有多个非聚簇索引。
+- **检索效率**：非聚簇索引适用于快速定位单个行或少数几行，但如果需要大范围的扫描，可能不如聚簇索引高效。访问非聚簇索引中的数据可能需要两次查找：首先在索引中查找指针，然后使用这个指针去找到实际的数据行。
+- **例子**：继续使用员工表的例子，假设你经常根据员工的部门ID来查询员工。你可以创建一个非聚簇索引在部门ID上，这样查询特定部门的员工时就可以更快。
+
+# Concurrency
+
+不同隔离级别下的锁管理
+
+包括锁升级
+
+利用 2PL 实现并发控制
+
+table lock和row lock
+
+- `request_queue_`：实际存放锁请求的队列。
+- `cv_` & `latch_`：条件变量和锁，配合使用可以实现经典的等待资源的模型。
+- `upgrading_`：正在此资源上尝试锁升级的事务 id。
+
+```c++
+/**
+   * [LOCK_NOTE]
+   *
+   * GENERAL BEHAVIOUR:
+   *    Both LockTable() and LockRow() are blocking methods; they should wait till the lock is granted and then return.
+   *    If the transaction was aborted in the meantime, do not grant the lock and return false.
+   *
+   *
+   * MULTIPLE TRANSACTIONS:
+   *    LockManager should maintain a queue for each resource; locks should be granted to transactions in a FIFO manner.
+   *    If there are multiple compatible lock requests, all should be granted at the same time
+   *    as long as FIFO is honoured.
+   *
+   * SUPPORTED LOCK MODES:
+   *    Table locking should support all lock modes.
+   *    Row locking should not support Intention locks. Attempting this should set the TransactionState as
+   *    ABORTED and throw a TransactionAbortException (ATTEMPTED_INTENTION_LOCK_ON_ROW)
+   *
+   *
+   * ISOLATION LEVEL:
+   *    Depending on the ISOLATION LEVEL, a transaction should attempt to take locks:
+   *    - Only if required, AND
+   *    - Only if allowed
+   *
+   *    For instance S/IS/SIX locks are not required under READ_UNCOMMITTED, and any such attempt should set the
+   *    TransactionState as ABORTED and throw a TransactionAbortException (LOCK_SHARED_ON_READ_UNCOMMITTED).
+   *
+   *    Similarly, X/IX locks on rows are not allowed if the the Transaction State is SHRINKING, and any such attempt
+   *    should set the TransactionState as ABORTED and throw a TransactionAbortException (LOCK_ON_SHRINKING).
+   *
+   *    REPEATABLE_READ:
+   *        The transaction is required to take all locks.
+   *        All locks are allowed in the GROWING state
+   *        No locks are allowed in the SHRINKING state
+   *
+   *    READ_COMMITTED:
+   *        The transaction is required to take all locks.
+   *        All locks are allowed in the GROWING state
+   *        Only IS, S locks are allowed in the SHRINKING state
+   *
+   *    READ_UNCOMMITTED:
+   *        The transaction is required to take only IX, X locks.
+   *        X, IX locks are allowed in the GROWING state.
+   *        S, IS, SIX locks are never allowed
+   *
+   *
+   * MULTILEVEL LOCKING:
+   *    While locking rows, Lock() should ensure that the transaction has an appropriate lock on the table which the row
+   *    belongs to. For instance, if an exclusive lock is attempted on a row, the transaction must hold either
+   *    X, IX, or SIX on the table. If such a lock does not exist on the table, Lock() should set the TransactionState
+   *    as ABORTED and throw a TransactionAbortException (TABLE_LOCK_NOT_PRESENT)
+   *
+   *
+   * LOCK UPGRADE:
+   *    Calling Lock() on a resource that is already locked should have the following behaviour:
+   *    - If requested lock mode is the same as that of the lock presently held,
+   *      Lock() should return true since it already has the lock.
+   *    - If requested lock mode is different, Lock() should upgrade the lock held by the transaction.
+   *
+   *    A lock request being upgraded should be prioritised over other waiting lock requests on the same resource.
+   *
+   *    While upgrading, only the following transitions should be allowed:
+   *        IS -> [S, X, IX, SIX]
+   *        S -> [X, SIX]
+   *        IX -> [X, SIX]
+   *        SIX -> [X]
+   *    Any other upgrade is considered incompatible, and such an attempt should set the TransactionState as ABORTED
+   *    and throw a TransactionAbortException (INCOMPATIBLE_UPGRADE)
+   *
+   *    Furthermore, only one transaction should be allowed to upgrade its lock on a given resource.
+   *    Multiple concurrent lock upgrades on the same resource should set the TransactionState as
+   *    ABORTED and throw a TransactionAbortException (UPGRADE_CONFLICT).
+   *
+   *
+   * BOOK KEEPING:
+   *    If a lock is granted to a transaction, lock manager should update its
+   *    lock sets appropriately (check transaction.h)
+   */
+
+  /**
+   * [UNLOCK_NOTE]
+   *
+   * GENERAL BEHAVIOUR:
+   *    Both UnlockTable() and UnlockRow() should release the lock on the resource and return.
+   *    Both should ensure that the transaction currently holds a lock on the resource it is attempting to unlock.
+   *    If not, LockManager should set the TransactionState as ABORTED and throw
+   *    a TransactionAbortException (ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD)
+   *
+   *    Additionally, unlocking a table should only be allowed if the transaction does not hold locks on any
+   *    row on that table. If the transaction holds locks on rows of the table, Unlock should set the Transaction State
+   *    as ABORTED and throw a TransactionAbortException (TABLE_UNLOCKED_BEFORE_UNLOCKING_ROWS).
+   *
+   *    Finally, unlocking a resource should also grant any new lock requests for the resource (if possible).
+   *
+   * TRANSACTION STATE UPDATE
+   *    Unlock should update the transaction state appropriately (depending upon the ISOLATION LEVEL)
+   *    Only unlocking S or X locks changes transaction state.
+   *
+   *    REPEATABLE_READ:
+   *        Unlocking S/X locks should set the transaction state to SHRINKING
+   *
+   *    READ_COMMITTED:
+   *        Unlocking X locks should set the transaction state to SHRINKING.
+   *        Unlocking S locks does not affect transaction state.
+   *
+   *   READ_UNCOMMITTED:
+   *        Unlocking X locks should set the transaction state to SHRINKING.
+   *        S locks are not permitted under READ_UNCOMMITTED.
+   *            The behaviour upon unlocking an S lock under this isolation level is undefined.
+   *
+   *
+   * BOOK KEEPING:
+   *    After a resource is unlocked, lock manager should update the transaction's lock sets
+   *    appropriately (check transaction.h)
+   */
+
+```
+
+![](./assert/Isolation_lock.jpg)
+
+Repeat表示多次读取的数据是一样的，
+
+read commit表示确保一个事务不读另一个事务未提交的数据
+
+read uncommit一个事务可以读另一个事务未提交的数据
+
+upgrade的事务优先级最高
+
+request list里前排都是granted有锁的，后面按照优先级事务进行排队
+
+如果存在这样的请求，则代表当前事务在此前已经得到了在此资源上的一把锁，接下来可能需要锁升级。需要注意的是，这个请求的 `granted_` 一定为 true。因为假如事务此前的请求还没有被通过，事务会被阻塞在 LockManager 中，不可能再去尝试获取另一把锁。
+
+也就是说锁升级里肯定是granted的事务，然后再请求锁升级
+
+这里获取锁是条件变量+mutex
+
+```c++
+while(!Granted_Lock()){
+	cv_.wait();
+}
+cv.notify_all();
+```
+
+锁检测就是dfs，经过的txn就加入cycle_set，如果里面有则表示有cycle了
+
+
+
+# 凉经
+
+## `delete` 和 `free` 的区别
+
+`delete` 和 `free` 都是用于释放之前分配的内存，但它们在用法和底层机制上有明显的区别：
+
+- **`free`** 是 C 语言的标准库函数，用于释放通过 `malloc`、`calloc` 或 `realloc` 分配的内存。`free` 仅仅释放内存，不会调用任何构造函数或析构函数，因为 C 语言不支持构造函数或析构函数的概念。
+- **`delete`** 是 C++ 的操作符，用于释放通过 `new` 操作符分配的内存。与 `free` 不同，`delete` 在释放对象占用的内存之前，会调用对象的析构函数（如果有的话），以确保正确地进行资源清理，比如关闭文件、释放分配的资源等。
+
+## Fork() & pid
+
+fork()返回子进程的pid！pid是唯一的！
+
+- If `fork()` returns `-1`, it indicates an error occurred while trying to fork the process.
+- If `fork()` returns `0`, the code is being executed in the child process.
+- If `fork()` returns a positive value, the code is being executed in the parent process, and this value is the PID of the newly created child process.
+
+## C 和 C++ 强制转换的底层原理
+
+在底层，这些转换指示编译器如何重新解释内存中的数据。例如，将一个 `int` 类型的指针转换为 `char *` 类型的指针，转换操作本身不会改变指针所指向的内存内容，但允许通过 `char *` 类型的指针以不同的方式访问这块内存（如按字节访问而不是按整数访问）。
+
+## g++
+
+#### 1. 预处理（Preprocessing）
+
+- **步骤**：预处理器处理源代码文件中的指令，如宏定义（`#define`）、文件包含（`#include`）和条件编译指令（`#ifdef`、`#ifndef`等）。
+- **结果**：生成扩展源代码，已经展开所有宏定义，包含所有包含的文件，移除了所有的条件编译部分（根据条件编译指令）。
+
+#### 2. 编译（Compilation）
+
+- **步骤**：编译器将预处理后的扩展源代码转换为汇编代码。这个过程包括语法分析、语义分析、优化等。
+- **结果**：生成汇编代码文件。这些文件包含平台特定的汇编指令。
+
+#### 3. 汇编（Assembly）
+
+- **步骤**：汇编器将汇编代码转换为机器代码，生成目标文件。目标文件包含了可执行代码但还未进行地址绑定。
+- **结果**：生成目标文件（在UNIX系统中通常是`.o`或`.obj`文件）。
+
+#### 4. 链接（Linking）
+
+- **步骤**：链接器将一个或多个目标文件与库（库文件可以是静态库`.a`或动态库`.so`）一起链接，解析外部引用，确定最终的内存地址，并生成可执行文件或库文件。
+- **结果**：生成最终的可执行文件或库文件
+
+# 面经
+
+## Redis
+
+#### 缓存穿透（Cache Penetration）
+
+**定义**：缓存穿透是指查询一个数据库中不存在的数据，由于缓存不会记录这种查询，导致每个查询都要到数据库去查询，如果有大量这样的查询，会对数据库造成很大压力。
+
+**解决方法**：
+
+- **空值缓存**：即使数据库中没有查到数据，也将这个“空”结果缓存起来，但需要设置较短的过期时间。
+- **布隆过滤器**：在缓存和数据库之间使用布隆过滤器，先检查布隆过滤器中是否存在这个键，如果不存在就直接返回，不再查询数据库。
+
+#### 缓存雪崩（Cache Avalanche）
+
+**定义**：缓存雪崩是指缓存中大量的数据在同一时间过期，导致原本应该访问缓存的请求都转向了数据库，数据库瞬时压力剧增，造成系统性能急剧下降或服务崩溃。
+
+**解决方法**：
+
+- **设置不同的过期时间**：使缓存的过期时间有所差异，避免大量缓存同时过期。
+- **使用持久化**：结合缓存数据的持久化，如Redis的RDB、AOF等方式，即使发生大规模缓存失效，也可以快速恢复缓存数据。
+- **限流降级**：采用限流措施，保护数据库和系统的稳定。
+
+#### 缓存击穿（Cache Breakdown）
+
+**定义**：缓存击穿指一个热点key非常热，大量的请求，热点key在缓存中过期的瞬间，持续的大量请求就穿破缓存，直接请求数据库。
+
+**解决方法**：
+
+- **设置热点数据永不过期**：对于热点数据设置为永不过期，需要程序自己控制数据的更新。
+- **互斥锁**：在缓存失效后（通常是热点数据），通过设置互斥锁或分布式锁确保数据库只会被一个请求查询并更新缓存。
+
+### 当通过Chrome浏览器输入地址直到返回内容中间经历了什么样的过程？
+
+1. **域名解析**：浏览器将域名解析为IP地址，可能通过DNS查找。
+2. **建立连接**：浏览器与服务器建立TCP连接（如果是HTTPS，则还包括TLS握手过程）。
+3. **发送HTTP请求**：浏览器向服务器发送HTTP请求。
+4. **服务器处理请求**：服务器处理请求并生成响应。
+5. **发送HTTP响应**：服务器将响应数据回送给浏览器。
+6. **渲染页面**：浏览器接收响应并渲染页面。
+
+### 了解的HTTP方法和它们之间的区别
+
+- **GET**：请求获取资源。
+- **POST**：提交数据给服务器。
+- **PUT**：更新服务器上的资源。
+- **DELETE**：删除服务器上的资源。
+- **HEAD**：获取资源的元数据。
+- **PATCH**：对资源进行部分更新。
+
+### HTTP的返回码有哪些？
+
+- **2xx**：成功（例如，200 OK）。
+- **3xx**：重定向（例如，301 Moved Permanently）。
+- **4xx**：客户端错误（例如，404 Not Found）。
+- **5xx**：服务器错误（例如，500 Internal Server Error）。
+
+### HTTPS和HTTP之间的区别是什么？
+
+HTTPS是HTTP的安全版本，通过SSL/TLS进行加密，保证了数据传输的安全性和完整性。
+
+### HTTP1.1和HTTP2的区别是什么？
+
+HTTP2引入了多路复用、服务器推送、头部压缩等特性，以提高性能和效率。
+
+### Close Wait状态是什么意思，Fin Wait和Close Wait之间的区别是什么？
+
+- **CLOSE WAIT**：表示本端接收到对方的FIN报文，等待本端关闭连接。
+- **FIN WAIT**：表示等待对方确认自己的FIN报文。
+
+### HTTP加密算法的基本原理，对称加密和非对称加密？
+
+- **对称加密**：加密和解密使用相同的密钥。速度快，适合大量数据加密。
+- **非对称加密**：使用一对公钥和私钥，一个用于加密，另一个用于解密。适合小量数据加密和身份验证。
+
+### TCP连接写数据过快
+
+在TCP连接建立好后，如果数据发送（写入）速度过快，超过了接收方处理或网络传输的能力，可能会导致几种情况：
+
+1. **发送方缓冲区满**：每个TCP连接在发送方都有一个发送缓冲区，用于暂存待发送的数据。如果应用程序写入数据的速度持续超过网络传输和接收方处理的速度，发送缓冲区可能会被填满。当发送缓冲区满时，TCP协议将暂停应用程序的写操作，直到缓冲区中的数据被发送出去并确认接收，腾出空间来。
+2. **接收方缓冲区溢出**：类似地，接收方也有一个接收缓冲区。如果发送方的数据传输速度过快，接收方应用程序来不及处理缓冲区中的数据，可能会导致接收缓冲区溢出。TCP协议通过流量控制机制（如接收窗口）来避免这种情况，确保发送方的发送速度能与接收方的处理速度相匹配。
+3. **网络拥塞**：如果网络路径上的某个环节成为瓶颈，数据发送过快也可能导致网络拥塞。TCP协议通过拥塞控制机制（如慢启动、拥塞避免、快重传、快恢复）来调整数据的发送速率，以适应网络当前的拥塞状况。
+
+### Slice扩容后在原Slice上修改数据新Slice会发生变化吗？
+
+当Slice扩容导致重新分配了底层数组时，在原Slice上的修改不会影响到新的Slice，因为它们指向了不同的底层数组。但如果没有重新分配底层数组，即扩容操作没有超过原Slice的容量，则它们仍然共享同一个底层数组，此时一个Slice上的修改会影响到另一个。
+
+### C++ std里执行类似操作会怎么样（vector取引用然后扩容）？
+
+在C++中，`std::vector`在进行扩容时，如果新的大小超过了当前容量，将分配一个新的内存区域并移动（或复制）元素到新的内存区域。如果你持有指向vector元素的指针或引用，扩容操作可能会使这些指针或引用变为悬空，因为它们指向的内存已经不再被vector所使用。
+
+### Go关闭Channel时有哪些需要注意的事情，怎么判断channel是否已经关闭呢？
+
+关闭Channel时需要注意：
+
+- 只有发送方应该关闭channel，接收方不应该关闭它，否则会导致panic。
+- 向已关闭的channel发送数据会导致panic。
+- 从已关闭的channel接收数据是安全的，会立即返回，而不会阻塞，并返回元素类型的零值。
+
+判断channel是否已经关闭：
+
+- 从channel接收数据时，可以通过第二个返回值来判断channel是否被关闭。如果返回的布尔值为`false`，则表示channel已经关闭并且没有更多的数据。
+
+```go
+v, ok := <-ch
+if !ok {
+    // channel ch is closed
+}
+```
+
+### Go的interface和Java的interface有什么区别，继承有什么区别？
+
+- **Go的interface**：是隐式实现的，任何类型只要实现了interface定义的所有方法，就实现了该interface，无需显式声明。Go不支持传统的面向对象编程中的继承，而是通过组合和接口来实现类似的功能。
+
+### GC的常见算法
+
+- **标记-清除（Mark-Sweep）**：垃圾收集器遍历所有对象，标记所有可达的对象，然后清除未标记的对象。                    
+
+### Map 并发读写
+
+Go的`map`在没有适当同步控制的情况下并不是并发安全的。
+
+如果你尝试在多个goroutine中并发读写同一个`map`（即至少有一个goroutine在写入），那么程序可能会遇到运行时错误，导致`panic`。这是因为同时有多个goroutine修改`map`可能会导致`map`内部状态的不一致性。
+
+**使用互斥锁（Mutex）**：使用`sync.Mutex`或`sync.RWMutex`来保护`map`，确保每次只有一个goroutine可以对其进行修改。`sync.RWMutex`是读写互斥锁，对于读多写少的情况是一个不错的选择，因为它允许多个goroutine同时读取`map`，只在写入时才需要互斥访问
+
+### 什么是panic
+
+`panic`是Go语言中的一个内建函数，当调用时会立即停止当前函数的执行，开始逐层向上（函数调用栈）传播，直到达到当前goroutine的顶部，然后程序崩溃并输出panic消息。
