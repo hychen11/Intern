@@ -214,6 +214,17 @@ man tmux
 
 ## Docker
 
+```shell
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+  "registry-mirrors": ["<https://6igahqjn.mirror.aliyuncs.com>"]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
 root:
 
 ```bash
@@ -225,30 +236,35 @@ sudo usermod -aG docker $USER
 docker adm cdrom sudo dip plugdev lpadmin lxd sambashare hychen11
 #if still not in groups
 newgrp docker
-docker info
-docker --version
-docker pull ubuntu
-docker pull redis
-docker pull mysql
-docker image ls
-docker rmi name_or_id #image
-docker rm name_or_id #container
-docker stop name_or_id
-```
-
-create container: -t terminal; -i interact
-
-```
-docker run -i -t --name csapp ubuntu bash
 cat /etc/issue
 ```
 
 ctrl+D = exit
 
-```
-docker start -i csapp
+```bash
+docker info
+docker --version
+docker pull ubuntu
+docker image ls
 sudo docker container ls
 sudo docker logs container_num | less
+
+docker stop name_or_id
+docker rmi name_or_id #image
+docker rm name_or_id #container
+docker container run -it -v /Users/chenhaoyang/Documents/CMU15213:/CMU15213 --name=csapp ubuntu /bin/bash
+#create container: -t terminal; -i interact
+#-v /localPath:/targetPath mean mount the file!
+docker start -i csapp
+docker exec -it csapp /bin/bash
+```
+
+use vscode remote to edit code!
+
+```shell
+apt update
+apt install -y sudo 
+sudo apt install build-essential
 ```
 
 ## Self Start
