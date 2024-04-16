@@ -57,6 +57,14 @@ sh -c "$(wget <https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/in
 omz update
 ```
 
+```shell
+echo $SHELL  #zsh or bash
+#if zsh modify ~/.zshrc. if bash modify ~/.bashrc
+echo $0
+ps -p $$
+cat /etc/shells
+```
+
 ## nvidia-driver
 
 ```bash
@@ -664,3 +672,22 @@ ln -s target_file link_name
 - 符号链接可以链接到目录。
 - 符号链接可以跨文件系统。
 - 符号链接只是一个指向另一个文件的指针，如果原始文件被删除，符号链接将不起作用。
+
+## Memory Leak & GDB
+
+Valgrind
+
+```shell
+valgrind -–leak-resolution=high –-leak-check=full
+–-show-reachable=yes –-track-fds=yes ./myProgram arg1 arg2
+```
+
+AddressSanitizer（ASan）
+
+```shell
+gcc -fsanitize=address -g a.c -o a
+clang -fsanitize=address -g a.c -o a
+./a
+```
+
+`-g` 标志用于在编译时生成调试信息

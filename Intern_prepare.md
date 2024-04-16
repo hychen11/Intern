@@ -1359,27 +1359,51 @@ fork()返回子进程的pid！pid是唯一的！
 
 在底层，这些转换指示编译器如何重新解释内存中的数据。例如，将一个 `int` 类型的指针转换为 `char *` 类型的指针，转换操作本身不会改变指针所指向的内存内容，但允许通过 `char *` 类型的指针以不同的方式访问这块内存（如按字节访问而不是按整数访问）。
 
-## g++原理
+## GDB
 
-#### 1. 预处理（Preprocessing）
+```shell
+gcc -E lab3.c > pre_processor.txt
+gcc -S lab3.c #get lab3.s
+gcc -c lab3.s  #get lab3.o
+xxd lab3.o | less #read binary file
+gcc -o lab3 lab3_helper.o lab3.o
 
-- **步骤**：预处理器处理源代码文件中的指令，如宏定义（`#define`）、文件包含（`#include`）和条件编译指令（`#ifdef`、`#ifndef`等）。
-- **结果**：生成扩展源代码，已经展开所有宏定义，包含所有包含的文件，移除了所有的条件编译部分（根据条件编译指令）。
+```
 
-#### 2. 编译（Compilation）
+* View the actual machine code and place the contents in a .txt file to look at them later, using **$ objdump -s lab3.o > objdumplab3.txt**
 
-- **步骤**：编译器将预处理后的扩展源代码转换为汇编代码。这个过程包括语法分析、语义分析、优化等。
-- **结果**：生成汇编代码文件。这些文件包含平台特定的汇编指令。
+* You can also look at the machine code next to the assembly code by typing: **$ objdump -sdr lab3.o**
 
-#### 3. 汇编（Assembly）
+静态库是一种在程序编译链接时被整合到程序中的库，最终形成一个包含了所有需要代码的独立可执行文件。
 
-- **步骤**：汇编器将汇编代码转换为机器代码，生成目标文件。目标文件包含了可执行代码但还未进行地址绑定。
-- **结果**：生成目标文件（在UNIX系统中通常是`.o`或`.obj`文件）。
+使用 `ar` 命令来创建静态库。例如，你有 `file1.o` 和 `file2.o` 两个目标文件，可以创建一个名为 `libmystatic.a` 的静态库：
 
-#### 4. 链接（Linking）
+ `-L.` 指定了库文件的搜索目录（当前目录），`-lmystatic` 指定链接库 `libmystatic.a`。
 
-- **步骤**：链接器将一个或多个目标文件与库（库文件可以是静态库`.a`或动态库`.so`）一起链接，解析外部引用，确定最终的内存地址，并生成可执行文件或库文件。
-- **结果**：生成最终的可执行文件或库文件
+```shell
+ar rcs libmystatic.a file1.o file2.o
+gcc -o myprogram myprogram.o -L. -lmystatic
+#-L/path/to/library
+```
+
+动态库在程序运行时被加载，不是在编译链接时永久性地整合到可执行文件中。
+
+使用 `gcc` 的 `-shared` 选项来创建动态库。 
+
+确保编译时或运行时动态库的路径被正确指定：
+
+```shell
+gcc -shared -o libmydynamic.so file1.o file2.o
+gcc -o myprogram myprogram.o -L. -lmydynamic
+export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
+./myprogram
+```
+
+动态库 xxx.so
+
+-lxxx就是去找libxxx.so文件！ 有libname.so的文件就用指令 -lname!
+
+静态库 xxx.a
 
 ## 从代码输出到终端输出
 
@@ -1584,10 +1608,22 @@ Socket 可以看作是应用程序与网络之间的“插座”，它是一种�
 
 这些步骤构成了从输入域名到浏览器显示页面的整个过程。值得注意的是，每个步骤都可能受到网络状况、服务器性能、页面内容复杂度等因素的影响，因此实际的加载时间可能会有所不同。
 
+### 浏览器渲染过程
+
+浏览器渲染页面的过程涉及将你的HTML, CSS, 和JavaScript代码转换成用户可以交互的网页。这一过程可以分为以下几个基本步骤：
+
+1. **解析 HTML 文件**：当你的浏览器获得一个 HTML 文件，它首先会解析该文件的结构，将标签转化为有意义的内容块，这些内容块称为“节点”。这些节点包括HTML的各种元素，如段落、标题和图像等。
+2. **构建 DOM 树**：解析 HTML 后，浏览器会构建一棵“文档对象模型”（DOM）树。DOM 树是一个由节点组成的树状结构，每个节点代表页面上的一个对象。
+3. **解析 CSS**：浏览器接着解析内联、嵌入和外链的CSS。CSS决定了HTML内容的展现方式，例如颜色、布局和字体样式等。
+4. **生成渲染树**：**此步骤中，DOM树和CSS规则合并，创建出渲染树**。渲染树只包含需要显示的节点和它们的样式信息。不可见的元素如`<head>`或`display: none`的元素不会被包含在渲染树中。
+5. **布局（Reflow）**：浏览器计算每个可见元素的确切位置和大小。这一步骤有时也被称为“回流”。
+6. **绘制（Painting）**：最后一步是“绘制”，浏览器会根据渲染树来绘制内容到屏幕上。这包括颜色的填充、文本的添加和图像的展示等。
+
+在一个简单的 HTML 页面中，`<html>`, `<head>`, `<title>`, `<body>`, `<p>` 等都是 DOM 树中的节点。这些节点按照 HTML 文档的层级结构排列，形成了一棵树，我们称之为 DOM 树
+
 # Count 1
 
 ```
 n-=n&(-n);
-
 ```
 
