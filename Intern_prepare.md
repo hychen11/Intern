@@ -1,4 +1,59 @@
+# size_t
+
+`size_t` 被设计为足够大，以便能够容纳系统中最大可能的对象大小。因此，它的大小通常会与系统的地址空间大小相关。在许多现代系统上，`size_t` 的大小通常与 `unsigned long` 或 `unsigned long long` 相似，但并不总是相同的。
+
+# Malloc (linkedlist)
+
+进程间通信方式
+
+* shared memory
+* message passing
+  * kernel (user->kernel)
+
+```txt
+stack 2^32-1
+heap
+data
+code
+null 0
+```
+
+heap往上增长,stack往下增长,stack碰到heap就是stack overflow? stack frame里的guard呢?
+
+sbrk(0) 返回的是heap top的位置,是堆顶的位置!
+
+```c++
+void * malloc(size_t size); //first fit, best fit
+void free(void *ptr);	//meta-data
+
+void *p=sbrk(size);
+if(p==(void*)-1){
+	return false;
+}
+```
+
+### meta-data
+
+````c++
+typedef struct _Node{
+	struct _Node *prev;
+	struct _Node *next;
+	size_t size;
+}Node;
+#define META_SIZE sizeof(Node)
+````
+
+然后是size大小的空间
+
+free的话里面有个freelist, 这里的链表结构存储的是free的空间!
+
 # Shell
+
+- `$@`：表示规则中的目标文件名。
+- `$<`：表示规则中的第一个依赖文件名。
+- `$^`：表示规则中的所有依赖文件名，以空格分隔。
+- `$?`：表示规则中新于目标文件的所有依赖文件名，以空格分隔。
+- `$*`：表示规则中的模式匹配部分。
 
 ```shell
 grep -v '^$' 1.txt
