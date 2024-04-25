@@ -116,3 +116,18 @@ Flexbox is a flexible box that lets you control the direction, sizing, distribut
 
 # Javascript
 
+run at `Ctrl + Shift + J`
+
+- Boolean (true, false)
+- Number (12, 1.618, -46.7, 0, etc.)
+- String (“hello”, “world!”, “12”, “”, etc.)
+- Null
+- Undefined
+
+```javascript
+===严格相等,如果类型不同也false! 
+"1"===1 false
+1=="1" true
+we use === to check equality in JavaScript.
+```
+
