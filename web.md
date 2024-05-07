@@ -131,3 +131,79 @@ run at `Ctrl + Shift + J`
 we use === to check equality in JavaScript.
 ```
 
+let const (only use let plz!!!!)
+
+let is block-scoped
+
+var is function-scoped
+
+let exists because people kept getting bugs when trying to use var
+
+undefined means “declared but not yet assigned a value”
+
+null means “no value”
+
+```javascript
+console.log();
+const a=5;
+const b=10;
+console.log(`a*b=${a*b}`);
+//writes to the JavaScript console:
+```
+
+```javascript
+alert("Congratulations!");
+```
+
+### Arrays
+
+```javascript
+let my_array=["asd",12,false,"dd"];
+my_array[1];
+my_array[2]=11;
+my_array.pop();
+my_array.push("aa");
+
+for(let i=0;i<my_array.length;i++){
+    my_array[i];
+}
+for(const ele of my_array){
+    
+}
+```
+
+### Objects
+
+```javascript
+const myCar={
+	make:"Ford",
+	year:2005,
+}
+myCar.make
+myCar["make"]
+const make=myCar.make;
+const year=myCar.year;
+//Object destructuring
+//这里变量名字一定要一样!!
+const {make,year}=mycar;
+```
+
+### Object references
+
+=== checks if the *references* are equal.
+
+Two objects created separately are stored separately, so their references are different!
+
+Same goes for arrays – two arrays created separately have different references.
+
+### copy
+
+```javascript
+let arr=[1,2,3];
+let copyarr=[...arr];
+
+let obj={name:"hyc"};
+let copyobj={...obj};
+```
+
+如果你直接使用 `copyarr = arr`，那么 `copyarr` 和 `arr` 将指向同一个数组对象。这不是复制，而是两个变量共享同一个数组的引用。这意味着，通过任一变量所做的修改（如添加、删除元素）都会影响到另一个，因为它们指向的是同一个内存地址中的数据。

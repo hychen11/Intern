@@ -1,11 +1,3 @@
-# Shell
-
-```shell
-grep -v '^$' 1.txt
-```
-
-这里的`^$`是一个正则表达式，表示匹配空行。`^`表示行的开始，`$`表示行的结束，两者之间没有任何字符，所以匹配空行。`-v`选项表示输出不匹配该模式的行，即过滤掉匹配模式的行。
-
 # CMake
 
 CMakeLists.txt
@@ -182,6 +174,13 @@ clean:
 ```makefile
 %.o: %.c
     gcc -c $< -o $@
+```
+
+```makefile
+target: a.cpp b.cpp
+	g++ -g $@ -o $^
+# $@ is target
+# $^ is all depend file, $< is first depend file
 ```
 
 `%.o` 匹配所有以 `.o` 结尾的目标文件，`%.c` 匹配相应的源文件。
