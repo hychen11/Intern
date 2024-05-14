@@ -1,3 +1,19 @@
+# Free
+
+free 一个指针,这个指针还是指向原地! 不是NULL!
+
+最好设置为nullptr!
+
+```c++
+std::free(ptr);
+
+// 这里 ptr 仍然指向之前分配的地址，但该地址的内存已经被释放
+// ptr 现在是一个野指针
+
+// 为了避免使用野指针，应该将其设为 nullptr
+ptr = nullptr;
+```
+
 # size_t
 
 `size_t` 被设计为足够大，以便能够容纳系统中最大可能的对象大小。因此，它的大小通常会与系统的地址空间大小相关。在许多现代系统上，`size_t` 的大小通常与 `unsigned long` 或 `unsigned long long` 相似，但并不总是相同的。
