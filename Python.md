@@ -13,8 +13,8 @@ s[start:end:step]
 ```python
 my_list=[]
 mylist.append()
-my_list.insert(2,8)#索引2变为8
-my_list.remove(3) #delete value=3的值
+my_list.insert(2,8)#索引2处插入8,后面元素顺次右移
+my_list.remove(3) #delete first value=3的element, to avoid error,need to check elements' existence!
 sub_list=my_list[1:3]# 1-2
 pop_ele=list1.pop(3)#delete index=3
 len(list1)
@@ -25,7 +25,7 @@ new_list=sorted(my_list)
 
 # **tuples**
 
-```
+```python
 tuple1=(1,2,3,4,5)
 #cannot change element in tuple!
 len(tuple1)
@@ -37,7 +37,7 @@ tuple1+(999,)
 
 # **Dictionary**
 
-```
+```python
 dict={}
 dict['asd']=1
 dict={'a':1,'b':2}
@@ -55,7 +55,7 @@ for item in my_dict.items():
 
 # **lambda& filter& map**
 
-```
+```python
 lambda x,y,z:return x+y+z
 list(filter(lambda x:x%2==0,my_list)
 list(filter(lambda x:type(x)==int,my_list))
@@ -87,7 +87,7 @@ set1-set2
 
 set1^set2
 
-```
+```python
 my_set={1,2,3,4}
 my_set.add(5)
 set1.union(set2)
@@ -99,7 +99,7 @@ set.discard(3)#value not exist will not cause error
 
 # **Queue**
 
-```
+```python
 from queue import Queue
 my_queue=Queue()
 my_queue.put(1)
@@ -110,7 +110,7 @@ my_queue.empty()
 
 # **Stack 用list实现**
 
-```
+```python
 stack=[]
 stack.append(2)#尾部加入
 stack.pop()#头部删除
@@ -119,7 +119,7 @@ stack[-1]
 
 # **Counter**
 
-```jsx
+```python
 #initialization
 counter=defaultdict(int)
 from collections import Counter
@@ -134,7 +134,7 @@ char_count = Counter(my_string)
 
 # **三目运算**
 
-```
+```python
 result = value_if_true if condition else value_if_false
 x = 10
 y = 20
