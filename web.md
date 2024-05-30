@@ -1404,7 +1404,7 @@ Array
 
 ```js
 const mongoose = require("mongoose")
-const mongoConnectionURL = "mongodb+srv://zjuchy1:qweasdzxC1@cluster0.zh00d14.mongodb.net/retryWrites=true&w=majority&appName=Cluster0";
+const mongoConnectionURL ="";
 const databaseName = "test";
 const options = { useNewUrlParser: true, useUnifiedTopology: true, dbName: databaseName}
 
