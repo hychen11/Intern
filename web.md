@@ -154,8 +154,6 @@ overflow: scroll;
 overflow: auto;
 ```
 
-
-
 # Javascript
 
 run at `Ctrl + Shift + J`
@@ -471,7 +469,7 @@ return (
 </div>
 ```
 
-# Responding to eventsReact
+## Responding to eventsReact
 
 ### Component Structure
 
@@ -718,14 +716,7 @@ const S1=S.slice();
 <Square onSquareClick={() => handleClick(0)} />
 ```
 
-## Catbook
-
-```
-npm install --save-dev webpack webpack-cli
-npm run hotloader
-```
-
-# APIs and Promises
+## APIs and Promises
 
 ### HTTP Request
 
@@ -1355,7 +1346,48 @@ module.exports = router;
 
 
 
+# DataBase
+
+Read and Write to file(not a good way!!)
+
+```js
+const fs = require('fs');
+
+function readDataFromFile(){
+	if(!fs.existsSync("data.txt")) return;
+	fs.readFile("data.txt",(err,fileData)=>{
+		data=JSON.parse(fileData);
+	});
+}
+
+function writeDataToFile(){
+	fs.writeFile("data.txt",JSON.stringify(data),(err)=>{
+		if(err) console.log(err);
+	});
+}
+```
+
+- **Write Speed:** Saves *every story/comment* whenever someone posts
+- **Memory Usage:** Still keeps all stories/comments in RAM
+- **Query Speed:** To find story with a particular _id, we linear search through all stories
+- **Single Point of Failure:** What if your laptop hard drive breaks?
+- **Concurrency Issues:** What if two users post at the exact same time? 
+
+**Relational Database (SQL)**
+
+Stores data in a spreadsheet-like format (tables)
+
+**Document Database (NoSQL)**
+
+Stores “documents”, which are basically JSON objects
+
+![](./assert/get.png)
+
+![](./assert/post.png)
+
 # MongoDB
+
+![](./assert/mongodb1.png)
 
 - **MongoDB Instance:** a group of databases 
 - **Database** (ex. Catbook database)**:** a group of collections, generally corresponds to one web application 
@@ -1379,8 +1411,6 @@ module.exports = router;
 
 - Organization is key!
 - Each collection *should* have a schema
-
-![](./assert/Mongoose.png)
 
 #### type
 
@@ -1423,7 +1453,6 @@ const UserSchema=new mongoose.Schema({
 const User=mongoose.model("User",UserSchema)
 
 const Tim=new User({name:"Tim",age:21,pets:["andy"]});
-
 Tim.save().then((student)=>console.log('Added ${student.name}'));
 ```
 
@@ -1449,6 +1478,73 @@ User.deleteMany({"name":"Time"})
 	});
 ```
 
+#### story.js
+
+```js
+const mongoose = require("mongoose");
+
+//define a story schema for the database
+const StorySchema = new mongoose.Schema({
+  creator_name: String,
+  content: String,
+});
+
+// compile model from schema
+module.exports = mongoose.model("story", StorySchema);
+```
+
+#### api.js
+
+```js
+const Story = require("./models/story.js")
+
+router.get("/stories", (req, res) => {
+    Story.find({}).then((story)=>res.send(story));
+  // TODO (step1) get all the stories from the database and send response back to client 
+});
+
+router.post("/story", (req, res) => {
+  const tmp=new Story({creator_name:myName,content:req.body.content,});
+  tmp.save().then((story)=>res.send(story));
+  // TODO (step1) create a new Story document and put it into the collection using the model
+});
+```
+
+`.save()` **Saves newcontent to MongoDB**
+
+# Typescript
+
+Data type
+
+```
+number: 4
+boolean: true
+string: "aa"
+object: {property:4;}
+undefined: undefined
+null: null
+```
+
+```js
+let five: number=5;
+let msg:string[]=["1","2","3"];
+let msg: Array<string> =["1","2","3"];
+const exam: Array<string|number> =[1,2,"3"];
+```
+
+```js
+type A={
+	property:string;
+};
+const myA:A={property:""};
+
+type B=A&{pwd:string};
+```
+
+```js
+const getComments= async (id:string):Promise<Comment[]>=>{};
+```
+
 
 
 # Google Auth
@@ -1459,7 +1555,100 @@ https://developers.google.com/identity/sign-in/web/sign-in#before_you_begin
 
 Google Sign-In 是一种用于在你的 web 应用中集成 Google 账号登录功能的技术。通过集成 Google Sign-In，你的用户可以使用他们的 Google 账号登录你的网站，而无需创建新的用户名和密码。这不仅可以提高用户体验，还可以利用 Google 的安全性和认证系统来保护用户的账户信息。
 
+# Web3
 
+**decentralization**
 
+* No single person is in charge
+* Anyone can join or be a part of the system
+* Every user has a copy of all the data in the system
 
+**Consensus**
 
+* All participants need to agree on the state of the system
+* Consensus protocol: used to make sure everyone agrees
+* Vote! (6.8540)
+
+If anyone can vote => Sybil attack
+
+一个攻击者可以创建多个假身份，每个假身份都可以单独进行投票
+
+**Solution (Bitcoin)**
+
+* Computational power is expensive
+
+* Idea: make it necessary to have lots of computing power to make updates
+  to the public “bulletin board” (the blockchain!)
+  * Proof of work
+
+* Assumption: the majority of people are “good”
+  * At least, their malicious intents are probably not aligned
+
+还没搞懂???
+
+# ML applications
+
+RAG
+
+* Prepare
+  - Chunk your data into smaller pieces
+
+* **R**etrieval
+
+  - Embedding Models
+
+  - Rank by Vector Similarity
+
+* **A**ugment
+  - Prompt Engineering
+
+* **G**eneration
+  - Use an expensive Transformer model to decode
+
+![](./assert/ai2.png)
+
+#### LLM
+
+attention! important!
+
+Cosine Similarity calculate the angle of two vector! (1 is similar and -1 is converse!)
+
+Cosine Distance=1−Cosine Similarity
+
+Cosine Similarity=A⋅B/(∥A∥×∥B∥) 
+
+```python
+import numpy as np
+
+# 定义向量
+A = np.array([1, 2, 3])
+B = np.array([4, 5, 6])
+
+# 计算点积
+dot_product = np.dot(A, B)
+
+# 计算向量的模
+norm_A = np.linalg.norm(A)
+norm_B = np.linalg.norm(B)
+
+# 计算余弦相似度
+cosine_similarity = dot_product / (norm_A * norm_B)
+
+# 计算余弦距离
+cosine_distance = 1 - cosine_similarity
+
+print("Cosine Similarity:", cosine_similarity)
+print("Cosine Distance:", cosine_distance)
+```
+
+#### Tokenizers, Chunking
+
+#### Embedding Models, Vector Similarity
+
+#### Prompt Engineering
+
+Ask GPT
+
+![](./assert/ai1.png)
+
+#### GPT Go brrr
