@@ -1514,7 +1514,7 @@ router.post("/story", (req, res) => {
 
 # Typescript
 
-Data type
+**Data type**
 
 ```
 number: 4
@@ -1545,15 +1545,43 @@ type B=A&{pwd:string};
 const getComments= async (id:string):Promise<Comment[]>=>{};
 ```
 
-
-
-# Google Auth
+# Auth
 
 https://console.cloud.google.com/apis/dashboard?project=test-hychen11
 
 https://developers.google.com/identity/sign-in/web/sign-in#before_you_begin
 
-Google Sign-In 是一种用于在你的 web 应用中集成 Google 账号登录功能的技术。通过集成 Google Sign-In，你的用户可以使用他们的 Google 账号登录你的网站，而无需创建新的用户名和密码。这不仅可以提高用户体验，还可以利用 Google 的安全性和认证系统来保护用户的账户信息。
+#### Cookie
+
+Cookies are small files of information that a **web server generates** and **sends to a web browser**. Web browsers store the cookies they receive for a predetermined period of time, or for the length of a user's session on a website.
+
+保持登录状态
+
+用户偏好设置
+
+跟踪用户行为
+
+#### sessions
+
+This is my session ID:X2dfMjc0RUlBIiwi
+
+User Info: ....
+
+sessions store on server
+
+用户会话有一个唯一的Session ID。用户的所有会话数据都保存在服务器上，而Session ID通过Cookie传递给客户端
+
+#### tokens
+
+JWT: JSON Web Token
+
+- Google gives us a **token**
+- This is *proof* that we logged in
+- Can’t lie to the server!
+
+![](./assert/auth1.png)
+
+
 
 # Web3
 
