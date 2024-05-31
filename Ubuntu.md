@@ -1,5 +1,11 @@
 # Ubuntu
 
+```
+$$ :current shell PID
+$! :last process PID
+$? :exit code of last command, 0 success
+```
+
 ## chmod
 
 read (**`r`**), write (**`w`**), and execute (**`x`**)

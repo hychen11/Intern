@@ -1,13 +1,5 @@
 # C++
 
-## Chapter 1
-
-```
-chmod +x filename
-```
-
-`echo $?`  0 ok, 1 fail
-
 ## Chapter 2
 
 **Data size**
@@ -1484,20 +1476,52 @@ throw会导致一个函数没有执行完毕，但是在函数throw之前会执�
 
 # Lib
 
-**动态库（Dynamic Library）** 和 **静态库（Static Library）** 都是一种包含可重用代码的库文件，这些库文件通常包含一组函数和过程，供程序员在其程序中调用。它们在编程中的使用和链接方式有所不同。
+### Dynamic Library
 
-### 1. 静态库（Static Library）：
+Makefile
 
-- **定义：** 静态库是在编译时被链接到程序中的库。在链接阶段，编译器将静态库的代码复制到可执行文件中，因此生成的可执行文件独立包含了所有用到的代码。每个程序的副本都包含了库的一份拷贝。
-- **文件扩展名：** 在大多数系统中，静态库的文件扩展名通常是 `.a`（在Unix/Linux）或 `.lib`（在Windows）。
-- 优点：
-  - 简单，部署方便，不需要额外的运行时库。
-  - 静态链接的程序在运行时不依赖于外部库文件，可移植性好。
-- 缺点：
-  - 占用磁盘和内存空间，每个使用该库的程序都包含一份拷贝。
-  - 如果静态库更新，每个使用它的程序都需要重新链接并重新发布。
+```makefile
+CC=gcc
+CFLAGS=-O3 -fPIC
+DEPS=my_malloc.h
 
-### 2. 动态库（Dynamic Library）：
+all: lib
+
+lib: my_malloc.o
+	$(CC) $(CFLAGS) -shared -o libmymalloc.so my_malloc.o
+	#in this part generate libmymalloc.so!
+
+%.o: %.c my_malloc.h
+	$(CC) $(CFLAGS) -c -o $@ $< 
+
+.PHONY: clean
+clean:
+	rm -f *~ *.o *.so
+
+clobber:
+	rm -f *~ *.o
+```
+
+```scss
+lib (目标)
+ |
+ |--> libmymalloc.so (文件)
+       |
+       |--> my_malloc.o (依赖文件)
+              |
+              |--> my_malloc.c (依赖文件)
+              |
+              |--> my_malloc.h (依赖文件)
+```
+
+`Makefile` 确保 `libmymalloc.so` 总是根据最新的 `my_malloc.o` 生成，而 `my_malloc.o` 总是根据最新的 `my_malloc.c` 和 `my_malloc.h` 生成
+
+```shell
+g++ -shared -fPIC -o libmylib.so mylib.cpp
+#-shared 创建一个共享库
+#-fPIC：生成与位置无关的代码（Position Independent Code）
+#name: if foo.h then generate libfoo.so
+```
 
 - **定义：** 动态库是在运行时被加载到内存中的库。在编译和链接阶段，程序只包含对库函数的引用，实际的函数体在运行时由操作系统动态加载。这样，多个程序可以共享相同的库实例。
 - **文件扩展名：** 在大多数系统中，动态库的文件扩展名通常是 `.so`（在Unix/Linux）或 `.dll`（在Windows）。
@@ -1507,11 +1531,6 @@ throw会导致一个函数没有执行完毕，但是在函数throw之前会执�
 - 缺点：
   - 部署相对复杂，需要确保目标系统上存在正确版本的库。
   - 运行时依赖外部库，可能导致版本问题。
-
-### 选择：
-
-- **如果注重性能和独立性，适合选择静态库。**
-- **如果注重共享和节省资源，适合选择动态库。**
 
 # \#pragma once
 

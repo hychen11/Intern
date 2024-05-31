@@ -1,4 +1,51 @@
-# Python
+# DataStructure
+
+`defaultdict` 在访问一个不存在的键时，不会引发 `KeyError` 异常，而是会使用一个默认的工厂函数生成该键对应的默认值。这个工厂函数在创建 `defaultdict` 时指定。
+
+`SortedList`  with B+ tree-like structure
+
+```python
+from functools import reduce 
+reduce(xor,num)
+reduce(func,num)
+reduce(lambda x, y: x + y,num)
+
+
+from functools import lru_cache,cache
+@cache
+dfs.cache_clear()
+
+from sortedcontainers import SortedList
+sl=SortedList(list1)
+sl.add(num1)
+sl.update(list2)
+sl.remove(num2)
+sl.pop(i)#pop index=i 
+sl[:a] #get slice of index range[0,1,2,..a]
+sl.index(num) #return index of num!
+
+from collections import deque
+d=deque([1,2,3])
+d.append(4)
+d.appendleft(0)
+d.pop()
+d.popleft()
+
+from collections import defaultdict
+cnt=defaultdict(int)
+#wont cause keyerror in visit a key which is not exists!
+cnt2=dict()
+
+from collections import Counter
+c=Counter(grid)
+
+import heapq
+heap=[]
+heapq.heappush(heap,num);
+heapq.heappop(heap);
+```
+
+
 
 # **string**
 
