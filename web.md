@@ -1685,14 +1685,19 @@ Listen for messages on **client**
 `socket.on("event_name", someFunction)`
 
 ```js
-// Server, probably inside an API call or helper function
-socketManager.getIo().emit("eventName", data); // SHOUT
-// whisper
-socketManager.getSocketFromUserID(userID).emit("eventName", data);
+//backend
+//save to database
+message.save();
+// Add Sockets to See Messages Instantly!
+socketManager.getIo().emit("message", message);
 
-socket.on("eventName", (data) => {
-   // Do stuff with data
-});
+//frontend
+socket.on("message",addMessage);
+socket.off("message", addMessages);
+//the name of strings should must match!!
+
+//send to someone
+socketManager.getSocketFromUserID(userID).emit("eventName", data);
 ```
 
 first initialize socket connection
@@ -1709,6 +1714,28 @@ socketManager.getAllConnectedUsers();
 //You can get all the connected users
 ```
 
+### Step 1: Create the initsocket endpoint
+
+Register the client to its socket using socketManager
+
+```js
+//frontend  post to initsocket!
+post("/api/initsocket",{socketid:socket.id})
+
+//backend receive!
+//const addUser = (user, socket) => {}; socket is
+router.post("/initsocket", (req, res) => {
+  // do nothing if user not logged in
+  // TODO (step 1.1): addUser when init socket
+  if(req.user){
+      socketManager.addUser(req.user,socketManager.getSocketFromSocketID(req.query.socketid));
+  }
+  res.send({});
+});
+```
+
+
+
 #### Backend
 
 ![](./assert/back1.png)
@@ -1722,7 +1749,63 @@ router.get("/chat",(req,res)=>{});
 router.post("/message",(req,res)=>{});
 ```
 
+# Serverless
 
+**Prons**
+
+Scaling
+
+* Auto provisioning of resources
+
+Lower costs
+
+* Pay for what you use
+
+Focus on development
+
+* Infrastructure management handled by provider
+
+**Cons**
+
+Cold starts 
+
+- Latency with functions that are called for the first time in a while 
+
+Lack of a global state 
+
+- Serverless functions run independently of each other, so they  lack a “global state” 
+- For example, sockets won’t work out of the box
+
+# Next.js!!!
+
+**Routing**
+
+- Next.js has built in support for routing, filesystem based routing 
+- To achieve this in React, you’d need something like **React Router** 
+
+**Rendering** 
+
+- React is a “single page application (SPA”), **statically** rendered by the  client 
+- Next.js is a “multi-page application (MPA)”, which can be  **dynamically** rendered by the server and/or statically rendered by  the client.
+
+Next.js has CSR and introduces another form of rendering not found  natively in React → **server side rendering (SSR).**  -> **The full HTML document is generated on the server**
+
+Right now, we’re building Catbook with React and an Express server. This  is a **client-side rendering approach (CSR).** -> **(Everything is combined and loaded by  the client → loading is done)**
+
+* Sensitive data is protected by the server layer
+*  Next.js pre-renders our HTML document on the server 
+  * Ensures uniform correctness between clients
+
+**”React Server Components” (RSC).** 
+
+split our code into **client** components and **server** components
+
+RSC lets the client render our client components first, while we wait for  the server to render our server components.
+
+```js
+npx create-next-app@latest
+npm run dev
+```
 
 
 
@@ -1826,9 +1909,9 @@ Ask GPT
 
 
 
-# fetch
+# fetch?
 
-```
+```js
 fetch(url)
   .then(response => response.json()) // 解析响应数据为 JSON
   .then(data => console.log(data))   // 处理解析后的数据
