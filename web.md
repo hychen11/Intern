@@ -1,4 +1,4 @@
-# Webpage files
+#  fr Webpage files
 
 HTML
 
@@ -1579,7 +1579,150 @@ JWT: JSON Web Token
 - This is *proof* that we logged in
 - Can’t lie to the server!
 
+#### Login
+
 ![](./assert/auth1.png)
+
+#### Logout
+
+![](./assert/auth2.png)
+
+#### Refresh
+
+![](./assert/auth1.png)
+
+in server, it has auth.js!
+
+in module, it has user.js!
+
+in api.js
+
+```js
+const User=require("./module/user");
+const auth = require("./auth");
+
+// set up a session, which will persist login data across requests
+app.use(
+  session({
+    secret: "session-secret",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+// this checks if the user is logged in, and populates "req.user"
+app.use(auth.populateCurrentUser);
+
+//then we can just use auth's function
+router.post("/login", auth.login);
+router.post("/logout", auth.logout);
+```
+
+in NavBar.js
+
+```js
+ const handleLogin = (res) => {
+    // 'res' contains the response from Google's authentication servers
+    console.log(res);
+    setLoggedIn(true);
+
+    const userToken=res.tokenObj.id_token;
+    post("/api/login",{token:userToken}).then((user)=>{
+      console.log(user);
+    });
+    // TODO: Send res.tokenObj.id_token to the backend
+  };
+  
+const handleLogout = () => {
+    console.log("Logged out successfully!");
+    setLoggedIn(false);
+
+    post("/api/logout");
+    // TODO: Tell the backend we logged out
+  };
+```
+
+User logs in → req.session.user populated with information about the user
+
+User logs out → req.session.user is null
+
+So we can tell if someone is logged in, and if so, who it is, using **req.session.user**, aka **req.user**!
+
+###### whoami
+
+- Once you refresh, userId is reset!
+- The backend remembers you logged in (by using session), but the frontend forgot
+
+```js
+router.get("/whoami", (req, res) => {
+  if (req.user) {
+    res.send(req.user);
+  } else {
+    // user is not logged in
+    res.send({});
+  }
+});
+
+useEffect(() => {
+    get("/api/whoami").then((user) => {
+      if (user._id) {
+        setLoggedIn(true);
+      }
+    });
+  }, []);
+```
+
+# Real Time Chatbook with Socket.io
+
+Broadcast using sockets
+
+Broadcast a message from **server** to **everyone** connected
+
+`socketManager.getIo().emit("event_name", data)`
+
+Listen for messages on **client**
+
+`socket.on("event_name", someFunction)`
+
+```js
+// Server, probably inside an API call or helper function
+socketManager.getIo().emit("eventName", data); // SHOUT
+// whisper
+socketManager.getSocketFromUserID(userID).emit("eventName", data);
+
+socket.on("eventName", (data) => {
+   // Do stuff with data
+});
+```
+
+first initialize socket connection
+
+`socketManager.addUser(whiskers, socket1)`
+
+Server can check with **req.user**! 
+
+We can now use **socketManager.getSocketFromUserID** to get a user’s socket!
+
+```js
+socketManager.getSocketFromUserID(“whiskers_id”).emit(“meow”, “FOOD”)
+socketManager.getAllConnectedUsers();
+//You can get all the connected users
+```
+
+#### Backend
+
+![](./assert/back1.png)
+
+#### Backend API
+
+```js
+get("/api/chat",{recipient_id:"25"});
+
+router.get("/chat",(req,res)=>{});
+router.post("/message",(req,res)=>{});
+```
+
+
 
 
 
@@ -1680,3 +1823,15 @@ Ask GPT
 ![](./assert/ai1.png)
 
 #### GPT Go brrr
+
+
+
+# fetch
+
+```
+fetch(url)
+  .then(response => response.json()) // 解析响应数据为 JSON
+  .then(data => console.log(data))   // 处理解析后的数据
+  .catch(error => console.error('Error:', error)); // 处理错误
+```
+

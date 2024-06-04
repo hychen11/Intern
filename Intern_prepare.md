@@ -1,3 +1,45 @@
+# virtual
+
+**有 `virtual` 关键字**：方法调用是基于对象的动态类型（即**实际对象的类型**），在运行时决定调用哪个方法。这种机制称为动态绑定（runtime binding）或后期绑定（late binding）
+
+**没有 `virtual` 关键字**：方法调用是基于对象的静态类型（即**指针或引用的声明类型**），在编译时决定调用哪个方法。这种机制称为静态绑定（static binding）或早期绑定（early binding）。
+
+````c++
+#include <iostream>
+
+class Animal_v {
+public:
+    virtual void makeSound() {
+        std::cout << "Animal sound" << std::endl;
+    }
+};
+
+class Animal_nv {
+public:
+    void makeSound() {
+        std::cout << "Animal sound" << std::endl;
+    }
+};
+
+class Dog : public Animal_v, public Animal_nv {
+public:
+    void makeSound() override {
+        std::cout << "Dog barks" << std::endl;
+    }
+};
+
+int main() {
+    Animal_v* a = new Dog();
+    Animal_nv* b = new Dog();
+    a->makeSound(); // 输出 "Dog barks"
+    b->makeSound(); // 输出 "Animal sound"
+
+    delete a; // 只需删除一次，指向相同对象
+    delete b; // 只需删除一次，指向相同对象
+    return 0;
+}
+````
+
 # Free
 
 free 一个指针,这个指针还是指向原地! 不是NULL!
@@ -194,19 +236,6 @@ std::move_backward(src.begin(), src.end(), dest.end());//move content to dest
 
 std::advance(it,j);// move iterator it forward j step, j can be positive or negative!
 ```
-
-## Virtual Function
-
-```
-C c;
-A* aPtr = &c;
-B* bPtr = &c;
-
-aPtr->func(); // 输出: C's func
-bPtr->func(); // 输出: C's func
-```
-
-即使`aPtr`和`bPtr`分别是`A*`和`B*`类型的指针，由于它们实际指向的对象是`C`类型的，所以调用的是`C`中重写的`func`函数。这就是多态性的体现，它允许你用基类的指针或引用来操作派生类对象，并调用正确版本的虚函数。
 
 # Trie Tree
 
