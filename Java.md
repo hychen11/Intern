@@ -57,7 +57,22 @@ public class test {
         LinkedList<String> linkedList = new LinkedList<>();
         linkedList.add("London");
         linkedList.add("Paris");
+	
+        //TreeMap
+        Map<Integer, Integer> cnt = new TreeMap<>();
+        Map<Integer, Integer> cnt = new HashMap<>();
+        count=cnt.getOrDefault(card, 0);
+        cnt.put(count);
 
+        for (Map.Entry<Integer, Integer> entry : cnt.entrySet()) {
+            entry.getKey();
+            entry.getValue();
+        }
+        for (int key : cnt.keySet()) {
+            cnt.get(key);
+        }
+        for (int value : cnt.values())
+        
         // HashMap
         HashMap<String, Integer> hashMap = new HashMap<>();
         hashMap.put("Alice", 25);

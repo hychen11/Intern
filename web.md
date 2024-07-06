@@ -1064,6 +1064,24 @@ Absolute: `<Link to="/newpage">Click me</Link>`
 
 `localhost:5050/newpage`
 
+### ForEach
+
+Just like map, but mutates the array
+
+```javascript
+array.forEach((element)=>{output});
+myNumbers = [3, 1, 4, 1, 5, 9];
+myNumbers.forEach((number) => {
+	myNumbers.pop(number); 
+});
+//pop() remove the last element in the array!
+//[3,1,4]
+```
+
+
+
+
+
 # Node.js
 
 ```shell
@@ -1343,8 +1361,6 @@ router.all("*", (req, res) => {
 
 module.exports = router;
 ```
-
-
 
 # DataBase
 
@@ -1733,8 +1749,6 @@ router.post("/initsocket", (req, res) => {
   res.send({});
 });
 ```
-
-
 
 #### Backend
 

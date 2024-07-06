@@ -1,3 +1,15 @@
+# Prefix
+
+```python
+from itertools import accumulate
+
+pos = [1, 2, 3, 4]
+pre_sum = list(accumulate(pos, initial=0))
+print(pre_sum)
+```
+
+
+
 # DataStructure
 
 `defaultdict` 在访问一个不存在的键时，不会引发 `KeyError` 异常，而是会使用一个默认的工厂函数生成该键对应的默认值。这个工厂函数在创建 `defaultdict` 时指定。
@@ -43,9 +55,12 @@ import heapq
 heap=[]
 heapq.heappush(heap,num);
 heapq.heappop(heap);
+
+import bisect
+#a is the sorted list, x is the target element
+bisect.bisect_right(a,x)
+bisect.bisect_left(a,x)
 ```
-
-
 
 # **string**
 
@@ -744,5 +759,128 @@ print(f"插入3（保持顺序）的索引: {index}")
 python3 -m pdb filename.py
 import pdb
 pdb.set_trace()
+```
+
+# Numpy
+
+```python
+import numpy as np
+a=np.array([1,2,3])
+print(a.shape)
+print(a[1,1])
+a=np.zeros((2,3))
+b=np.ones((2,3))
+c=np.full((2,2),7)
+d=np.eye(2)
+"""
+[[1. 0.]
+ [0. 1.]]
+"""
+e = np.random.random((2,2))
+b = a[:2, 1:3]  # 0,1 row and 1,2 col
+
+# The returned array will have shape (3,) and 
+print(a[[0, 1, 2], [0, 1, 0]])
+# The above example of integer array indexing is equivalent to this:
+print(np.array([a[0, 0], a[1, 1], a[2, 0]]))
+
+#0,0 1,2 2,0 3,1 elements
+b = np.array([0, 2, 0, 1])
+a[np.arange(4), b]
+```
+
+### Boolean array indexing
+
+```python
+import numpy as np
+
+a = np.array([[1,2], [3, 4], [5, 6]])
+
+bool_idx = (a > 2)  # Find the elements of a that are bigger than 2;
+                    # this returns a numpy array of Booleans of the same
+                    # shape as a, where each slot of bool_idx tells
+                    # whether that element of a is > 2.
+
+print(bool_idx)
+"""
+[[False False]
+ [ True  True]
+ [ True  True]]
+"""
+# We use boolean array indexing to construct a rank 1 array
+# consisting of the elements of a corresponding to the True values
+# of bool_idx
+print(a[bool_idx])
+# We can do all of the above in a single concise statement:
+print(a[a > 2])
+```
+
+### Dtype
+
+```
+a=np.array([1,2],dtype=np.int64)
+print(a.dtype)
+```
+
+### Shape
+
+```python
+a.shape
+a.shape[0]
+#assume a's shape is 3,10,10, it will turn a to dimension 2 with 3,100!
+a.reshape(a,(a.shape[0],-1))
+```
+
+### Array math
+
+```python
+np.sqrt(x)
+np.exp(x)
+
+a.dot(b)
+np.dot(a,b)
+a@b 
+```
+
+```python
+np.sum(x)
+np.sum(x,axis=0)  #column
+np.sum(x,axis=1)  #row, most of time I use axis=1
+#transpose
+x.T
+```
+
+### Broadcasting
+
+````python
+x = np.array([[1,2,3], [4,5,6], [7,8,9], [10, 11, 12]])
+v = np.array([1, 0, 1])
+x+v
+
+v = np.array([1,2,3])  # v has shape (3,)
+w = np.array([4,5])    # w has shape (2,)
+# To compute an outer product, we first reshape v to be a column
+# vector of shape (3, 1); we can then broadcast it against w to yield
+# an output of shape (3, 2), which is the outer product of v and w:
+
+print(np.reshape(v, (3, 1)) * w)
+
+x = np.array([[1,2,3], [4,5,6]])
+print(x+v)
+print((x.T + w).T)
+print(x + np.reshape(w, (2, 1)))
+````
+
+# Matplotlib
+
+```python
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+x = np.arange(0, 3 * np.pi, 0.1)
+y = np.sin(x)
+
+# Plot the points using matplotlib
+plt.plot(x, y)
 ```
 
