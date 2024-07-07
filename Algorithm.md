@@ -65,15 +65,15 @@ public:
 
 ```python
 def zero_one_knapsack(capacity:int, w:List[int],v:List[int])->int:
-	    n=len(w)
-	    @cache
-      def dfs(i,c):
-          if i<0:
-              return 0
-          if c<w[i]:
-              return dfs(i-1,c)
-          return max(dfs(i-1,c),dfs(i-1,c-w[i])+v[i])
-      return dfs(n-1,capacity)
+    n=len(w)
+    @cache
+  	def dfs(i,c):
+        if i<0:
+        	return 0
+        if c<w[i]:
+        	return dfs(i-1,c)
+        return max(dfs(i-1,c),dfs(i-1,c-w[i])+v[i])
+	return dfs(n-1,capacity)
 ```
 
 LC494 (0-1 knapsack)
@@ -82,41 +82,41 @@ LC494 (0-1 knapsack)
 
 ```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
-	    n=len(nums)
-		f=[[0]*(target+1) for _ in range(n+1)]
-	    f[0][0]=1
-		for i,x in enumerate(nums):
-            for c in range(capacity+1):
-                if c<x:
-                    f[i+1][c]=f[i][c]
-                else:
-                    f[i+1][c]=f[i][c]+f[i][c-x]	
-      return f[n][capacity]
+    n=len(nums)
+    f=[[0]*(target+1) for _ in range(n+1)]
+    f[0][0]=1
+    for i,x in enumerate(nums):
+        for c in range(capacity+1):
+            if c<x:
+                f[i+1][c]=f[i][c]
+            else:
+                f[i+1][c]=f[i][c]+f[i][c-x]	
+	return f[n][capacity]
 ```
 
 ```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
-	    n=len(nums)
-		f=[[0]*(target+1) for _ in range(2)]
-	    f[0][0]=1
-        for i,x in enumerate(nums):
-            for c in range(target+1):
-                if c<x:
-                    f[(i+1)%2][c]=f[i%2][c]
-                else:
-                    f[(i+1)%2][c]=f[i%2][c]+f[i%2][c-x]	
-      return f[n%2][target]
+    n=len(nums)
+    f=[[0]*(target+1) for _ in range(2)]
+    f[0][0]=1
+    for i,x in enumerate(nums):
+        for c in range(target+1):
+            if c<x:
+                f[(i+1)%2][c]=f[i%2][c]
+            else:
+                f[(i+1)%2][c]=f[i%2][c]+f[i%2][c-x]	
+	return f[n%2][target]
 ```
 
 ```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
-	    n=len(nums)
-		f=[0]*(target+1）
-	    f[0]=1
-        for x in nums:
-            for c in range(target,x-1,-1):
-                f[c]=f[c]+f[c-x]	
-      return f[target]
+    n=len(nums)
+    f=[0]*(target+1）
+    f[0]=1
+    for x in nums:
+        for c in range(target,x-1,-1):
+            f[c]=f[c]+f[c-x]	
+  return f[target]
 ```
 
 LC322 unbounded knapsack
@@ -178,11 +178,11 @@ space complexity O(1)
 class Solution:
     def rob(self, nums: List[int]) -> int:
         n = len(nums)
-				f0=f1=0
-				for i,x in enumerate(nums):
-						new_f=max(f1,f0+x)
-						f0=f1
-		        f1=new_f
+            f0=f1=0
+            for i,x in enumerate(nums):
+                new_f=max(f1,f0+x)
+                f0=f1
+            f1=new_f
         return f1
 ```
 
