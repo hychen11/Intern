@@ -55,14 +55,25 @@ import heapq
 heap=[]
 heapq.heappush(heap,num);
 heapq.heappop(heap);
+```
 
+# Bisect
+
+```python
 import bisect
 #a is the sorted list, x is the target element
 bisect.bisect_right(a,x)
 bisect.bisect_left(a,x)
+
+#a is a sorted array, x in insert value, lo(included), hi not included
+bisect.bisect_left(a,x,lo,hi)
+bisect.bisect_left(a,x,lo=0,hi=len(a))
+
+a = [1, 2, 4, 4, 4, 5, 6, 8]
+print(bisect.bisect_right(a, 4, 0, 4))#output 4
 ```
 
-# **string**
+# string
 
 ```
 s='abcdef'
