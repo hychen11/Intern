@@ -1,8 +1,11 @@
+# Algorithm
+
 注意要&!不然占用内存!
 
 [**2915**](https://leetcode.cn/problems/length-of-the-longest-subsequence-that-sums-to-target/)
-
-$$ 例如 \textit{nums} 前两个数的和是 5，那么枚举 j 的时候，最大只需要枚举 5，而不是 \textit{target} $$
+$$
+例如 \textit{nums} 前两个数的和是 5，那么枚举 j 的时候，最大只需要枚举 5，而不是 \textit{target}
+$$
 
 ```python
 class Solution {
@@ -42,7 +45,7 @@ def zero_one_knapsack(capacity:int, w:List[int],v:List[int])->int:
 
 LC494 (0-1 knapsack)
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/6146b54d-adc2-4365-9991-e5ca93454417/Untitled.png)
+![Untitled](./lc_assert/Untitled.png)
 
 ```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
@@ -56,6 +59,9 @@ def zero_one_knapsack(target:int, nums:List[int])->int:
 							else:
 									f[i+1][c]=f[i][c]+f[i][c-x]	
       return f[n][capacity]
+```
+
+```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
 	    n=len(nums)
 			f=[[0]*(target+1) for _ in range(2)]
@@ -67,6 +73,9 @@ def zero_one_knapsack(target:int, nums:List[int])->int:
 							else:
 									f[(i+1)%2][c]=f[i%2][c]+f[i%2][c-x]	
       return f[n%2][target]
+```
+
+```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
 	    n=len(nums)
 			f=[0]*(target+1）
@@ -79,7 +88,7 @@ def zero_one_knapsack(target:int, nums:List[int])->int:
 
 LC322 unbounded knapsack
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/3ca7d546-3035-49ad-97b9-49dc8d397b75/Untitled.png)
+![Untitled](./lc_assert/Untitled 1.png)
 
 ```python
 class Solution:
@@ -144,7 +153,7 @@ class Solution:
         return f1
 ```
 
-[**1049. 最后一块石头的重量 II**](https://leetcode.cn/problems/last-stone-weight-ii/)
+[**1049. 最后一块石头的重量 II**](https://leetcode.cn/problems/last-stone-weight-ii/)
 
 divide into two and as same weight as possible(0-1 package)
 
@@ -165,6 +174,9 @@ for(int j=target;;--j){
         return sum1-2*j;
     }
 }
+```
+
+```cpp
 int dp[2][target+1];
 memset(dp,0,sizeof(dp));
 //0-1 backpack
@@ -181,6 +193,9 @@ for(int j=target;;--j){
     if(dp[n%2][j]==1)
         return sum1-2*j;
 }
+```
+
+```cpp
 int dp[target+1];
 memset(dp,0,sizeof(dp));
 //0-1 backpack
@@ -218,7 +233,7 @@ public:
 };
 ```
 
-[**1690. 石子游戏 VII**](https://leetcode.cn/problems/stone-game-vii/)
+[**1690. 石子游戏 VII**](https://leetcode.cn/problems/stone-game-vii/)
 
 ```cpp
 #dfs(i,j) 先手-后手
@@ -242,13 +257,15 @@ class Solution:
 
 ### 307
 
-use array → space 4n
+use array → space 4n 
 
 n=10 要32个，可以预估成4n
 
-$$ 2^{(log_n+1)} $$
+$$
+2^{(log_n+1)}
+$$
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/cabda59e-06c5-4f25-b710-596bf1312402/Untitled.png)
+![Untitled](./lc_assert/Untitled 2.png)
 
 ```python
 class NumArray:
@@ -295,7 +312,7 @@ class NumArray:
         return self.range(left, right, 0, 0, self.n - 1)
 
 作者：力扣官方题解
-链接：<https://leetcode.cn/problems/range-sum-query-mutable/solutions/1389182/qu-yu-he-jian-suo-shu-zu-ke-xiu-gai-by-l-76xj/>
+链接：https://leetcode.cn/problems/range-sum-query-mutable/solutions/1389182/qu-yu-he-jian-suo-shu-zu-ke-xiu-gai-by-l-76xj/
 来源：力扣（LeetCode）
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
@@ -543,18 +560,18 @@ class RangeModule:
 
 372 Q3!!
 
-1. 与数组中元素的最大异或值 2359
-2. 统计异或值在范围内的数对有多少 2479
-3. 查询最大基因差 2503
-4. 两个不重叠子树的最大异或值（会员题）
+1707. 与数组中元素的最大异或值 2359
+1708. 统计异或值在范围内的数对有多少 2479
+1709. 查询最大基因差 2503
+1710. 两个不重叠子树的最大异或值（会员题）
 
 # DP+Binary
 
 **Discrete(1e9) Continuous(only can be used in small range)**
 
-[**1235. 规划兼职工作**](https://leetcode.cn/problems/maximum-profit-in-job-scheduling/)
+[**1235. 规划兼职工作**](https://leetcode.cn/problems/maximum-profit-in-job-scheduling/)
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/f574d35c-33ca-44f2-ab40-c3a3ba36f580/Untitled.png)
+![Untitled](./lc_assert/Untitled 3.png)
 
 ```cpp
 class Solution {
@@ -596,31 +613,9 @@ public:
 
 灵茶山艾府
 
-```cpp
-class Solution {
-public:
-    int jobScheduling(vector<int> &startTime, vector<int> &endTime, vector<int> &profit) {
-        int n = startTime.size();
-        array<int, 3> jobs[n];
-        for (int i = 0; i < n; ++i)
-            jobs[i] = {endTime[i], startTime[i], profit[i]};
-        sort(jobs, jobs + n, [](auto &a, auto &b) { return a[0] < b[0]; }); // 按照结束时间排序
-
-        int f[n + 1];
-        f[0] = 0;
-        for (int i = 0; i < n; ++i) {
-            int j = upper_bound(jobs, jobs + i, array<int, 3>{jobs[i][1], INT_MAX}) - jobs;
-            // 为什么是 j 不是 j+1：上面算的是 > 开始时间，-1 后得到 <= 开始时间，但由于还要 +1，抵消了
-            f[i + 1] = max(f[i], f[j] + jobs[i][2]);
-        }
-        return f[n];
-    }
-};
-```
-
 lambda is to find the first position that cannot satisfy `val < std::get<1>(tuple);`
 
-[**1751. 最多可以参加的会议数目 II**](https://leetcode.cn/problems/maximum-number-of-events-that-can-be-attended-ii/)
+[**1751. 最多可以参加的会议数目 II**](https://leetcode.cn/problems/maximum-number-of-events-that-can-be-attended-ii/)
 
 二维数组
 
@@ -658,9 +653,9 @@ public:
 
 Segment Tree(divide and conquer)
 
-[**53. 最大子数组和**](https://leetcode.cn/problems/maximum-subarray/)
+[**53. 最大子数组和**](https://leetcode.cn/problems/maximum-subarray/)
 
-**类似于「线段树求解最长公共上升子序列问题」的 `pushUp` 操作**
+**类似于「线段树求解最长公共上升子序列问题」的 `pushUp` 操作**
 
 ```cpp
 /*
@@ -700,7 +695,7 @@ public:
 
 # 树状数组
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/eb78e67b-bd78-4642-9a7a-608cb6e0359f/Untitled.png)
+![Untitled](./lc_assert/Untitled 4.png)
 
 ```cpp
 //~x+1=-x
@@ -712,6 +707,9 @@ int lowbit(int x) {
   //          ~~~~~~^~
   return x & -x;
 }
+```
+
+```cpp
 int t1[MAXN], t2[MAXN], n;
 
 int lowbit(int x) { return x & (-x); }
@@ -816,15 +814,15 @@ public:
 };
 ```
 
-[**2426. 满足不等式的数对数目**](https://leetcode.cn/problems/number-of-pairs-satisfying-inequality/)
+[**2426. 满足不等式的数对数目**](https://leetcode.cn/problems/number-of-pairs-satisfying-inequality/)
 
-[**315. 计算右侧小于当前元素的个数**](https://leetcode.cn/problems/count-of-smaller-numbers-after-self/)
+[**315. 计算右侧小于当前元素的个数**](https://leetcode.cn/problems/count-of-smaller-numbers-after-self/)
 
-[**LCR 170. 交易逆序对的总数**](https://leetcode.cn/problems/shu-zu-zhong-de-ni-xu-dui-lcof/)
+[**LCR 170. 交易逆序对的总数**](https://leetcode.cn/problems/shu-zu-zhong-de-ni-xu-dui-lcof/)
 
 变化的前缀和（离散化树状数组）
 
-https://leetcode.cn/problems/count-of-smaller-numbers-after-self/solutions/324892/ji-suan-you-ce-xiao-yu-dang-qian-yuan-su-de-ge-s-7/?envType=list&envId=xqvxqpx3
+[https://leetcode.cn/problems/count-of-smaller-numbers-after-self/solutions/324892/ji-suan-you-ce-xiao-yu-dang-qian-yuan-su-de-ge-s-7/?envType=list&envId=xqvxqpx3](https://leetcode.cn/problems/count-of-smaller-numbers-after-self/solutions/324892/ji-suan-you-ce-xiao-yu-dang-qian-yuan-su-de-ge-s-7/?envType=list&envId=xqvxqpx3)
 
 BIT or divide&conquer
 
@@ -836,6 +834,76 @@ for(auto x:nums)
 //a[i]>a[j]
 for(int i=n-1;i>=0;i--)
 		lower_bound(nums[i]);
+```
+
+[https://leetcode.cn/problems/peaks-in-array/solutions/2812394/shu-zhuang-shu-zu-pythonjavacgo-by-endle-tj0w/](https://leetcode.cn/problems/peaks-in-array/solutions/2812394/shu-zhuang-shu-zu-pythonjavacgo-by-endle-tj0w/)
+
+```cpp
+class Fenwick {
+    vector<int> f;
+
+public:
+    Fenwick(int n) : f(n) {}
+
+    void update(int i, int val) {
+        for (; i < f.size(); i += i & -i) {
+            f[i] += val;
+        }
+    }
+
+    int pre(int i) {
+        int res = 0;
+        for (; i > 0; i &= i - 1) {
+            res += f[i];
+        }
+        return res;
+    }
+
+    int query(int l, int r) {
+        if (r < l) {
+            return 0;
+        }
+        return pre(r) - pre(l - 1);
+    }
+};
+
+class Solution {
+public:
+    vector<int> countOfPeaks(vector<int>& nums, vector<vector<int>>& queries) {
+        int n = nums.size();
+        Fenwick f(n - 1);
+        auto update = [&](int i, int val) {
+            if (nums[i - 1] < nums[i] && nums[i] > nums[i + 1]) {
+                f.update(i, val);
+            }
+        };
+        for (int i = 1; i < n - 1; i++) {
+            update(i, 1);
+        }
+
+        vector<int> ans;
+        for (auto& q : queries) {
+            if (q[0] == 1) {
+                ans.push_back(f.query(q[1] + 1, q[2] - 1));
+                continue;
+            }
+            int i = q[1];
+            for (int j = max(i - 1, 1); j <= min(i + 1, n - 2); ++j) {
+                update(j, -1);
+            }
+            nums[i] = q[2];
+            for (int j = max(i - 1, 1); j <= min(i + 1, n - 2); ++j) {
+                update(j, 1);
+            }
+        }
+        return ans;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/peaks-in-array/solutions/2812394/shu-zhuang-shu-zu-pythonjavacgo-by-endle-tj0w/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
 
 # 伪回文
@@ -891,7 +959,7 @@ class Solution:
 
 # 单调队列优化
 
-滑动窗口
+滑动窗口 
 
 向左滑动，右侧滑出窗口pop，左侧滑入窗口，若比队列顶小，先单调队列pop掉，然后push进这个小的，就可以实现
 
@@ -910,6 +978,9 @@ class Solution:
                 q.popleft()
             q.appendleft((i, f))  # 左边进入窗口
         return q[0][1]
+```
+
+```cpp
 class Solution {
 public:
     int minimumCoins(vector<int> &prices) {
@@ -932,7 +1003,7 @@ public:
 //单调队列
 ```
 
-[**239. 滑动窗口最大值**](https://leetcode.cn/problems/sliding-window-maximum/)
+[**239. 滑动窗口最大值**](https://leetcode.cn/problems/sliding-window-maximum/)
 
 ```cpp
 //双端队列（左右都可删除，右可插入）
@@ -962,14 +1033,14 @@ public:
 };
 ```
 
-1. 预算内的最多机器人数目 1917
-2. 和至少为 K 的最短子数组 2307
-3. 满足不等式的最大值 2456
-4. 带限制的子序列和 2032
-5. 猜数字大小 II
-6. 从仓库到码头运输箱子 2610
+2398. 预算内的最多机器人数目 1917
+2399. 和至少为 K 的最短子数组 2307
+2400. 满足不等式的最大值 2456
+2401. 带限制的子序列和 2032
+2402. 猜数字大小 II 
+2403. 从仓库到码头运输箱子 2610
 
-[**1438. 绝对差不超过限制的最长连续子数组**](https://leetcode.cn/problems/longest-continuous-subarray-with-absolute-diff-less-than-or-equal-to-limit/)
+[**1438. 绝对差不超过限制的最长连续子数组**](https://leetcode.cn/problems/longest-continuous-subarray-with-absolute-diff-less-than-or-equal-to-limit/)
 
 ```cpp
 class Solution {
@@ -1028,11 +1099,11 @@ public:
 };
 ```
 
-1. 最大子数组和
-2. 找到最大开销的子字符串
-3. 拼接数组的最大分数
-4. 删除一次得到子数组最大和
-5. 矩形区域不超过 K 的最大数值和
+53. 最大子数组和
+54. 找到最大开销的子字符串
+55. 拼接数组的最大分数
+56. 删除一次得到子数组最大和
+57. 矩形区域不超过 K 的最大数值和
 
 # Merge sort
 
@@ -1116,7 +1187,7 @@ long long mergesort(int left, int right) {
 }
 ```
 
-\#327
+#327
 
 ```cpp
 class BIT{
@@ -1180,12 +1251,15 @@ public:
 
 ```cpp
 partial_sum(s.begin(),s.end(),new_s.begin()+1);
+```
+
+```python
 new_s=list(accumulate(s,initial=0))
 ```
 
 # 二维前缀和
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/0053825d-eaa0-466c-9830-8b195a01f71a/Untitled.png)
+![Untitled](./lc_assert/Untitled 5.png)
 
 ```cpp
 class MatrixSum {
@@ -1215,11 +1289,14 @@ public:
         return sum[r2 + 1][c2 + 1] - sum[r2 + 1][c1] - sum[r1][c2 + 1] + sum[r1][c1];
     }
 };
+```
+
+```cpp
 1277. 统计全为 1 的正方形子矩阵（双倍经验 221. 最大正方形）
 1504. 统计全 1 子矩形
 ```
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/22ba1ff3-229a-4931-bb86-c586e0cae827/Untitled.png)
+![Untitled](./lc_assert/Untitled 6.png)
 
 ## Link List
 
@@ -1227,7 +1304,7 @@ Reverse
 
 Cur指向下一个节点，pre在原链表反转的最后一个
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/eb671b83-50a9-4074-a37e-7bdac7f6b423/Untitled.png)
+![Untitled](./lc_assert/Untitled 7.png)
 
 206
 
@@ -1240,7 +1317,7 @@ while(cur){
 }
 ```
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/75864ece-e86a-4c58-92f6-cd123ecb10da/Untitled.png)
+![Untitled](./lc_assert/Untitled 8.png)
 
 92
 
@@ -1282,7 +1359,7 @@ public:
 };
 ```
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/d60475b5-e0e6-419f-9f59-445fe76d71fc/Untitled.png)
+![Untitled](./lc_assert/Untitled 9.png)
 
 25
 
@@ -1387,7 +1464,7 @@ public:
 };
 
 作者：灵茶山艾府
-链接：<https://leetcode.cn/problems/count-integers-in-intervals/solutions/1495396/by-endlesscheng-clk2/>
+链接：https://leetcode.cn/problems/count-integers-in-intervals/solutions/1495396/by-endlesscheng-clk2/
 来源：力扣（LeetCode）
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
@@ -1501,7 +1578,7 @@ Q4
 pre=list(accumulate(nums,initial=0))# this is prefix sum!
 ```
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/2917141b-7a77-41b3-bc8d-82cce9c8515f/Untitled.png)
+![Untitled](./lc_assert/Untitled 10.png)
 
 # **数位 DP模板**
 
@@ -1519,7 +1596,7 @@ O(len(s))=O(logn)*O(len(digits))
 
 20240112
 
-[**2376. 统计特殊整数](https://leetcode.cn/problems/count-special-integers/)（记忆化搜索）**
+[**2376. 统计特殊整数](https://leetcode.cn/problems/count-special-integers/)（记忆化搜索）**
 
 ```python
 class Solution:
@@ -1544,6 +1621,10 @@ class Solution:
                     res += f(i + 1, mask | (1 << d), is_limit and d == up, True)
             return res
         return f(0, 0, True, False)
+
+```
+
+```cpp
 class Solution {
 public:
     int countSpecialNumbers(int n) {
@@ -1571,7 +1652,7 @@ public:
 };
 ```
 
-[**902. 最大为 N 的数字组合**](https://leetcode.cn/problems/numbers-at-most-n-given-digit-set/)
+[**902. 最大为 N 的数字组合**](https://leetcode.cn/problems/numbers-at-most-n-given-digit-set/)
 
 ```python
 class Solution:
@@ -1593,6 +1674,9 @@ class Solution:
                 res+=dfs(i+1, is_limit and d == up, True)
             return res
         return dfs(0,True,False)
+```
+
+```cpp
 class Solution {
 public:
     int atMostNGivenDigitSet(vector<string>& digits, int n) {
@@ -1626,9 +1710,9 @@ public:
 };
 ```
 
-[**3007. 价值和小于等于 K 的最大数字](https://leetcode.cn/problems/maximum-number-that-sum-of-the-prices-is-less-than-or-equal-to-k/) （W380Q3）**
+[**3007. 价值和小于等于 K 的最大数字](https://leetcode.cn/problems/maximum-number-that-sum-of-the-prices-is-less-than-or-equal-to-k/) （W380Q3）**
 
-由于*num* 越大，价值和也越大，有单调性，可以二分答案
+由于*num* 越大，价值和也越大，有单调性，可以二分答案
 
 ```python
 class Solution:
@@ -1648,7 +1732,7 @@ class Solution:
         return bisect_left(range((k + 1) << x), k + 1, key=check) - 1
 ```
 
-[**2719. 统计整数数目](https://leetcode.cn/problems/count-of-integers/) V2.0板子**
+[**2719. 统计整数数目](https://leetcode.cn/problems/count-of-integers/) V2.0板子**
 
 ```python
 class Solution:
@@ -1669,6 +1753,9 @@ class Solution:
                 res+=dfs(i+1,s+d,limit_low and d==lo,limit_high and hi==d)
             return res
         return dfs(0,0,True,True)%1_000_000_007
+```
+
+```cpp
 class Solution {
 public:
     const int MOD=1e9+7;
@@ -1745,7 +1832,7 @@ private:
 
 ## 分组循环
 
-[**100199. 判断一个数组是否可以变为有序**](https://leetcode.cn/problems/find-if-array-can-be-sorted/)
+[**100199. 判断一个数组是否可以变为有序**](https://leetcode.cn/problems/find-if-array-can-be-sorted/)
 
 ```cpp
 class Solution:
@@ -1771,13 +1858,13 @@ c++ **`__builtin_popcount`**
 
 ## lowest common ancestor (LCA) **树上倍增算法**
 
-### [**235. Lowest Common Ancestor of a Binary Search Tree**](https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/)
+### [**235. Lowest Common Ancestor of a Binary Search Tree**](https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/)
 
-### [**236. Lowest Common Ancestor of a Binary Tree**](https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/)
+### [**236. Lowest Common Ancestor of a Binary Tree**](https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/)
 
 分类讨论
 
-[**1483. 树节点的第 K 个祖先**](https://leetcode.cn/problems/kth-ancestor-of-a-tree-node/)
+[**1483. 树节点的第 K 个祖先**](https://leetcode.cn/problems/kth-ancestor-of-a-tree-node/)
 
 ```cpp
 class TreeAncestor {
@@ -1843,6 +1930,9 @@ __builtin_ctz(0b00000001) 会返回 0，因为最低位就是1，没有0在它�
 sort(m.begin(),m.end(),[&](int i, int j) { return nums[i] < nums[j]; });
 ranges::stable_sort(m, [&](int i, int j) { return nums[i] < nums[j]; });
 ranges::sort(m);
+```
+
+```cpp
 int cnt=ranges::count(s,'?');
 ```
 
@@ -1895,7 +1985,7 @@ public:
 
 # Union and Find
 
-https://leetcode.cn/problems/minimum-cost-walk-in-weighted-graph/description/
+[https://leetcode.cn/problems/minimum-cost-walk-in-weighted-graph/description/](https://leetcode.cn/problems/minimum-cost-walk-in-weighted-graph/description/)
 
 注意这里要路径压缩！
 
@@ -1907,6 +1997,9 @@ https://leetcode.cn/problems/minimum-cost-walk-in-weighted-graph/description/
         }
         return fa[x];
     }
+```
+
+```cpp
 class UnionFindSet{
 public:
 
@@ -1987,6 +2080,72 @@ class Solution:
         return ans if ans<inf else -1
 ```
 
+400 T4
+
+```python
+MOD = 1000000007 # 998244353
+
+def logTrick(nums: List[int], op):
+    res = defaultdict(int)
+    dp = []
+    for pos, cur in enumerate(nums):
+        for v in dp:
+            v[2] = op(v[2], cur)
+        dp.append([pos, pos + 1, cur])
+
+        ptr = 0
+        for v in dp[1:]:
+            if dp[ptr][2] != v[2]:
+                ptr += 1
+                dp[ptr] = v
+            else:
+                dp[ptr][1] = v[1]
+        dp = dp[: ptr + 1]
+
+        for v in dp:
+            res[v[2]] += v[1] - v[0]
+
+    return res
+
+class Solution:
+    def minimumDifference(self, nums: List[int], k: int) -> int:
+        res = logTrick(nums, and_)
+        ans = inf
+        for x in res:
+            ans = min(ans, abs(k - x))
+        return ans
+```
+
+2411
+
+```python
+class Solution:
+    def smallestSubarrays(self, nums: List[int]) -> List[int]:
+        n = len(nums)
+        ans = [0] * n
+        ors = []  # 按位或的值 + 对应子数组的右端点的最小值
+        for i in range(n - 1, -1, -1):
+            num = nums[i]
+            ors.append([0, i])
+            k = 0
+            for p in ors:
+                p[0] |= num
+                if ors[k][0] == p[0]:
+                    ors[k][1] = p[1]  # 合并相同值，下标取最小的
+                else:
+                    k += 1
+                    ors[k] = p
+            del ors[k + 1:]
+            # 本题只用到了 ors[0]，如果题目改成任意给定数值，可以在 ors 中查找
+            ans[i] = ors[0][1] - i + 1
+        return ans
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/smallest-subarrays-with-maximum-bitwise-or/solutions/1830911/by-endlesscheng-zai1/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
 # Dijkstra算法
 
 2642
@@ -2032,7 +2191,7 @@ public:
 };
 
 作者：灵茶山艾府
-链接：<https://leetcode.cn/problems/design-graph-with-shortest-path-calculator/solutions/2229013/dijkstra-suan-fa-mo-ban-pythonjavacgo-by-unmv/>
+链接：https://leetcode.cn/problems/design-graph-with-shortest-path-calculator/solutions/2229013/dijkstra-suan-fa-mo-ban-pythonjavacgo-by-unmv/
 来源：力扣（LeetCode）
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
@@ -2073,38 +2232,169 @@ public:
 };
 ```
 
-# C++
+# **Shortest distance/ Minimum distance → BFS→ queue (can store depth info)**
 
-```c++
-//1个数
-__builtin_popcount();
-__builtin_popcountll();
-//前置0
-__builtin_clz();
-__builtin_clzll();
-//后置0
-__builtin_ctz();
-__builtin_ctzll();
-unsigned int x=29;
-32-__builtin_clz(x)
+```c
+queue<Node*> q;
+while q is not empty:
+  node,depth=q.pop();
+  for(child:node.children):
+    q.add(child)
+
+queue<Node*> q,distance=0
+  while q is not empty:
+    size=length of q
+    for _ in range(size):
+      node=q.pop()
+      for(child:node.children):
+        q.add(child)
+    distance++
 ```
 
-# Java
+# Bitset
 
-```java
-Integer.numberOfTrailingZeros(num);
-```
+快速flip的技巧（用flag标记是否flip，两次flip就是没翻转，再用cnt来标记1个数）lazy flag！
 
-# 0 到 n 的异或和
+```cpp
+class Bitset {
+public:
+    vector<int> vec;
+    int f{};
+    int cnt{};
+    Bitset(int size):vec(size) {}
+    
+    // v 1 f 1 ->0 ->0
+    // v 1 f 0 ->1 ->0
+    // v 0 f 1 ->1 ->0
+    // v 0 f 0 ->0 ->0
 
-```c++
-int xor_n(int n) {
-    switch (n % 4) {
-        case 0: return n;
-        case 1: return 1;
-        case 2: return n + 1;
-        default: return 0;
+    void fix(int idx) {
+        if(vec[idx]==f){
+            vec[idx]=f^1;
+            cnt++;
+        }
     }
-}
+    
+    void unfix(int idx) {
+        if(vec[idx]==(f^1)){
+            vec[idx]=f;
+            cnt--;
+        }
+    }
+    
+    void flip() {
+        f^=1;
+        cnt=vec.size()-cnt;
+    }
+    
+    bool all() {
+        return cnt==vec.size();
+    }
+    
+    bool one() {
+        return cnt>=1;
+    }
+    
+    int count() {
+        return cnt;
+    }
+    
+    string toString() {
+        string ans="";
+        for(auto &i:vec){
+            ans+=to_string(i^f);
+        }
+        return ans;
+    }
+};
 ```
 
+# 子序列DP
+
+- 相邻相关 LIS
+- 相邻无关 0-1背包
+
+LIS 
+
+dfs(i) 表示以nums[i] 结尾的LIS长度
+
+转移： 枚举 j<i，如果nums[j]<nums[i] 就从dfs(j)+1转移过来
+
+dfs(i,j)  表示以nums[i] 结尾，至多j对相邻元素不同
+
+最长子序列长度
+
+p<i
+
+nums[p]≠nums[i], dfs(p,j-1)+1
+
+nums[p]==nums[i], dfs(p,j)+1 
+
+# auto dfs=[&](auto &&dfs,int i)
+
+```cpp
+auto dfs = [&](auto&& dfs, int i) -> long long {
+      if (i < 0) {
+          return 0;
+      }
+      long long& res = memo[i]; // 注意这里是引用
+      if (res != -log1) {
+          return res;
+      }
+      auto& [x, c] = a[i];
+      int j = i;
+      while (j && a[j - 1].first >= x - 2) {
+          j--;
+      }
+      return res = max(dfs(dfs, i - 1), dfs(dfs, j - 1) + (long long) x * c);
+  };
+  return dfs(dfs, n - 1);
+```
+
+比下面更快？？
+
+```cpp
+  function<long long(int)> dfs = [&](int i)->long long {
+      if(i<0){
+          return 0;
+      }
+      long long &res=memo[i];
+      if (res != -1) {
+          return res;
+      }
+      auto &[k,v]=a[i];
+      int j=i;
+      while(j&&a[j-1].first>=k-2){
+          j--;
+      }
+      return res=max(dfs(i-1),dfs(j-1)+(long long)k*v);
+  };
+  return dfs(n-1);
+```
+
+# Init
+
+`init` 是一个 lambda 表达式，它的作用是对数组 `f` 进行初始化
+
+```cpp
+const int MOD=1e9+7,MX=1e4+1;
+int f[MX]={1,2};
+int init=[](){
+    for(int i=2;i<MX;++i){
+        f[i]=(f[i-1]+f[i-2])%MOD;
+    }
+    return 0;
+}();
+```
+
+注意，dp要从0开始，这样会涵盖0开始的选择！
+
+```cpp
+int n;
+vector<int> dp(n+1);
+for(int i=0;i<n;i++){
+	dp[i+1]=dp[i];
+	//...
+}
+return dp[n];//!!
+```

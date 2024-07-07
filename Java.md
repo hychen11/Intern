@@ -36,6 +36,50 @@ myString.length();
 myString.charAt(index);
 ```
 
+#### String
+
+`==` compare the same object! rather than value!
+
+`str1.equals(str2)`
+
+```java
+public class StringComparison {
+    public static void main(String[] args) {
+        String str1 = "hello";
+        String str2 = "HELLO";
+        String str3 = "world";
+        String str4 = new String("hello");
+
+        // 使用 == 运算符
+        System.out.println("Using == :");
+        System.out.println(str1 == str2); // false
+        System.out.println(str1 == str4); // false
+
+        // 使用 equals() 方法
+        System.out.println("Using equals() :");
+        System.out.println(str1.equals(str2)); // false
+        System.out.println(str1.equals(str4)); // true
+
+        // 使用 equalsIgnoreCase() 方法
+        System.out.println("Using equalsIgnoreCase() :");
+        System.out.println(str1.equalsIgnoreCase(str2)); // true
+
+        // 使用 compareTo() 方法
+        System.out.println("Using compareTo() :");
+        System.out.println(str1.compareTo(str2)); // 32 (根据Unicode值的差值)
+        System.out.println(str1.compareTo(str3)); // -15 (根据Unicode值的差值)
+
+        // 使用 compareToIgnoreCase() 方法
+        System.out.println("Using compareToIgnoreCase() :");
+        System.out.println(str1.compareToIgnoreCase(str2)); // 0
+        System.out.println(str1.compareToIgnoreCase(str3)); // -15
+    }
+}
+
+```
+
+
+
 ### Data Structures
 
 ```java

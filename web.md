@@ -1932,3 +1932,4 @@ fetch(url)
   .catch(error => console.error('Error:', error)); // 处理错误
 ```
 
+nvm
