@@ -83,39 +83,39 @@ LC494 (0-1 knapsack)
 ```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
 	    n=len(nums)
-			f=[[0]*(target+1) for _ in range(n+1)]
+		f=[[0]*(target+1) for _ in range(n+1)]
 	    f[0][0]=1
-			for i,x in enumerate(nums):
-					for c in range(capacity+1):
-							if c<x:
-									f[i+1][c]=f[i][c]
-							else:
-									f[i+1][c]=f[i][c]+f[i][c-x]	
+		for i,x in enumerate(nums):
+            for c in range(capacity+1):
+                if c<x:
+                    f[i+1][c]=f[i][c]
+                else:
+                    f[i+1][c]=f[i][c]+f[i][c-x]	
       return f[n][capacity]
 ```
 
 ```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
 	    n=len(nums)
-			f=[[0]*(target+1) for _ in range(2)]
+		f=[[0]*(target+1) for _ in range(2)]
 	    f[0][0]=1
-			for i,x in enumerate(nums):
-					for c in range(target+1):
-							if c<x:
-									f[(i+1)%2][c]=f[i%2][c]
-							else:
-									f[(i+1)%2][c]=f[i%2][c]+f[i%2][c-x]	
+        for i,x in enumerate(nums):
+            for c in range(target+1):
+                if c<x:
+                    f[(i+1)%2][c]=f[i%2][c]
+                else:
+                    f[(i+1)%2][c]=f[i%2][c]+f[i%2][c-x]	
       return f[n%2][target]
 ```
 
 ```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
 	    n=len(nums)
-			f=[0]*(target+1）
+		f=[0]*(target+1）
 	    f[0]=1
-			for x in nums:
-					for c in range(target,x-1,-1):
-							f[c]=f[c]+f[c-x]	
+        for x in nums:
+            for c in range(target,x-1,-1):
+                f[c]=f[c]+f[c-x]	
       return f[target]
 ```
 
