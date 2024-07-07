@@ -26,9 +26,42 @@ public:
 };
 ```
 
-## Dynamic programming
+# Dynamic programming
 
-0-1 backpack
+### 最大子数组和
+
+* 定义状态 `f[i]` 表示以 `a[i]` 结尾的最大子数组和。
+  - 如果不和 `i` 左边拼起来，那么 `f[i] = a[i]`
+  - 如果和 `i` 左边拼起来，那么 `f[i] = f[i-1] + a[i]`
+  - 取最大值就得到了状态转移方程： f[i]=max⁡(f[i−1],0)+a[i] 答案为： max⁡(f) , 这个做法也叫做 Kadane 算法。
+
+* 用前缀和解决
+
+```c++
+class Solution {
+public:
+    int maxSubArray(vector<int>& nums) {
+        int ans = INT_MIN;
+        int min_pre_sum = 0;
+        int pre_sum = 0;
+        for (int x : nums) {
+            pre_sum += x; // 当前的前缀和
+            ans = max(ans, pre_sum - min_pre_sum); // 减去前缀和的最小值
+            min_pre_sum = min(min_pre_sum, pre_sum); // 维护前缀和的最小值
+        }
+        return ans;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/maximum-subarray/solutions/2533977/qian-zhui-he-zuo-fa-ben-zhi-shi-mai-mai-abu71/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+
+
+### 0-1 backpack
 
 ```python
 def zero_one_knapsack(capacity:int, w:List[int],v:List[int])->int:
@@ -210,7 +243,28 @@ for(int j=target;;--j){
 }
 ```
 
-### Binary Search
+### 子序列DP
+
+- 相邻相关 LIS
+- 相邻无关 0-1背包
+
+LIS 
+
+dfs(i) 表示以nums[i] 结尾的LIS长度
+
+转移： 枚举 j<i，如果nums[j]<nums[i] 就从dfs(j)+1转移过来
+
+dfs(i,j)  表示以nums[i] 结尾，至多j对相邻元素不同
+
+最长子序列长度
+
+p<i
+
+nums[p]≠nums[i], dfs(p,j-1)+1
+
+nums[p]==nums[i], dfs(p,j)+1 
+
+# Binary Search
 
 [0,n)
 
@@ -253,9 +307,11 @@ class Solution:
         return ans
 ```
 
+### 
+
 # 线段树
 
-### 307
+#### 307
 
 use array → space 4n 
 
@@ -467,7 +523,7 @@ public:
  */
 ```
 
-### 715 range 动态开点
+#### 715 range 动态开点
 
 pushdown
 
@@ -551,6 +607,183 @@ class RangeModule:
 # param_2 = obj.queryRange(left,right)
 # obj.removeRange(left,right)
 ```
+
+# Lazy线段树
+
+线段树上限4n O(n)<=4n
+
+最后一行补满<=2n,求和4n
+
+递归次数或者区间个数(用路径来看就是树高O(logn))
+
+挑选O(n)个区间
+
+lazy更新
+
+> lazy tag:用一个数组维护每个区间要更新的值
+>
+> 值=0表示不更新
+>
+> 值!=需要更新,更新操作止步于此,不需要继续递归更新子区间
+>
+> 如果后面又来一个更新,破坏了lazy tag区间,这个区间需要继续递归更新
+
+这里的todo数组就是lazy tag!下面是模板!
+
+```python
+class Solution:
+    def handleQuery(self, nums1: List[int], nums2: List[int], queries: List[List[int]]) -> List[int]:
+        
+        n=len(nums1)
+        todo = [0]*(4*n)
+
+        #o is node index!
+        def build(o:int,l:int,r:int)->None:
+            if l==r:
+                return
+            #left son is o*2, right son is 2*o+1
+            m=(l+r)//2
+            build(o*2,l,m)
+            build(o*2+1,m+1,r)
+        
+        #Update [L,R]
+        def update(o:int,l:int,r:int,L:int,R:int,add:int)->None:
+            if l>=L and r<=R:
+                todo[o]+=add  #no need to recurse update
+
+                return 
+            #left son is o*2, right son is 2*o+1
+            #lazy tag
+            if todo[o]!=0:
+                todo[o*2]+=todo[o]
+                todo[o*2+1]+=todo[o]
+                todo[o]=0
+
+            m=(l+r)//2
+            if m>=L: update(o*2,l,m,L,R,add)
+            if m<R: update(o*2+1,m+1,r,L,R,add)
+```
+
+#### 2569
+
+c++的模板
+
+```c++
+class Solution {
+    vector<int> cnt1, flip;
+
+    // 维护区间 1 的个数
+    void maintain(int o) {
+        cnt1[o] = cnt1[o * 2] + cnt1[o * 2 + 1];
+    }
+
+    // 执行区间反转
+    void do_(int o, int l, int r) {
+        cnt1[o] = r - l + 1 - cnt1[o];
+        flip[o] = !flip[o];
+    }
+
+    // 初始化线段树   o,l,r=1,1,n
+    void build(vector<int> &a, int o, int l, int r) {
+        if (l == r) {
+            cnt1[o] = a[l - 1];
+            return;
+        }
+        int m = (l + r) / 2;
+        build(a, o * 2, l, m);
+        build(a, o * 2 + 1, m + 1, r);
+        maintain(o);
+    }
+
+    // 反转区间 [L,R]   o,l,r=1,1,n
+    void update(int o, int l, int r, int L, int R) {
+        if (L <= l && r <= R) {
+            do_(o, l, r);
+            return;
+        }
+        int m = (l + r) / 2;
+        if (flip[o]) {
+            do_(o * 2, l, m);
+            do_(o * 2 + 1, m + 1, r);
+            flip[o] = false;
+        }
+        if (m >= L) update(o * 2, l, m, L, R);
+        if (m < R) update(o * 2 + 1, m + 1, r, L, R);
+        maintain(o);
+    }
+
+public:
+    vector<long long> handleQuery(vector<int> &nums1, vector<int> &nums2, vector<vector<int>> &queries) {
+        int n = nums1.size();
+        cnt1.resize(n * 4);
+        flip.resize(n * 4);
+        build(nums1, 1, 1, n);
+        vector<long long> ans;
+        long long sum = accumulate(nums2.begin(), nums2.end(), 0LL);
+        for (auto &q : queries) {
+            if (q[0] == 1) update(1, 1, n, q[1] + 1, q[2] + 1);
+            else if (q[0] == 2) sum += 1LL * q[1] * cnt1[1];
+            else ans.push_back(sum);
+        }
+        return ans;
+    }
+};
+```
+
+[2589. 完成所有任务的最少时间](https://leetcode.cn/problems/minimum-time-to-complete-all-tasks/)
+
+```python
+class Solution:
+    def findMinimumTime(self, tasks: List[List[int]]) -> int:
+        tasks.sort(key=lambda t: t[1])
+        u = tasks[-1][1]
+        m = 2 << u.bit_length()
+        cnt = [0] * m
+        todo = [False] * m
+
+        def do(o: int, l: int, r: int) -> None:
+            cnt[o] = r - l + 1
+            todo[o] = True
+
+        def spread(o: int, l: int, m: int, r: int) -> None:
+            if todo[o]:
+                todo[o] = False
+                do(o * 2, l, m)
+                do(o * 2 + 1, m + 1, r)
+
+        # 查询区间正在运行的时间点 [L,R]   o,l,r=1,1,u
+        def query(o: int, l: int, r: int, L: int, R: int) -> int:
+            if L <= l and r <= R: return cnt[o]
+            m = (l + r) // 2
+            spread(o, l, m, r)
+            if m >= R: return query(o * 2, l, m, L, R)
+            if m < L: return query(o * 2 + 1, m + 1, r, L, R)
+            return query(o * 2, l, m, L, R) + query(o * 2 + 1, m + 1, r, L, R)
+
+        # 在区间 [L,R] 的后缀上新增 suffix 个时间点    o,l,r=1,1,u
+        # 相当于把线段树二分和线段树更新合并成了一个函数，时间复杂度为 O(log u)
+        def update(o: int, l: int, r: int, L: int, R: int) -> None:
+            size = r - l + 1
+            if cnt[o] == size: return  # 全部为运行中
+            nonlocal suffix
+            if L <= l and r <= R and size - cnt[o] <= suffix:  # 整个区间全部改为运行中
+                suffix -= size - cnt[o]
+                do(o, l, r)
+                return
+            m = (l + r) // 2
+            spread(o, l, m, r)
+            if m < R: update(o * 2 + 1, m + 1, r, L, R)  # 先更新右子树
+            if suffix: update(o * 2, l, m, L, R)  # 再更新左子树（如果还有需要新增的时间点）
+            cnt[o] = cnt[o * 2] + cnt[o * 2 + 1]
+
+        for start, end, d in tasks:
+            suffix = d - query(1, 1, u, start, end)  # 去掉运行中的时间点
+            if suffix > 0: update(1, 1, u, start, end)  # 新增时间点
+        return cnt[1]
+
+```
+
+
 
 # XOR+0-1trie
 
@@ -1298,7 +1531,7 @@ public:
 
 ![Untitled](./lc_assert/Untitled 6.png)
 
-## Link List
+# Link List
 
 Reverse
 
@@ -1403,7 +1636,7 @@ p0→next就是reverse的最后一个
 
 # 2276
 
-**珂朵莉树**
+### **珂朵莉树**
 
 平衡树的 key 存区间右端点，value 存区间左端点。我们要找的就是第一个 key≥left 的区间
 
@@ -1580,7 +1813,7 @@ pre=list(accumulate(nums,initial=0))# this is prefix sum!
 
 ![Untitled](./lc_assert/Untitled 10.png)
 
-# **数位 DP模板**
+# 数位 DP
 
 DP时间复杂度=状态个数×转移个数
 
@@ -1788,7 +2021,7 @@ public:
 };
 ```
 
-## KMP ????
+# KMP
 
 有一个长串text，有一个需要匹配的子串pattern，
 
@@ -1856,15 +2089,15 @@ class Solution:
 
 c++ **`__builtin_popcount`**
 
-## lowest common ancestor (LCA) **树上倍增算法**
+# lowest common ancestor (LCA) **树上倍增算法**
 
-### [**235. Lowest Common Ancestor of a Binary Search Tree**](https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/)
+#### 235
 
-### [**236. Lowest Common Ancestor of a Binary Tree**](https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/)
+#### 236
 
 分类讨论
 
-[**1483. 树节点的第 K 个祖先**](https://leetcode.cn/problems/kth-ancestor-of-a-tree-node/)
+#### 1483
 
 ```cpp
 class TreeAncestor {
@@ -1922,21 +2155,9 @@ __builtin_ctz(0b00000001) 会返回 0，因为最低位就是1，没有0在它�
 - [2360. 图中的最长环](https://leetcode.cn/problems/longest-cycle-in-a-graph/)
 - [2836. 在传球游戏中最大化函数值](https://leetcode.cn/problems/maximize-value-of-function-in-a-ball-passing-game)
 
-# Ranges!!
-
-俩个是不同的，stable_sort保证相对顺序一致！
-
-```cpp
-sort(m.begin(),m.end(),[&](int i, int j) { return nums[i] < nums[j]; });
-ranges::stable_sort(m, [&](int i, int j) { return nums[i] < nums[j]; });
-ranges::sort(m);
-```
-
-```cpp
-int cnt=ranges::count(s,'?');
-```
-
 # String Hash
+
+#### 1044
 
 in case of hash conflict, we need to use unsigned long long! it will automatic cut down to 64 bit
 
@@ -1982,6 +2203,10 @@ public:
     }
 };
 ```
+
+# 后缀数组/AC自动机
+
+多模式串匹配问题考虑ac自动机
 
 # Union and Find
 
@@ -2053,7 +2278,7 @@ public:
 
 # Bit 位运算
 
-3097
+#### 3097
 
 ```cpp
 """
@@ -2080,7 +2305,7 @@ class Solution:
         return ans if ans<inf else -1
 ```
 
-400 T4
+#### 400 T4
 
 ```python
 MOD = 1000000007 # 998244353
@@ -2116,7 +2341,7 @@ class Solution:
         return ans
 ```
 
-2411
+#### 2411
 
 ```python
 class Solution:
@@ -2148,7 +2373,7 @@ class Solution:
 
 # Dijkstra算法
 
-2642
+#### 2642
 
 ```cpp
 class Graph {
@@ -2196,7 +2421,7 @@ public:
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
 
-3112
+#### 3112
 
 ```cpp
 class Solution {
@@ -2252,6 +2477,8 @@ queue<Node*> q,distance=0
 ```
 
 # Bitset
+
+#### 2166
 
 快速flip的技巧（用flag标记是否flip，两次flip就是没翻转，再用cnt来标记1个数）lazy flag！
 
@@ -2309,28 +2536,34 @@ public:
 };
 ```
 
-# 子序列DP
+#### 3181
 
-- 相邻相关 LIS
-- 相邻无关 0-1背包
+```c++
+class Solution {
+public:
+    int maxTotalReward(vector<int>& rewardValues) {
+        ranges::sort(rewardValues);
+        rewardValues.erase(unique(rewardValues.begin(), rewardValues.end()), rewardValues.end());
 
-LIS 
+        bitset<100000> f{1};
+        for (int v : rewardValues) {
+            int shift = f.size() - v;
+            // 左移 shift 再右移 shift，把所有 >= v 的比特位置 0
+            // f |= f << shift >> shift << v;
+            f |= f << shift >> (shift - v); // 简化上式
+        }
+        for (int i = rewardValues.back() * 2 - 1; ; i--) {
+            if (f.test(i)) {
+                return i;
+            }
+        }
+    }
+};
+```
 
-dfs(i) 表示以nums[i] 结尾的LIS长度
+# Trick
 
-转移： 枚举 j<i，如果nums[j]<nums[i] 就从dfs(j)+1转移过来
-
-dfs(i,j)  表示以nums[i] 结尾，至多j对相邻元素不同
-
-最长子序列长度
-
-p<i
-
-nums[p]≠nums[i], dfs(p,j-1)+1
-
-nums[p]==nums[i], dfs(p,j)+1 
-
-# auto dfs=[&](auto &&dfs,int i)
+### auto dfs=[&](auto &&dfs,int i)
 
 ```cpp
 auto dfs = [&](auto&& dfs, int i) -> long long {
@@ -2372,7 +2605,7 @@ auto dfs = [&](auto&& dfs, int i) -> long long {
   return dfs(n-1);
 ```
 
-# Init
+### Init
 
 `init` 是一个 lambda 表达式，它的作用是对数组 `f` 进行初始化
 
@@ -2398,3 +2631,19 @@ for(int i=0;i<n;i++){
 }
 return dp[n];//!!
 ```
+
+### Ranges::sort
+
+俩个是不同的，stable_sort保证相对顺序一致！
+
+```cpp
+sort(m.begin(),m.end(),[&](int i, int j) { return nums[i] < nums[j]; });
+ranges::stable_sort(m, [&](int i, int j) { return nums[i] < nums[j]; });
+ranges::sort(m);
+```
+
+```cpp
+int cnt=ranges::count(s,'?');
+```
+
+# 
