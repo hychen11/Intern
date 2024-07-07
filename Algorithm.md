@@ -11,7 +11,7 @@ $$
 class Solution {
 public:
     int lengthOfLongestSubsequence(vector<int>& nums, int target) {
-	      int n=nums.size();
+		int n=nums.size();
         vector<int> f(target+1,INT_MIN);
         f[0]=0;
         int s=0;
