@@ -2204,7 +2204,124 @@ public:
 };
 ```
 
-# 后缀数组/AC自动机
+#### 3213
+
+关键在于，枚举的子串 *t* 的**长度**，如果压根就不出现在 *words* 中，那么无需枚举这样的 *j*，或者说长度
+
+设 *L* 是 *words* 中所有字符串的长度之和，那么 *words* 中至多有 $O(\sqrt{L})$ 个长度不同的字符串
+
+```c++
+class Solution {
+public:
+    int minimumCost(string target, vector<string>& words, vector<int>& costs) {
+        int n = target.length();
+
+        // 多项式字符串哈希（方便计算子串哈希值）
+        // 哈希函数 hash(s) = s[0] * base^(n-1) + s[1] * base^(n-2) + ... + s[n-2] * base + s[n-1]
+        const int MOD = 1'070'777'777;
+        mt19937 gen{random_device{}()};
+        const int BASE = uniform_int_distribution<>(8e8, 9e8)(gen); // 随机 base，防止 hack
+        vector<int> pow_base(n + 1); // pow_base[i] = base^i
+        vector<int> pre_hash(n + 1); // 前缀哈希值 pre_hash[i] = hash(s[:i])
+        pow_base[0] = 1;
+        for (int i = 0; i < n; i++) {
+            pow_base[i + 1] = (long long) pow_base[i] * BASE % MOD;
+            pre_hash[i + 1] = ((long long) pre_hash[i] * BASE + target[i]) % MOD; // 秦九韶算法计算多项式哈希
+        }
+
+        // 计算 target[l] 到 target[r-1] 的哈希值
+        auto sub_hash = [&](int l, int r) {
+            return ((pre_hash[r] - (long long) pre_hash[l] * pow_base[r - l]) % MOD + MOD) % MOD;
+        };
+
+        map<int, unordered_map<int, int>> min_cost; // 长度 -> 哈希值 -> 最小成本
+        for (int i = 0; i < words.size(); i++) {
+            long long h = 0;
+            for (char b : words[i]) {
+                h = (h * BASE + b) % MOD;
+            }
+            int m = words[i].length();
+            if (min_cost[m].find(h) == min_cost[m].end()) {
+                min_cost[m][h] = costs[i];
+            } else {
+                min_cost[m][h] = min(min_cost[m][h], costs[i]);
+            }
+        }
+
+        vector<int> f(n + 1, INT_MAX / 2);
+        f[0] = 0;
+        for (int i = 1; i <= n; i++) {
+            for (auto& [len, mc] : min_cost) {
+                if (len > i) {
+                    break;
+                }
+                auto it = mc.find(sub_hash(i - len, i));
+                if (it != mc.end()) {
+                    f[i] = min(f[i], f[i - len] + it->second);
+                }
+            }
+        }
+        return f[n] == INT_MAX / 2 ? -1 : f[n];
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/construct-string-with-minimum-cost/solutions/2833949/hou-zhui-shu-zu-by-endlesscheng-32h9/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+# 后缀数组
+
+Golang 自带`suffixarray.New()`
+
+#### 3213
+
+```go
+func minimumCost(target string, words []string, costs []int) int {
+	minCost := map[string]uint16{}
+	for i, w := range words {
+		c := uint16(costs[i])
+		if minCost[w] == 0 {
+			minCost[w] = c
+		} else {
+			minCost[w] = min(minCost[w], c)
+		}
+	}
+
+	n := len(target)
+	type pair struct{ l, cost uint16 }
+	from := make([][]pair, n+1)
+	sa := suffixarray.New([]byte(target))
+	for w, c := range minCost {
+		for _, l := range sa.Lookup([]byte(w), -1) {
+			r := l + len(w)
+			from[r] = append(from[r], pair{uint16(l), c})
+		}
+	}
+
+	f := make([]int, n+1)
+	for i := 1; i <= n; i++ {
+		f[i] = math.MaxInt / 2
+		for _, p := range from[i] {
+			f[i] = min(f[i], f[p.l]+int(p.cost))
+		}
+	}
+	if f[n] == math.MaxInt/2 {
+		return -1
+	}
+	return f[n]
+}
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/construct-string-with-minimum-cost/solutions/2833949/hou-zhui-shu-zu-by-endlesscheng-32h9/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+
+
+# AC Auto
 
 多模式串匹配问题考虑ac自动机
 
