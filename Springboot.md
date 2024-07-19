@@ -183,6 +183,11 @@ requirepass 0602
 sudo systemctl restart redis
 ```
 
+```shell
+redis-cli -h localhost -p 6379 -a 0602
+keys *
+```
+
 ### Nginx
 
 ```shell
@@ -738,7 +743,19 @@ http://example.com/api?ids=1,2,3,4
 
 ```java
 @GetMapping("/{id}")
-public Result<DishVO> getById(@PathVariable Long id) {}
+public Result<@Configuration
+@Slf4j
+public class RedisConfiguration {
+    @Bean
+    public RedisTemplate redisTemplate(RedisConnectionFactory redisConnectionFactory){
+        log.info("开始创建redis模板对象");
+        RedisTemplate redisTemplate= new RedisTemplate();
+        redisTemplate.setConnectionFactory(redisConnectionFactory);
+        redisTemplate.setKeySerializer(new StringRedisSerializer());
+        return redisTemplate;
+    }
+}
+DishVO> getById(@PathVariable Long id) {}
 ```
 
 ## Day4
@@ -755,6 +772,84 @@ public Result startOrStop(@PathVariable Integer status，Long id) {}
 ```
 
 ## Day5
+
+创建并配置一个`RedisTemplate`实例，并将其注册到Spring容器中
+
+```java
+@Configuration
+@Slf4j
+public class RedisConfiguration {
+    @Bean
+    public RedisTemplate redisTemplate(RedisConnectionFactory redisConnectionFactory){
+        log.info("开始创建redis模板对象");
+        RedisTemplate redisTemplate= new RedisTemplate();
+        // 设置连接工厂
+        redisTemplate.setConnectionFactory(redisConnectionFactory);
+        // 设置key的序列化器
+        redisTemplate.setKeySerializer(new StringRedisSerializer());
+        // 设置value的序列化器
+        redisTemplate.setValueSerializer(new StringRedisSerializer());
+
+        // 使配置生效
+//        redisTemplate.afterPropertiesSet();
+        return redisTemplate;
+    }
+}
+```
+
+调用Redis
+
+```java
+@SpringBootTest
+public class SpringDataRedisTest {
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+    @Test
+    public void testRedisTemplate(){
+        System.out.println(redisTemplate);
+        ValueOperations valueOperations=redisTemplate.opsForValue();
+        HashOperations hashOperations= redisTemplate.opsForHash();
+        ListOperations listOperations=redisTemplate.opsForList();
+        SetOperations setOperations= redisTemplate.opsForSet();
+        ZSetOperations zSetOperations= redisTemplate.opsForZSet();
+    }
+}
+```
+
+user和admin都有同样的类名，改RestController来区分
+
+```java
+@RestController("adminShopController")
+@RestController("userShopController")
+```
+
+## Day6
+
+### HttpClient
+
+```java
+   @Test
+    public void testGET() throws Exception{
+        //创建httpclient对象
+        CloseableHttpClient httpClient= HttpClients.createDefault();
+        //创建请求对象
+        HttpGet httpGet=new HttpGet("http://localhost:8080/user/shop/status");
+        //发送请求，得到响应
+        CloseableHttpResponse response = httpClient.execute(httpGet);
+        //解析响应
+        int status=response.getStatusLine().getStatusCode();
+        System.out.println("状态码"+status);  //状态码200
+		
+        HttpEntity entity=response.getEntity();
+        String body= EntityUtils.toString(entity);
+        System.out.println("返回数据"+body);  //返回数据{"code":1,"msg":null,"data":0}
+        //关闭
+        response.close();
+        httpClient.close();
+    }
+
+```
 
 
 
@@ -1149,4 +1244,79 @@ Dependency injection (DI) is a specialized form of IoC
 基于内存的kv数据库，Redis还可以持久化
 
 Mysql磁盘存储（二维表）
+
+### datatype
+
+key是string， value的类型
+
+* string
+* hash
+* list
+* set
+* sorted set/zset
+
+![image-20240717233950631](/home/hychen11/.config/Typora/typora-user-images/image-20240717233950631.png)
+
+### command
+
+#### string
+
+```shell
+SET key value
+GET key
+SETEX key seconds value 
+SETNX key value
+```
+
+#### hash
+
+```shell
+HSET key field value
+HGET key field
+HDEL key field
+HKEYS key
+HVALS key
+```
+
+#### list
+
+LPUSH : left push左侧插入
+
+```shell
+LPUSH key value1 [value2]
+LRANGE key start stop  # 0 -1 like python, -1 means the last one element in list
+RPOP key
+LLEN key
+```
+
+#### set
+
+```shell
+SADD key member1 [member2]
+SMEMBERS key
+SCARD key
+SINTER key1 [key2]
+SUNION key1 [key2]
+SREM key member1 [member2]
+```
+
+#### zset
+
+这里每个元素有分数，按照这个分数进行排序，分数是double类型
+
+```shell
+ZADD key score1 member1 [score2 member2]
+ZRANGE key start stop [WITHSCORES] #WITHSCORES 就是是否要返回分数
+ZINCRBY key increment member  #对member加上increment
+ZREM key member
+```
+
+#### 通用
+
+```shell
+KEYS pattern
+EXISTS key
+TYPE key
+DEL key
+```
 
