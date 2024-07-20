@@ -851,7 +851,156 @@ user和admin都有同样的类名，改RestController来区分
 
 ```
 
+### 微信小程序开发
 
+用户登录
+
+![img](https://res.wx.qq.com/wxdoc/dist/assets/img/api-login.2fcc9f35.jpg)
+
+code：0f3bKw0w3AWu933cck3w33v38t4bKw0e
+
+code2Session
+
+```
+GET https://api.weixin.qq.com/sns/jscode2session?appid=APPID&secret=SECRET&js_code=JSCODE&grant_type=authorization_code
+```
+
+Jwt拦截器在WebMvcConfiguration里添加
+
+```
+        registry.addInterceptor(jwtTokenUserInterceptor)
+                .addPathPatterns("/user/**")
+                .excludePathPatterns("/user/user/login")
+                .excludePathPatterns("/user/shop/status");
+```
+
+swagger分栏Docket里添加
+
+```
+                .groupName("管理端接口")
+```
+
+使用wx.login来获得openId，然后根据openId注册用户返回用户对象
+
+```java
+public class UserServiceImpl implements UserService {
+    @Autowired
+    private WeChatProperties weChatProperties;
+    @Autowired
+    private UserMapper userMapper;
+
+    public static final String WX_LOGIN="https://api.weixin.qq.com/sns/jscode2session?";
+    public User wxlogin(UserLoginDTO userLoginDTO){
+        String openId=getOpenId(userLoginDTO);
+        //判断是否新用户
+        if(openId==null){
+            throw new LoginFailedException(MessageConstant.LOGIN_FAILED);
+        }
+        //新用户自动注册
+        User user=userMapper.getByOpenId(openId);
+        if(user==null){
+            user=User.builder()
+                    .openid(openId)
+                    .createTime(LocalDateTime.now())
+                    .build();
+            userMapper.insert(user);
+        }
+        //返回用户对象
+        return user;
+    }
+    private String getOpenId(UserLoginDTO userLoginDTO) {
+        Map<String, String> map=new HashMap<>();
+        map.put("appid",weChatProperties.getAppid());
+        map.put("secret",weChatProperties.getSecret());
+        map.put("js_code", userLoginDTO.getCode());
+        map.put("grant_type","authorization_code");
+        String json=HttpClientUtil.doGet(WX_LOGIN,map);
+        //openid
+        JSONObject jsonObject=JSON.parseObject(json);
+        String openId=jsonObject.getString("openid");
+        return openId;
+    }
+}
+```
+
+## Day7
+
+![image-20240720134012561](/home/hychen11/.config/Typora/typora-user-images/image-20240720134012561.png)
+
+### redis缓存数据
+
+redis有就读取缓存，没有就查询数据库，载入缓存
+
+```java
+    public Result<List<DishVO>> list(Long categoryId) {
+        //generate key, in java String+Long will auto turn Long into String
+        String key="dish_"+categoryId;
+        //先查redis！
+        List<DishVO> list=(List<DishVO>)redisTemplate.opsForValue().get(key);
+        if(list!=null&&list.size()>0){
+            return Result.success(list);
+        }
+        Dish dish = new Dish();
+        dish.setCategoryId(categoryId);
+        dish.setStatus(StatusConstant.ENABLE);//查询起售中的菜品
+
+        list = dishService.listWithFlavor(dish);
+        redisTemplate.opsForValue().set(key,list);
+        return Result.success(list);
+    }
+
+```
+
+删除修改新增等都是删除redis！方便起见全删
+
+```java
+private void cleanCache(String pattern){
+    Set keys=redisTemplate.keys(pattern);
+    redisTemplate.delete(keys);
+}
+
+cleanCache("dish_*");//注意这里要有*!
+```
+
+### Spring Cache
+
+基于注解
+
+* EHCache
+* Caffeine
+* Redis
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-cache</artifactId>
+</dependency>
+```
+
+`@EnableCaching` 加在启动类上
+
+`@Cacheable` `method上`取值+放入
+
+`@CachePut` 放入
+
+`@CacheEvict`  删除
+
+```java
+//@CachePut(cacheName="userCache",key="#user.id")
+@CachePut(cacheName="userCache",key="#result.id")
+//@CachePut(cacheName="userCache",key="#p0.id")  //p0，a0，root.args[0]第一个参数，p1，a1第二个参数
+
+public User save(@RequestBody User user){
+    userMapper.insert(user);
+    return user;
+}
+//这里的存入格式是userCache::key，所以key要spring EL，这里就和下面函数的参数user保持一致！
+//这里result就表示返回值
+```
+
+cache是树型结构，userCache::1就是userCache -> Empty -> 1
+
+`a:b:c:d`就是 a->b->c->d 类似于文件结构
 
 # 反射
 

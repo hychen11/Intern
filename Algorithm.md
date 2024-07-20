@@ -2865,4 +2865,12 @@ ranges::sort(m);
 int cnt=ranges::count(s,'?');
 ```
 
-# 
+### next_permutation
+
+```c++
+vector<int> a;
+do{
+	//...
+}while(next_permutation(a.begin(),a.end()));
+```
+
