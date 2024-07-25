@@ -1,3 +1,5 @@
+https://oi-wiki.org/
+
 # Algorithm
 
 注意要&!不然占用内存!
@@ -2776,6 +2778,64 @@ public:
                 return i;
             }
         }
+    }
+};
+```
+
+# Difference Array
+
+#### 3229
+
+```c++
+class Solution {
+public:
+    long long minimumOperations(vector<int>& nums, vector<int>& target) {
+        long long s = target[0] - nums[0];
+        long long ans = abs(s);
+        for (int i = 1; i < nums.size(); i++) {
+            int k = (target[i] - target[i - 1]) - (nums[i] - nums[i - 1]);
+            if (k > 0) {
+                ans += s >= 0 ? k : max(k + s, 0LL);
+            } else {
+                ans -= s <= 0 ? k : min(k + s, 0LL);
+            }
+            s += k;
+        }
+        return ans;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/minimum-operations-to-make-array-equal-to-target/solutions/2851722/chai-fen-shu-zu-fen-lei-tao-lun-pythonja-f8lo/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+#### 1094
+
+第一种写法是，创建一个长为 1001 的差分数组，这可以保证 d 数组不会下标越界。
+第二种写法是，用平衡树（C++ 中的 map，Java 中的 TreeMap）代替差分数组，因为我们只需要考虑在 from i 和 to i 这些位置上的乘客数，其余位置的乘客是保持不变的，无需考虑。平衡树可以保证我们是从小到大遍历这些位置的。当然，如果你不想用平衡树的话，也可以用哈希表，把哈希表的 key 取出来排序，就可以从小到大遍历这些位置了。
+
+代码实现时，其实无需创建数组 a，只需要用一个变量 s 累加差分值，如果在累加过程中发现 s>capacity 就返回 false。如果没有出现这种情况，就返回 true
+
+```c++
+class Solution {
+public:
+    bool carPooling(vector<vector<int>>& trips, int capacity) {
+        map<int,int> d;
+        for(auto &t:trips){
+            int num=t[0],from=t[1],to=t[2];
+            d[from]+=num;
+            d[to]-=num;
+        }
+        int s=0;
+        for(auto &[k,v]:d){
+            s+=v;
+            if(s>capacity){
+                return false;
+            }
+        }
+        return true;
     }
 };
 ```

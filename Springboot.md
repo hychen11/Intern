@@ -1002,6 +1002,245 @@ cache是树型结构，userCache::1就是userCache -> Empty -> 1
 
 `a:b:c:d`就是 a->b->c->d 类似于文件结构
 
+批量删除，这里是函数先执行完（先删除数据库，然后再动态代理删除Cache）
+
+```java
+@CacheEvict(cacheName="userCache",allEntries=true)
+//deleteAll
+```
+
+### 购物车
+
+这里有个bug！
+
+这里setUserId和setId不一样！！！当userId为null先检查jwt拦截器，然后再检查object设置对没对
+
+```java
+shoppingCart.setUserId(userId);
+```
+
+还有一个bug就是Redis Deserialize错误，还没解决
+
+## Day8
+
+### wechat pay
+
+![image-20240721180653059](/home/hychen11/.config/Typora/typora-user-images/image-20240721180653059.png)
+
+### 用户下单
+
+一样的套路
+
+## Day9
+
+xml里的
+
+`lt` 和 `gt` 是 `less than`（小于）和 `greater than`（大于）的缩写
+
+`&gt;=#{}` , `&lt;=#{}`
+
+```xml
+   <if test="beginTime!=null">
+        and order_time &gt;= #{beginTime}
+    </if>
+    <if test="endTime!=null">
+        and order_time &lt;= #{endTime}
+    </if>
+```
+
+```java
+//订单状态 1待付款 2待接单 3已接单 4派送中 5已完成 6已取消 7退款
+```
+
+### Static
+
+`static`关键字用于表示类的成员（字段或方法）属于类本身，而不是属于类的实例
+
+静态成员（static fields and methods）
+
+1. **所属范围**：
+   - 静态成员属于类本身，可以通过类名直接访问。
+   - 非静态成员属于类的实例，必须通过实例来访问。
+2. **内存分配**：
+   - 静态成员在类加载时分配内存，只存在一个副本，所有实例共享这一副本。
+   - 非静态成员在每个实例创建时分配内存，每个实例都有自己的副本。
+3. **调用方式**：
+   - 静态方法和字段可以通过类名直接调用。
+   - 非静态方法和字段必须通过实例来调用。
+4. **访问权限**：
+   - 静态方法不能直接访问非静态字段或调用非静态方法，因为它们没有实例上下文。
+   - 非静态方法可以访问静态字段和调用静态方法。
+5. **用途**：
+   - 静态字段通常用于定义类级别的常量或共享数据。
+   - 静态方法通常用于定义不依赖于实例的功能，例如工具方法。
+
+**静态成员属于类本身，在类加载时初始化，所有实例共享。**
+
+**非静态成员属于类的实例，在实例创建时初始化，每个实例都有自己的副本。**
+
+**静态方法和字段可以通过类名直接访问，而非静态方法和字段必须通过实例访问。**
+
+```java
+        BeanUtils.copyProperties(orderDetail,shoppingCart,"id");
+        //这里属性拷贝的时候忽略id！
+        
+		//新的写法!!!!
+        // 将订单详情对象转换为购物车对象
+        List<ShoppingCart> shoppingCartList = orderDetailList.stream().map(x -> {
+            ShoppingCart shoppingCart = new ShoppingCart();
+
+            // 将原订单详情里面的菜品信息重新复制到购物车对象中
+            BeanUtils.copyProperties(x, shoppingCart, "id");
+            shoppingCart.setUserId(userId);
+            shoppingCart.setCreateTime(LocalDateTime.now());
+
+            return shoppingCart;
+        }).collect(Collectors.toList());   
+```
+
+`.map(x -> {...})`
+
+ Stream API 中的一个中间操作，用于将流中的每个元素转换为另一种形式。它接收一个函数作为参数，这个函数定义了如何转换每个元素。
+
+在这段代码中，`x -> {...}` 是一个 Lambda 表达式，它表示将流中的每个元素（这里假设每个元素是一个包含订单详细信息的对象 `x`）转换为一个字符串。
+
+## Day10
+
+### Spring Task
+
+定时任务定时处理
+
+#### cron表达式 交给gpt处理！
+
+**?**：表示不指定值（仅用于日和星期字段）
+
+*****：表示任意值
+
+**,**：表示多个值。例如，在小时字段中写`1,2,3`表示在1点、2点和3点执行
+
+**-**：表示一个范围
+
+启动类上加上`@EnableScheduling`，然后自定义定时任务类
+
+`@Scheduled(cron="0 * * * * ?")`
+
+### WebSocket 长连接
+
+http1.1长连接， 1.0短连接
+
+QQ聊天UDP，文件传输TCP
+
+`ws://localhost:8080/ws`
+
+websocket协议
+
+```java
+//ws://localhost/ws/x5ypseq3xil
+//先转发到nginx，反向代理转发到tomcat服务器
+```
+
+`nginx.conf`
+
+````shell
+ # WebSocket
+    location /ws/ {
+    proxy_pass   http://webservers/ws/;
+                proxy_http_version 1.1;
+                proxy_read_timeout 3600s;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "$connection_upgrade";
+}
+upstream webservers{
+      server 127.0.0.1:8080 weight=90 ;
+      #server 127.0.0.1:8088 weight=10 ;
+}
+````
+
+```java
+    Map map=new HashMap();
+    map.put("type",2);//1来单提醒，2客户催单
+    map.put("orderId",id);
+    map.put("content","订单号:"+ordersDB.getNumber());
+    String json=JSON.toJSONString(map);
+    webSocketServer.sendToAllClient(json);
+```
+
+使用方法就是转成JSON
+
+## Day11
+
+### Apache ECharts
+
+这里List转成String
+
+```java
+import org.apache.commons.lang3.StringUtils;
+StringUtils.join(datalist,",");
+```
+
+如何获得连续日期？
+
+```java
+while(!begin.equals(end)) {
+    begin=begin.plusDays(1);
+    datalist.add(begin);
+}
+```
+
+### Stream流
+
+```java
+List<Integer> list1;
+list1.stream().reduce(Integer::sum).get();
+//转成stream,然后reduce合并，方法是sum求和，再取值
+
+goodsSalesDTOList.stream().map(GoodsSalesDTO::getName).collect(Collectors.toList());
+```
+
+## Day12
+
+### Apache POI
+
+操作Excel文档，比如导出交易明细
+
+输出流？
+
+```
+HttpServerletResponse
+```
+
+# VUE
+
+```shell
+npm i -g @vue/cli
+#i install, -g global
+#--verbose 增加详情
+```
+
+```shell
+#package.json 
+#  "scripts": {
+#    "serve": "vue-cli-service serve",
+#    "build": "vue-cli-service build",
+#    "lint": "vue-cli-service lint"
+#  },
+npm run serve
+```
+
+```js
+//vue.config 修改端口号
+module.exports = defineConfig({
+  transpileDependencies: true,
+  devServer:{
+    port:7070
+  }
+})
+```
+
+
+
+
+
 # 反射
 
 反射（Reflection）是一种让程序能够在运行时获取有关自身的信息并操作其中的类、方法、属性等的机制。
