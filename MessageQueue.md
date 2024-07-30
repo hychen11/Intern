@@ -48,7 +48,11 @@ Message queues can be used to decouple heavyweight processing, to buffer or batc
 * 系统复杂性提高，保证消息没有被重复消费、处理消息丢失的情况、保证消息传递的顺序性等等问题
 * 万一消息的真正消费者并没有正确消费消息导致数据不一致
 
+# RPC vs MQ
 
+RPC 双向直接网络通讯，立即处理
+
+MQ 有中间载体
 
 # RabbitMQ
 
@@ -68,6 +72,27 @@ docker run \
  # -p 15672:15672 \控制台端口
  # 5672收发消息的端口
 ```
+
+```shell
+docker container ls -a
+#include closed container
+docker start #{container_name}
+docker rm #{container_name}
+```
+
+Publisher -> queue -> Consumer
+
+![](./assert/MQ1.png)
+
+这里建立好queue和exchange后要bind！
+
+### AMQP协议
+
+**交换器 (Exchange)**：消息代理服务器中用于把消息路由到队列的组件。
+
+**队列 (Queue)**：用来存储消息的数据结构，位于硬盘或内存中。
+
+**绑定 (Binding)**：一套规则，告知交换器消息应该将消息投递给哪个队列
 
 
 

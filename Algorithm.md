@@ -2840,6 +2840,50 @@ public:
 };
 ```
 
+# Sieve of Eratosthenes
+
+**质数筛预处理**
+
+```python
+MX=31622
+pi=[0]*(MX+1)
+for i in range(2,MX+1):
+    if pi[i]==0:
+        pi[i]=pi[i-1]+1
+        for j in range(i*i,MX+1,i):
+            pi[j]=-1
+    else:
+        pi[i]=pi[i-1]
+
+class Solution:
+    def nonSpecialCount(self, l: int, r: int) -> int:
+        return r-l+1-(pi[isqrt(r)]-pi[isqrt(l-1)]);
+```
+
+# Binary Exponentiation
+
+快速幂
+
+```c++
+int pow(int x,int n,int mod){
+	int res=1;
+	while(n){
+		if(n&1){
+			res=x*res%mod;
+		}
+		x=x*x % mod;
+		n>>=1;
+	}
+	return res;
+}
+```
+
+python just use
+
+```python
+pow(a,b,c)
+```
+
 # Trick
 
 ### auto dfs=[&](auto &&dfs,int i)
