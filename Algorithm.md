@@ -2759,6 +2759,14 @@ public:
 
 #### 3181
 
+bitset<100000> f{1};
+
+这里f[i] 表示第i的true/false
+
+$f[i][j]=f[i-1][j]||f[i-1][j-v]$
+
+这里f << shift >> shift就是把所有 >= v 的比特位置清0
+
 ```c++
 class Solution {
 public:
@@ -2778,6 +2786,71 @@ public:
                 return i;
             }
         }
+    }
+};
+```
+
+#### 1981
+
+$f[i][j]$ is i row, reach value j (true/false)
+
+正常dp版本
+
+```c++
+class Solution {
+public:
+    int minimizeTheDifference(vector<vector<int>>& mat, int target) {
+        int m = mat.size(), n = mat[0].size();
+        int maxsum = 0;
+        vector<int> f = {1};
+        for(int i=0;i<m;i++){
+            int best=*max_element(mat[i].begin(),mat[i].end());
+            vector<int> g(maxsum+best+1);
+            for(int x:mat[i]){
+                for(int j=x;j<=maxsum+x;j++){
+                    g[j]|=f[j-x];
+                }
+            }
+            f=move(g);
+            maxsum+=best;
+        }
+        int ans = INT_MAX;
+        for (int i = 0; i <= maxsum; ++i) {
+            if (f[i] && abs(i - target) < ans) {
+                ans = abs(i - target);
+            }
+        }
+        return ans;
+    }
+};
+```
+
+bitset版本
+
+```c++
+class Solution {
+public:
+    int minimizeTheDifference(vector<vector<int>>& mat, int target) {
+        int m = mat.size(), n = mat[0].size();
+        bitset<5000> f(0);
+        for (int i = 0; i < n; ++i) {
+            f[mat[0][i]] = 1;
+        }
+        for(int i=1;i<m;i++){
+            bitset<5000> tmp(0);
+            for(int x:mat[i]){
+                int shift=f.size()-x;
+                tmp|=f<<x;
+            }
+            f=move(tmp);
+        }
+        int ans = INT_MAX;
+        for (int i = 0; i < 4901; ++i) {
+            if (f[i]) {
+                ans = min(ans, abs(i - target));
+            }
+        }
+        return ans;
     }
 };
 ```
