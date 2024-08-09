@@ -110,6 +110,8 @@ def zero_one_knapsack(target:int, nums:List[int])->int:
 	return f[n%2][target]
 ```
 
+0-1 pack 反向遍历！不然前面的更新会影响后面！
+
 ```python
 def zero_one_knapsack(target:int, nums:List[int])->int:
     n=len(nums)
@@ -245,7 +247,49 @@ for(int j=target;;--j){
 }
 ```
 
-### 子序列DP
+### 经典线性 DP
+
+#### 最长公共子序列（LCS）
+
+子数组/子串 subarray/substring sequence 连续的
+
+子序列 subsequence 不连续的
+
+#### 1143
+
+```c++
+class Solution {
+public:
+    int longestCommonSubsequence(string s, string t) {
+        int n = s.length(), m = t.length(), f[n + 1][m + 1];
+        memset(f, 0, sizeof(f));
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < m; ++j)
+                f[i + 1][j + 1] = s[i] == t[j] ? f[i][j] + 1 :
+                                  max(f[i][j + 1], f[i + 1][j]);
+        return f[n][m];
+    }
+};
+```
+
+一维数组优化
+
+```c++
+class Solution {
+public:
+    int longestCommonSubsequence(string s, string t) {
+        int m = t.length(), f[m + 1];
+        memset(f, 0, sizeof(f));
+        for (char x : s)
+            for (int j = 0, pre = 0; j < m; ++j) {
+                int tmp = f[j + 1];
+                f[j + 1] = x == t[j] ? pre + 1 : max(f[j + 1], f[j]);
+                pre = tmp;
+            }
+        return f[m];
+    }
+};
+```
 
 - 相邻相关 LIS
 - 相邻无关 0-1背包
