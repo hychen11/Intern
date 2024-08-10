@@ -333,7 +333,7 @@ public:
 };
 ```
 
-[**1690. 石子游戏 VII**](https://leetcode.cn/problems/stone-game-vii/)
+#### [**1690. 石子游戏 VII**](https://leetcode.cn/problems/stone-game-vii/)
 
 ```cpp
 #dfs(i,j) 先手-后手
@@ -353,9 +353,14 @@ class Solution:
         return ans
 ```
 
-### 
-
 # 线段树
+
+更严格的大小是
+
+```c++
+vector<int> mx;
+mx.resize(4<<__lg(n));
+```
 
 #### 307
 
@@ -652,6 +657,72 @@ class RangeModule:
 # obj.addRange(left,right)
 # param_2 = obj.queryRange(left,right)
 # obj.removeRange(left,right)
+```
+
+#### 2940
+
+```c++
+class Solution {
+    vector<int> mx;
+
+    // 用 heights 初始化线段树，维护区间最大值
+    void build(int o, int l, int r, vector<int>& heights) {
+        if (l == r) {
+            mx[o] = heights[l];
+            return;
+        }
+        int m = (l + r) / 2;
+        build(o * 2, l, m, heights);
+        build(o * 2 + 1, m + 1, r, heights);
+        mx[o] = max(mx[o * 2], mx[o * 2 + 1]);
+    }
+
+    // 返回 [L,n-1] 中第一个 > v 的值的下标
+    // 如果不存在，返回 -1
+    int query(int o, int l, int r, int L, int v) {
+        if (mx[o] <= v) { // 区间最大值 <= v
+            return -1; // 没有 > v 的数
+        }
+        if (l == r) { // 找到了
+            return l;
+        }
+        int m = (l + r) / 2;
+        if (L <= m) {
+            int pos = query(o * 2, l, m, L, v); // 递归左子树
+            if (pos >= 0) { // 找到了
+                return pos;
+            }
+        }
+        return query(o * 2 + 1, m + 1, r, L, v); // 递归右子树
+    }
+
+public:
+    vector<int> leftmostBuildingQueries(vector<int>& heights, vector<vector<int>>& queries) {
+        int n = heights.size();
+        mx.resize(4 << __lg(n));
+        build(1, 0, n - 1, heights);
+
+        vector<int> ans;
+        for (auto& q : queries) {
+            int a = q[0], b = q[1];
+            if (a > b) {
+                swap(a, b); // 保证 a <= b
+            }
+            if (a == b || heights[a] < heights[b]) {
+                ans.push_back(b); // a 直接跳到 b
+            } else {
+                // 线段树二分，找 [b+1,n-1] 中的第一个 > heights[a] 的位置
+                ans.push_back(query(1, 0, n - 1, b + 1, heights[a]));
+            }
+        }
+        return ans;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/find-building-where-alice-and-bob-can-meet/solutions/2533058/chi-xian-zui-xiao-dui-pythonjavacgo-by-e-9ewj/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
 
 # Lazy线段树
