@@ -294,7 +294,84 @@ public:
 - 相邻相关 LIS
 - 相邻无关 0-1背包
 
-LIS 
+#### 最长递增子序列（LIS）
+
+**IS, Increasing Subsequence**
+
+**LIS, Longest Increasing Subsequence**
+
+```c++
+dfs(i)=max{dfs(j)}+1   //j<i && nums[j]<nums[i]
+f[i]=max{f[j]}+1   //j<i && nums[j]<nums[i]
+```
+
+#### 300
+
+```python
+class Solution:
+    def lengthOfLIS(self, nums: List[int]) -> int:
+        n=len(nums)
+		@cache
+        def dfs(i):
+            res=0
+            for j in range(i):
+                if nums[j]<nums[i]:
+                    res=max(res,dfs(j))
+            return res+1
+
+        # ans=0
+        # for i in range(n):
+        #     ans=max(ans,dfs(i))
+        # return ans
+
+        return max(dfs(i) for i in range(n))
+```
+
+**进阶技巧：交换状态与状态值**
+
+```python
+class Solution:
+    def lengthOfLIS(self, nums: List[int]) -> int:
+        g=[]
+        for x in nums:
+            j=bisect_left(g,x)
+            if j==len(g):
+                g.append(x)
+            else:
+                g[j]=x
+        return len(g)
+```
+
+这里g是严格递增的，而且每次要么添加一个数，或者修改一个数
+
+**g[i] 表示长度为i+1的IS的末尾元素的最小值**
+
+**复杂度 O(nlogn) 太牛逼啦！**
+
+如果是非严格递增
+
+修改>nums[i]的第一个g[j]
+
+```python
+bisect_left -> bisect_right
+```
+
+#### 2826
+
+```python
+class Solution:
+    def minimumOperations(self, nums: List[int]) -> int:
+        g=[]
+        for x in nums:
+            j=bisect_right(g,x)
+            if j==len(g):
+                g.append(x)
+            else:
+                g[j]=x
+        return len(nums)-len(g)
+```
+
+
 
 dfs(i) 表示以nums[i] 结尾的LIS长度
 
@@ -309,6 +386,107 @@ p<i
 nums[p]≠nums[i], dfs(p,j-1)+1
 
 nums[p]==nums[i], dfs(p,j)+1 
+
+### 状态机DP
+
+**不限交易次数**
+
+![](./lc_assert/StateMachineDP.png)
+
+#### 122
+
+```python
+class Solution:
+    def maxProfit(self, prices: List[int]) -> int:
+        #attension! only 1 stock can be hold at one time!
+        #dfs(i,0) mean ith day dont have stock 
+        #1 mean ith day have stock
+        @cache
+        def dfs(i:int,hold:int)->int:
+            if i<0:
+                return -inf if hold else 0
+            if hold:
+                return max(dfs(i-1,True),dfs(i-1,False)-prices[i])
+            return max(dfs(i-1,False),dfs(i-1,True)+prices[i])
+
+        n=len(prices)
+        return dfs(n-1,False)
+```
+
+翻译成递推
+
+```c++
+class Solution {
+public:
+    int maxProfit(vector<int>& prices) {
+        int n = prices.size(), f[n + 1][2];
+        memset(f, 0, sizeof(f));
+        f[0][1] = INT_MIN;
+        for (int i = 0; i < n; i++) {
+            f[i + 1][0] = max(f[i][0], f[i][1] + prices[i]);
+            f[i + 1][1] = max(f[i][1], f[i][0] - prices[i]);
+        }
+        return f[n][0];
+    }
+};
+```
+
+空间优化
+
+```c++
+class Solution {
+public:
+    int maxProfit(vector<int>& prices) {
+        int n = prices.size();
+        //  f[n + 1][2];
+        // memset(f, 0, sizeof(f));
+        // f[0][1] = INT_MIN;
+        int f0=0;
+        int f1=INT_MIN;
+
+        for (auto p:prices) {
+            int new_f0=max(f0,f1+p);
+            f1=max(f1,f0-p);
+            f0=new_f0;
+        }
+        return f0;
+    }
+};
+```
+
+#### 309
+
+卖出股票后，你无法在第二天买入股票 (即冷冻期为 1 天)
+
+和前面的区别就是
+
+```python
+dfs(i,1)=max(dfs(i-1,1),dfs(i-2,0)-prices[i])  #变成-2,间隔一天
+```
+
+```c++
+class Solution {
+public:
+    int maxProfit(vector<int>& prices) {
+        int n = prices.size(), f[n + 2][2];
+        memset(f, 0, sizeof(f));
+        f[1][1] = INT_MIN;
+        for (int i = 0; i < n; i++) {
+            f[i + 2][0] = max(f[i+1][0], f[i+1][1] + prices[i]);
+            f[i + 2][1] = max(f[i+1][1], f[i][0] - prices[i]);
+        }
+        return f[n+1][0];
+    }
+};
+```
+
+限制交易次数
+
+#### 188
+
+![](./lc_assert/188.png)
+
+
 
 # Binary Search
 
