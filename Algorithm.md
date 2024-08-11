@@ -486,6 +486,53 @@ public:
 
 ![](./lc_assert/188.png)
 
+```python
+class Solution:
+    def maxProfit(self, k: int, prices: List[int]) -> int:
+        n=len(prices)
+        @cache
+        def dfs(i,j,hold):
+            if j<0 :
+                return -inf
+            if i<0:
+                return -inf if hold else 0
+            if hold:
+                return max(dfs(i-1,j,True),dfs(i-1,j,False)-prices[i])
+            return max(dfs(i-1,j,False),dfs(i-1,j-1,True)+prices[i])
+        return dfs(n-1,k,False)
+```
+
+这里一定要先判断j，也就是交易次数
+
+### 前缀和DP
+
+Week410 Q4
+
+```c++
+class Solution {
+public:
+    int countOfPairs(vector<int>& nums) {
+        const int MOD = 1'000'000'007;
+        int n = nums.size();
+        int m = ranges::max(nums);
+        vector<vector<long long>> f(n, vector<long long>(m + 1));
+        //s is used to store prefix sum!
+        vector<long long> s(m + 1);
+
+        fill(f[0].begin(), f[0].begin() + nums[0] + 1, 1);
+        for (int i = 1; i < n; i++) {
+            partial_sum(f[i - 1].begin(), f[i - 1].end(), s.begin()); 
+            for (int j = 0; j <= nums[i]; j++) {
+                int max_k = j + min(nums[i - 1] - nums[i], 0);
+                f[i][j] = max_k >= 0 ? s[max_k] % MOD : 0;
+            }
+        }
+
+        return reduce(f[n - 1].begin(), f[n - 1].begin() + nums[n - 1] + 1, 0LL) % MOD;
+    }
+};
+```
+
 
 
 # Binary Search
@@ -3342,5 +3389,13 @@ vector<int> a;
 do{
 	//...
 }while(next_permutation(a.begin(),a.end()));
+```
+
+### Prefix Sum
+
+```c++
+#include<numeric>
+partial_sum(a.begin(),a.end(),s.begin());
+//place prefix sum of a into s!
 ```
 
