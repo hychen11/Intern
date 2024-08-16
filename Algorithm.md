@@ -296,6 +296,19 @@ public:
 
 #### 最长递增子序列（LIS）
 
+枚举选哪个
+贪心+二分
+计算 a和把 a排序后的数组 sortedA 的最长公共子序列。
+数据结构优化（见 2407 题）
+
+#### 线段树优化 DP
+
+线段树（或者 树状数组） 并不是只能用来计算一个区域的总和，还能做很多事情，只要是满足修改某区域的值，就会影响某区域的结果，这样就能用线段树（或者 树状数组）
+
+#### 2407
+
+
+
 **IS, Increasing Subsequence**
 
 **LIS, Longest Increasing Subsequence**
@@ -531,6 +544,75 @@ public:
         return reduce(f[n - 1].begin(), f[n - 1].begin() + nums[n - 1] + 1, 0LL) % MOD;
     }
 };
+```
+
+### 区间DP
+
+#### 516
+
+回文子序列
+
+```c++
+dfs(i,i)=1
+dfs(i+1,i)=0
+
+if(s[i]==s[j])
+	dfs(i,j)= dfs(i+1,j-1)+2 
+else 
+	dfs(i,j)=max(dfs(i+1,j),dfs(i,j-1)) 
+```
+
+$n^2$的状态，每个状态O(1)时间，时间复杂度O(n^2)
+
+递推： f[i+1]转移到f[i]，所以要i倒序枚举，j正序枚举
+
+```python
+    f=[[0]*n for _ in range(n)]
+    for i in range(n-1,-1,-1):
+        f[i][i]=1
+        for j in range(i+1,n):
+            if s[i]==s[j]:
+                f[i][j]=f[i+1][j-1]+2
+            else:
+                f[i][j]=max(f[i][j-1],f[i+1][j])
+    return f[0][n-1]
+```
+
+#### 1039
+
+多边形
+
+```python
+#dfs(i,j)表示i到j区间的多边形的最低得分
+dfs(i,j)= min(dfs(iclass Solution:
+    def minScoreTriangulation(self, values: List[int]) -> int:
+        n=len(values)
+        @cache
+        def dfs(i:int,j:int):
+            if j==i+1:
+                return 0
+            return min(dfs(i,k)+dfs(k,j)+values[i]*values[j]*values[k] for k in range(i+1,j))
+        
+        return dfs(0,n-1),k)+dfs(k,j)+v[i]*v[j]*v[k] for k in range(i+1,j))
+```
+
+$n^2$的状态，每个状态O(n)时间，时间复杂度O(n^3)
+
+翻译成递推
+
+```python
+class Solution:
+    def minScoreTriangulation(self, values: List[int]) -> int:
+        n=len(values)
+        f= [[0]*n for _ in range(n)]
+        for i in range(n-3,-1,-1):
+            for j in range(i+2,n):
+                res=inf
+                for k in range(i+1,j):
+                    res=min(res,f[i][k]+f[k][j]+values[i]*values[j]*values[k])
+                f[i][j]=res
+
+        return f[0][n-1]
 ```
 
 
@@ -1531,8 +1613,6 @@ class Solution:
                 f[i]=min(f[j] for j in range(i+1,2*i+2))+prices[i-1]
         return f[1]
 ```
-
-# 单调队列优化
 
 滑动窗口 
 
@@ -2865,6 +2945,34 @@ class Solution:
                     ans=min(ans,i-left+1)
         return ans if ans<inf else -1
 ```
+
+# logTrick
+
+#### 3209
+
+https://leetcode.cn/problems/number-of-subarrays-with-and-value-of-k/solutions/2833497/jian-ji-xie-fa-o1-kong-jian-pythonjavacg-u7fv/
+
+子数组的AND
+
+O(n^2)的暴力算法
+
+从左到右正向遍历 nums，对于 x=nums[i]，从 i−1 开始倒着遍历 nums[j]，更新 nums[j]=nums[j]&x
+
+* i=1 时，我们会把 nums[0] 到 nums[1] 的 AND 记录在 nums[0] 中。
+* i=2 时，我们会把 nums[1] 到 nums[2] 的 AND 记录在 nums[1] 中，nums[0] 到 nums[2] 的 AND 记录在 nums[0] 中。
+* i=3 时，我们会把 nums[2] 到 nums[3] 的 AND 记录在 nums[2] 中；nums[1] 到 nums[3] 的 AND 记录在 nums[1] 中；nums[0] 到 nums[3] 的 AND 记录在 nums[0] 中。
+* 按照该算法，可以计算出所有子数组的 AND。注意单个元素也算子数组。
+
+把二进制数看成集合，两个数的 AND 就是两个集合的**交集**
+
+对于两个二进制数 *a* 和 *b*，如果 *a*&*b*=*a*，从集合的角度上看，*a* 对应的集合是 *b* 对应的集合的子集。或者说，*b* 对应的集合是 *a* 对应的集合的**超集**
+
+仍然是从左到右正向遍历 nums，对于 x=nums[i]，从 i−1 开始倒着遍历 nums[j]：
+
+* 如果 nums[j]&x!=nums[j]，说明 nums[j] 可以变小（求交集后，集合元素只会减少不会变多），更新 nums[j]=nums[j]&x。
+* 否则 nums[j]&x=nums[j]，从集合的角度看，此时 x 不仅是 nums[j] 的超集，同时也是 nums[k] (k<j) 的超集（因为前面的循环保证了每个集合都是其左侧相邻集合的超集），在 A⊆B 的前提下，A∩B=A，所以后续的循环都不会改变元素值，退出内层循环
+
+LogTrick去重复杂度O(nlogU) U is max(value)值域
 
 #### 400 T4
 
