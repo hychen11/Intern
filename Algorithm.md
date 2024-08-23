@@ -307,8 +307,6 @@ public:
 
 #### 2407
 
-
-
 **IS, Increasing Subsequence**
 
 **LIS, Longest Increasing Subsequence**
@@ -614,6 +612,104 @@ class Solution:
 
         return f[0][n-1]
 ```
+
+### 树形DP
+
+#### 543
+
+```python
+ans=0
+def dfs(node):
+  if node is None:
+    return -1
+  l_len=dfs(node.left)
+  r_len=dfs(node.right)
+  nonlocal ans
+  ans=max(ans,l_len+r_len+2)
+  return max(l_len,r_len)+1
+dfs(root)
+```
+
+#### 124
+
+```python
+ans=-inf
+def dfs(node):
+  if node is None:
+    return 0
+  l_val=dfs(node.left)
+  r_val=dfs(node.right)
+  nonlocal ans
+  ans=max(ans,l_val+r_val+node.val)
+  return max(max(l_val,r_val)+node.val,0)
+dfs(root)
+```
+
+#### 2246
+
+1:遍历x子树，存列表，排序，取最大两个
+
+2:遍历时取最长+次长
+
+```python
+  n=len(parent)
+  g=[[] for _ in range(n)]
+  for i in range(1,n):
+    g[parent[i]].append(i)
+  ans=0
+  def dfs(x,fa):
+    nonlocal ans
+    x_len=0
+    for y in g[x]:
+      if y==fa: continue
+      y_len=dfs(y,x)+1
+      if s[y]!=s[x]:
+        ans=max(ans,x_len+y_len)
+        x_len=max(x_len,y_len)
+  return x_len
+dfs(0,-1)
+return ans+1
+```
+
+#### 337
+
+```python
+def dfs(node):
+  if node is None:
+    return 0,0
+  l_rob,l_not_rob=dfs(node.left)
+  r_rob,r_not_rob=dfs(node.right)
+  rob=l_not_rob+r_not_rob+node.val
+  not_rob=max(l_rob,l_not_rob)+max(r_rob,r_not_rob)
+  return rob,not_rob
+return max(dfs(root))
+```
+
+没有上司的舞会
+
+选=($\Sigma$ 不选子节点)+当前节点值
+
+不选=$\Sigma$ max(选子节点,不选子节点)
+
+#### 968
+
+```python
+def dfs(node):
+  if node is None:
+    return inf,0,0
+  l_choose,l_by_fa,l_by_children=dfs(node.left)
+  r_choose,r_by_fa,r_by_children=dfs(node.right)
+  choose=min(l_choose,l_by_fa,l_by_children)+min(r_choose,r_by_fa,r_by_children)+1
+  by_fa=min(l_choose,l_by_children)+min(r_choose,r_by_children)
+  by_children=min(l_choose+r_by_children,r_choose+l_by_children,l_choose+r_choose)
+  return choose,by_fa,by_children
+choose,_,by_children=dfs(root)
+return min(choose,by_children)
+```
+
+cost[x]
+
+`choose=min(l_choose,l_by_fa,l_by_children)+min(r_choose,r_by_fa,r_by_children)+cost[node]`
 
 
 
