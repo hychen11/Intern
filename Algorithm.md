@@ -1665,6 +1665,57 @@ bit operation
 
 一条路径不能出现两个及以上的奇数
 
+# 单调栈
+
+#### 739
+
+从后往前
+
+```python
+n=len(temperatures)
+ans=[0]*n
+st=[]
+for i in range(n-1,-1,-1):
+  t=temperatures[i]
+  while st and t >=temperatures[st[-1]]:
+    st.pop()
+  if st:
+  	ans[i]=st[-1]-i
+  st.append(i)
+return ans
+```
+
+```python
+n=len(temperatures)
+ans=[0]*n
+st=[]
+for i,t in enumerate(temperatures):
+  while st and t>temperatures[st[-1]]:
+    j=st.pop()
+    ans[i]=i-j
+  st.append(i)
+return ans
+```
+
+#### 42
+
+```python
+ans=0
+st=[]
+for i,h in enumerate(height):
+  while st and h>=height[st[-1]]:
+  	bottom_h=height[st.pop()]
+    if len(st)==0:
+      break
+    left=st[-1]
+    dh=min(height[left],h)-bottom_h
+    ans+=dh*(i-left-1)
+  st.append(i)
+return ans
+```
+
+
+
 # 单调队列优化
 
 W373 Q3
@@ -1710,7 +1761,32 @@ class Solution:
         return f[1]
 ```
 
-滑动窗口 
+# 滑动窗口 
+
+#### 239
+
+deque存下标！
+
+```python
+ans=[]
+q=deque()
+for i,x in enumerate(nums):   #x=nums[i]
+	#入
+  while q and nums[q[-1]]<=x:
+    q.pop()
+  q.append(i)
+  #出
+  if i-q[0]+1>k:
+    q.popleft()
+  #记录答案
+ 	if i>=k-1:
+    ans.append(nums[q[0]])
+return ans
+```
+
+U=len(set(nums))
+
+O(min(k,U))
 
 向左滑动，右侧滑出窗口pop，左侧滑入窗口，若比队列顶小，先单调队列pop掉，然后push进这个小的，就可以实现
 
