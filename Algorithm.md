@@ -3679,3 +3679,78 @@ partial_sum(a.begin(),a.end(),s.begin());
 //place prefix sum of a into s!
 ```
 
+# multiset
+
+python里的SortedList
+
+```python
+from sortedcontainers import SortedList
+
+# 创建一个 SortedList
+sl = SortedList([10, 5, 20, 15])
+
+# 打印元素（已经自动排序）
+print(sl)  # Output: SortedList([5, 10, 15, 20])
+
+# 插入元素
+sl.add(12)
+print(sl)  # Output: SortedList([5, 10, 12, 15, 20])
+
+# 删除元素
+sl.remove(10)
+print(sl)  # Output: SortedList([5, 12, 15, 20])
+
+# 查找元素索引
+index = sl.index(15)
+print(index)  # Output: 2
+
+# 检查元素是否在列表中
+exists = 15 in sl
+print(exists)  # Output: True
+
+# 获取最小和最大值
+min_value = sl[0]
+max_value = sl[-1]
+print(min_value, max_value)  # Output: 5 20
+
+# 迭代元素
+for value in sl:
+    print(value, end=' ')  # Output: 5 12 15 20
+
+from sortedcontainers import SortedList
+
+# 创建一个 SortedList
+sl = SortedList([1, 3, 4, 7, 9])
+
+# 查找元素 5 的插入位置
+index = sl.bisect_left(5)
+print(f"The index to insert 5 is: {index}")  # Output: The index to insert 5 is: 3
+
+# 插入元素 5
+sl.add(5)
+print(f"SortedList after inserting 5: {sl}")  # Output: SortedList after inserting 5: SortedList([1, 3, 4, 5, 7, 9])
+
+# 查找元素 7 的插入位置
+index = sl.bisect_left(7)
+print(f"The index to insert 7 is: {index}")  # Output: The index to insert 7 is: 4
+```
+
+**O(log n)** 的插入和删除时间复杂度
+
+```c++
+multiset<int> ms;
+ms.insert(a);
+for (int elem : ms) {
+    std::cout << elem << " ";  
+}
+auto it = ms.find(10);
+//it != ms.end()
+int count = ms.count(10);
+ms.erase(10);
+auto range = ms.equal_range(10);  // 获取 10 的范围
+ms.erase(range.first);  // 删除范围的第一个元素
+
+auto lb = ms.lower_bound(2);
+//lb != ms.end()
+```
+

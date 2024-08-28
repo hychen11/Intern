@@ -50,6 +50,13 @@ cnt2=dict()
 
 from collections import Counter
 c=Counter(grid)
+c.values()
+c.keys()
+c.items()
+for item in c.items():
+    key = item[0]  # 获取键
+    value = item[1]  # 获取值
+    print(f'Key: {key}, Value: {value}')
 
 import heapq
 heap=[]
