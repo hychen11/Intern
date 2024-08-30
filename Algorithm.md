@@ -3754,3 +3754,5 @@ auto lb = ms.lower_bound(2);
 //lb != ms.end()
 ```
 
+`defaultdict(int)` is faster than `Counter()`
+
