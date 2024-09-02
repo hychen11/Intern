@@ -8,8 +8,6 @@ pre_sum = list(accumulate(pos, initial=0))
 print(pre_sum)
 ```
 
-
-
 # DataStructure
 
 `defaultdict` 在访问一个不存在的键时，不会引发 `KeyError` 异常，而是会使用一个默认的工厂函数生成该键对应的默认值。这个工厂函数在创建 `defaultdict` 时指定。
@@ -59,9 +57,12 @@ for item in c.items():
     print(f'Key: {key}, Value: {value}')
 
 import heapq
-heap=[]
-heapq.heappush(heap,num);
-heapq.heappop(heap);
+h=[]
+# default is min heap!
+heapq.heappush(h,num);
+heapq.heappop(h);
+#if want max heap, we can use heapq.heappush(h,-num)!
+#top element is h[0]!
 ```
 
 # Bisect

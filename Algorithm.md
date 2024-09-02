@@ -3784,6 +3784,7 @@ auto lb = ms.lower_bound(2);
 //lb != ms.end()
 ```
 
+<<<<<<< HEAD
 # Python heapify
 
 ```python
@@ -3803,4 +3804,7 @@ heapreplace(heap, item)
 ```
 
 
+=======
+`defaultdict(int)` is faster than `Counter()`
+>>>>>>> a1db74a09ab1cc0b63609b7263ac052746722ed3
 
