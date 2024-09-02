@@ -213,6 +213,35 @@ mvn spring-boot:run
 
 Spring MVC中，`@RequestBody`注解用于将HTTP请求的正文（body）映射到方法参数上。它通常用于处理POST、PUT等方法的请求正文，并将JSON或XML等格式的数据反序列化为Java对象
 
+# front
+
+in `nginx.conf`
+
+```
+location / {
+    root /home/hychen11/Desktop/sky-take-out-front/nginx-1.20.2/html/sky;
+    index index.html;
+}
+```
+
+
+
+```shell
+sudo cp /conf/nginx.conf /etc/nginx/sites-available/my_nginx.conf
+sudo ln -s /etc/nginx/sites-available/my_nginx.conf /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo chown -R www-data:www-data /home/hychen11/Desktop/sky-take-out-front/nginx-1.20.2/html
+sudo chmod -R 755 /home/hychen11/Desktop/sky-take-out-front/nginx-1.20.2/html
+sudo chmod +x /home/hychen11
+sudo chmod +x /home/hychen11/Desktop
+sudo chmod +x /home/hychen11/Desktop/sky-take-out-front
+sudo chmod +x /home/hychen11/Desktop/sky-take-out-front/nginx-1.20.2
+sudo chmod +x /home/hychen11/Desktop/sky-take-out-front/nginx-1.20.2/html
+#Nginx需要有权限访问路径中的每一个目录。确保所有上级目录都有执行权限（x），允许Nginx进入这些目录。
+```
+
+
+
 # Sky
 
 ## Day1

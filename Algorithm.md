@@ -3577,6 +3577,36 @@ python just use
 pow(a,b,c)
 ```
 
+# 枚举右，维护左
+
+#### 1 两数之和
+
+ai+aj=t, i<j
+
+```python
+for _,x in enumerate(num):
+	ans+=cnt[t-x]  #枚举右
+	cnt[x]+=1  #维护左
+```
+
+
+
+
+
+# Heap
+
+#### 3266
+
+```c++
+vector<int> h(n);
+ranges::max()
+    
+ranges::make_heap(h,greater<>());
+h.back();
+ranges::pop_heap(h,greater<>());
+ranges::push_heap(h,greater<>());
+```
+
 # Trick
 
 ### auto dfs=[&](auto &&dfs,int i)
@@ -3753,4 +3783,24 @@ ms.erase(range.first);  // 删除范围的第一个元素
 auto lb = ms.lower_bound(2);
 //lb != ms.end()
 ```
+
+# Python heapify
+
+```python
+h= [(x,i) for i,x in enumerate(nums)]
+heapify(h)
+```
+
+```python
+import heapq
+heapq.heapify(nums)
+heapq.heappush(nums, 2)
+smallest = heapq.heappop(nums)
+#原子操作，比先调用 heappush() 再调用 heappop() 更高效
+smallest = heapq.heappushpop(nums, 4)
+#弹出并返回最小的元素，然后将 item 推入堆中。
+heapreplace(heap, item)
+```
+
+
 
