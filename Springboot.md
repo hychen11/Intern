@@ -250,7 +250,7 @@ sudo chmod +x /home/hychen11/Desktop/sky-take-out-front/nginx-1.20.2/html
 
 登录成功后，生成jwt令牌，在application.yaml里创建然后注入程序生成token
 
-**JWT令牌主要用于身份验证和授权**
+**JWT令牌主要用于身份验证和授权**git pull origin main --no-rebase
 
 ```yaml
 sky:
