@@ -1,3 +1,107 @@
+# free delete
+
+malloc free (heap)
+
+new delete (heap)
+
+when u delete a pointer, then pointer still point to the same address, but the the content of this address is released! null pointer
+
+become a wild pointer
+
+so we need to 
+
+```c++
+delete ptr;
+ptr=nullptr;//To avoid dangling pointer issues, assign NULL after freeing
+```
+
+# 设计模式
+
+## Singleton Pattern
+
+确保一个类只有一个实例，并提供对该实例的全局访问点
+
+避免多个实例引发的问题，确保全局状态或共享资源（例如日志系统、数据库连接等）的唯一性
+
+**私有构造函数**：防止外部类直接实例化该类。
+
+**静态方法**：提供获取唯一实例的方法。
+
+**私有静态变量**：存储该类的唯一实例。
+
+懒加载（Lazy Initialization），即当第一次调用时才创建对象
+
+```java
+public class Singleton {
+    // Private static instance variable
+    private static Singleton instance;
+
+    // Private constructor to prevent instantiation
+    private Singleton() {
+        // Initialization code
+    }
+
+    // Public static method to provide access to the instance
+    public static Singleton getInstance() {
+        if (instance == null) {
+            // Create the instance if it doesn't exist
+            instance = new Singleton();
+        }
+        return instance;
+    }
+
+    // Example method
+    public void showMessage() {
+        System.out.println("Message from the Singleton instance!");
+    }
+}
+
+// Usage in the main class
+public class Main {
+    public static void main(String[] args) {
+        // Get the Singleton instance
+        Singleton singleton = Singleton.getInstance();
+
+        // Call the method on the instance
+        singleton.showMessage();
+    }
+}
+```
+
+```c++
+class A{
+public: 
+    static A *getInstance(){
+        static A instance;// static global variable is lazy initialization! only create one instance!
+        return &instance;
+    }
+private:
+    A(){}
+    ~A(){}
+    
+}
+```
+
+on heap need manual release
+
+双检查->
+
+![](./assert/single.png)
+
+
+
+## 策略模式
+
+## 责任模式
+
+## 组合模式
+
+## 观察者模式
+
+## 模板方法
+
+
+
 # virtual
 
 **有 `virtual` 关键字**：方法调用是基于对象的动态类型（即**实际对象的类型**），在运行时决定调用哪个方法。这种机制称为动态绑定（runtime binding）或后期绑定（late binding）

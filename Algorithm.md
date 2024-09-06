@@ -711,6 +711,39 @@ cost[x]
 
 `choose=min(l_choose,l_by_fa,l_by_children)+min(r_choose,r_by_fa,r_by_children)+cost[node]`
 
+# DP BW 132 Q4
+
+```python
+"""
+f[x][j] means end with value x, j different
+
+not choose f[x][j]
+choose nums[p]!=nums[i], f[x][j]=f[y][j-1]+1   and we need to enumeration y!
+choose nums[p]==nums[i], f[x][j]=f[x][j]+1 
+
+f[x][j]=max(f[x][j]+1,max(f[y][j-1] for y in set)+1)
+mx[j] means the max(f[y][j] for y in set)
+
+f[x][j]=max(f[x][j]+1,mx[j-1]+1)
+
+"""
+
+class Solution:
+    def maximumLength(self, nums: List[int], k: int) -> int:
+        fs={}
+        mx=[0]*(k+1)
+        for x in nums:
+            if x not in fs:
+                fs[x]=[0]*(k+1)
+            f=fs[x]
+            for j in range(k,-1,-1):
+                f[j]+=1
+                if j>0:
+                    f[j]=max(f[j],mx[j-1]+1)
+                mx[j]=max(mx[j],f[j])
+        return mx[-1]
+```
+
 
 
 # Binary Search
