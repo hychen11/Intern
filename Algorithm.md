@@ -748,6 +748,56 @@ class Solution:
 
 # Binary Search
 
+**开区间写法**
+
+以开区间二分为例：
+
+求最小：check(mid) == true 时更新 right = mid，反之更新 left = mid，最后返回 right。
+求最大：check(mid) == true 时更新 left = mid，反之更新 right = mid，最后返回 left。
+对于开区间写法，简单来说 check(mid) == true 时更新的是谁，最后就返回谁。相比其他二分写法，开区间写法不需要思考加一减一等细节，个人推荐使用开区间写二分
+
+```c++
+l=-1,r=len(nums)
+while(l+1<r){
+    int m=(l+r)/2;
+    if(check(m)){
+        l=m;
+    }ekse{
+        r=m;
+    }
+}
+return l;
+```
+
+**左闭右开**
+
+```c++
+while(l<r){
+    int m=(r+l)/2;
+    if(check(m)){
+        l=m;
+    }else{
+        r=m;
+    }
+}
+return l;//l or r are both ok!
+```
+
+
+
+```c++
+while(l<r){
+	int m=(r+l+1)/2;
+	if(check(m)){
+		l=m;
+	}else{
+		r=m-1;
+	}
+}
+```
+
+
+
 [0,n)
 
 because mid is floor(r+l)/2, so we can only use l=mid+1,r=mid!!
@@ -3817,7 +3867,27 @@ auto lb = ms.lower_bound(2);
 //lb != ms.end()
 ```
 
-<<<<<<< HEAD
+## Binary & int
+
+```python
+a=date.split('-')
+for i in range(len(a)):
+	x=int(a[i])
+	a[i]=bin(x)[2:]
+return '-'.join(a)
+#bin(x)  is 0b1001 such format!
+```
+
+```c++
+auto bin = [](int x) -> string {
+    string s = bitset<32>(x).to_string();
+    return s.substr(s.find('1'));
+};
+//bitset<32>(x) is turn x into binary!
+//s.substr(s.find('1')); remove the previous 0
+//to_string()  stoi()
+```
+
 # Python heapify
 
 ```python
@@ -3837,7 +3907,11 @@ heapreplace(heap, item)
 ```
 
 
-=======
 `defaultdict(int)` is faster than `Counter()`
->>>>>>> a1db74a09ab1cc0b63609b7263ac052746722ed3
+
+
+
+# Week414 Q4
+
+n=15 考虑状压dp！
 

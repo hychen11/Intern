@@ -162,6 +162,7 @@ sudo systemctl start mysql
 sudo systemctl enable mysql
 sudo systemctl restart mysql
 sudo systemctl stop mysql
+ALTER USER 'root'@'localhost'  IDENTIFIED WITH caching_sha2_password BY 'chy3190102984X@'
 ```
 
 ### Redis
