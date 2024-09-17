@@ -249,6 +249,8 @@ for(int j=target;;--j){
 
 ### 经典线性 DP
 
+#### LIS等价于排序去重后的LCS
+
 #### 最长公共子序列（LCS）
 
 子数组/子串 subarray/substring sequence 连续的
@@ -297,19 +299,22 @@ public:
 #### 最长递增子序列（LIS）
 
 枚举选哪个
+
 贪心+二分
+
 计算 a和把 a排序后的数组 sortedA 的最长公共子序列。
+
 数据结构优化（见 2407 题）
 
 #### 线段树优化 DP
 
-线段树（或者 树状数组） 并不是只能用来计算一个区域的总和，还能做很多事情，只要是满足修改某区域的值，就会影响某区域的结果，这样就能用线段树（或者 树状数组）
+线段树（或者 树状数组） 并不是只能用来计算一个区域的总和，还能做很多事情，只要是满足修改某区域的值就会影响某区域的结果，这样就能用线段树（或者 树状数组）
 
 #### 2407
 
-**IS, Increasing Subsequence**
+### **IS, Increasing Subsequence**
 
-**LIS, Longest Increasing Subsequence**
+### **LIS, Longest Increasing Subsequence**
 
 ```c++
 dfs(i)=max{dfs(j)}+1   //j<i && nums[j]<nums[i]
@@ -397,6 +402,41 @@ p<i
 nums[p]≠nums[i], dfs(p,j-1)+1
 
 nums[p]==nums[i], dfs(p,j)+1 
+
+### LIS（二维）
+
+对于 x 相同的点，要按照 **y 从大到小排序**。这可以保证在计算 LIS 时，对于相同的 x，我们至多选一个 y
+
+#### 3288
+
+```c++
+class Solution {
+public:
+    int maxPathLength(vector<vector<int>>& c, int k) {
+        int kx=c[k][0],ky=c[k][1];
+        //sort(c.begin(),c.end(),[](vector<int> &a,vector<int> &b){if(a[0]==b[0]) return a[1]>b[1]; return a[0]<b[0];});
+         ranges::sort(coordinates, [](const auto& a, const auto& b) {
+            return a[0] < b[0] || a[0] == b[0] && a[1] > b[1];
+        });
+
+        vector<int> g;
+        for(auto &p:c){
+            int x=p[0],y=p[1];
+            if(x<kx&&y<ky||x>kx&&y>ky){
+                auto it=ranges::lower_bound(g,y);
+                if(it!=g.end()){
+                    *it=y;
+                }else{
+                    g.push_back(y);
+                }
+            }
+        }
+        return g.size()+1;
+    }
+};
+```
+
+
 
 ### 状态机DP
 
@@ -2834,6 +2874,8 @@ __builtin_ctz(0b00000001) 会返回 0，因为最低位就是1，没有0在它�
 
 # String Hash
 
+**PRIME use 131 or 13331**
+
 #### 1044
 
 in case of hash conflict, we need to use unsigned long long! it will automatic cut down to 64 bit
@@ -3400,6 +3442,47 @@ queue<Node*> q,distance=0
     distance++
 ```
 
+# BFS->queue+unordered_set
+
+#### 1210
+
+```c++
+class Solution {
+    static constexpr int DIRS[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+public:
+    int minimumMoves(vector<vector<int>> &g) {
+        int n = g.size();
+        bool vis[n][n][2]; memset(vis, 0, sizeof(vis));
+        vis[0][0][0] = true;
+        vector<tuple<int, int, int>> q = {{0, 0, 0}}; // 初始位置
+        for (int step = 1; !q.empty(); ++step) {
+            vector<tuple<int, int, int>> nxt;
+            for (const auto &[X, Y, S] : q) {
+                for (const auto &d : DIRS) {
+                    int x = X + d[0], y = Y + d[1], s = S ^ d[2];
+                    int x2 = x + s, y2 = y + (s ^ 1); // 蛇头
+                    if (x2 < n && y2 < n && !vis[x][y][s] &&
+                        g[x][y] == 0 && g[x2][y2] == 0 && (d[2] == 0 || g[x + 1][y + 1] == 0)) {
+                        if (x == n - 1 && y == n - 2) return step; // 此时蛇头一定在 (n-1,n-1)
+                        vis[x][y][s] = true;
+                        nxt.emplace_back(x, y, s);
+                    }
+                }
+            }
+            q = move(nxt);
+        }
+        return -1;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/minimum-moves-to-reach-target-with-rotations/solutions/2093126/huan-zai-if-elseyi-ge-xun-huan-chu-li-li-tw8b/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+
+
 # Bitset
 
 #### 2166
@@ -3671,10 +3754,6 @@ for _,x in enumerate(num):
 	ans+=cnt[t-x]  #枚举右
 	cnt[x]+=1  #维护左
 ```
-
-
-
-
 
 # Heap
 
