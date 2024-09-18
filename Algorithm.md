@@ -2990,6 +2990,57 @@ public:
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
 
+#### 3292 (2600)
+
+```c++
+class Solution:
+    def minValidStrings(self, words: List[str], target: str) -> int:
+        n = len(target)
+
+        # 多项式字符串哈希（方便计算子串哈希值）
+        # 哈希函数 hash(s) = s[0] * BASE^(n-1) + s[1] * BASE^(n-2) + ... + s[n-2] * BASE + s[n-1]
+        MOD = 1_070_777_777
+        BASE = randint(8 * 10 ** 8, 9 * 10 ** 8)  # 随机 BASE，防止 hack
+        pow_base = [1] + [0] * n  # pow_base[i] = BASE^i
+        pre_hash = [0] * (n + 1)  # 前缀哈希值 pre_hash[i] = hash(s[:i])
+        for i, b in enumerate(target):
+            pow_base[i + 1] = pow_base[i] * BASE % MOD
+            pre_hash[i + 1] = (pre_hash[i] * BASE + ord(b)) % MOD  # 秦九韶算法计算多项式哈希
+
+        # 计算子串 target[l:r] 的哈希值，注意这是左闭右开区间 [l,r)
+        # 计算方法类似前缀和
+        def sub_hash(l: int, r: int) -> int:
+            return (pre_hash[r] - pre_hash[l] * pow_base[r - l]) % MOD
+
+        # 保存每个 words[i] 的每个前缀的哈希值，按照长度分组
+        max_len = max(map(len, words))
+        sets = [set() for _ in range(max_len)]
+        for w in words:
+            h = 0
+            for j, b in enumerate(w):
+                h = (h * BASE + ord(b)) % MOD
+                sets[j].add(h)  # 注意 j 从 0 开始
+
+        ans = 0
+        cur_r = 0  # 已建造的桥的右端点
+        nxt_r = 0  # 下一座桥的右端点的最大值
+        for i in range(n):
+            check = lambda sz: sub_hash(i, i + sz + 1) not in sets[sz]
+            sz = bisect_left(range(min(n - i, max_len)), True, key=check)
+            nxt_r = max(nxt_r, i + sz)
+            if i == cur_r:  # 到达已建造的桥的右端点
+                if i == nxt_r:  # 无论怎么造桥，都无法从 i 到 i+1
+                    return -1
+                cur_r = nxt_r  # 建造下一座桥
+                ans += 1
+        return ans
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/minimum-number-of-valid-strings-to-form-target-ii/solutions/2917929/ac-zi-dong-ji-pythonjavacgo-by-endlessch-hcqk/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
 # 后缀数组
 
 Golang 自带`suffixarray.New()`
@@ -3769,9 +3820,120 @@ ranges::pop_heap(h,greater<>());
 ranges::push_heap(h,greater<>());
 ```
 
+# Trie Tree
+
+#### 3291 week415 Q3
+
+避免内存超，可以用vector<array<int,26>> 来存！
+
+```c++
+class Solution {
+    using A = array<int, 26>;
+    static constexpr A A0{};
+    vector<A> tr;
+    void insert(const string &word) {
+        int pos = 0;
+        for (char c : word) {
+            c -= 'a';
+            if (tr[pos][c] == 0) {
+                tr[pos][c] = tr.size();
+                tr.push_back(A0);
+            }    
+            pos = tr[pos][c];
+        }
+    }
+public:
+    int minValidStrings(vector<string>& words, string target) {
+        tr.resize(1);
+        for (auto & i : words) {
+            insert(i);
+        }
+        
+        int len = target.size();
+        vector<int> dp(len + 1, 10000000);
+        dp[0] = 0;
+        int c, p;
+        for (int i = 0; i < len; i++) {
+            p = 0;
+            for (int j = i; j < len; j++) {
+                c = target[j] - 'a';
+                if (tr[p][c] == 0) {
+                    break;
+                }
+                p = tr[p][c];
+                dp[j + 1] = min(dp[j + 1], dp[i] + 1);
+            }
+        }
+        return dp.back() > 10000 ? -1 : dp.back();
+    }
+};
+```
+
+```python
+class Node:
+    __slots__ = ['child'] 
+    def __init__(self):
+        self.child = defaultdict(Node)
+
+class Trie:
+    def __init__(self):
+        self.root = Node()
+
+    def insert(self, s: str):
+        node = self.root
+        for ch in s:
+            node = node.child[ch]
+
+    def search(self, target: str, i: int):
+        ans = []
+        node = self.root
+        for k in range(i, len(target)):
+            if target[k] in node.child:
+                node = node.child[target[k]]
+                ans.append(k + 1)
+            else:
+                break
+        return ans
+
+class Solution:
+    def minValidStrings(self, words, target):
+        trie = Trie()
+        for word in words:
+            trie.insert(word)
+        
+        n = len(target)
+        dp = [float('inf')] * (n + 1)
+        dp[0] = 0
+        
+        for i in range(n):
+            if dp[i] == float('inf'):
+                continue
+            ends = trie.search(target, i)
+            for end in ends:
+                dp[end] = min(dp[end], dp[i] + 1)
+        
+        return dp[n] if dp[n] != float('inf') else -1
+```
+
+
+
 # Trick
 
-### auto dfs=[&](auto &&dfs,int i)
+### long long
+
+```c++
+vector<array<long long, 4>> memo(n);
+for (auto& row : memo) {
+    ranges::fill(row, LLONG_MIN); 
+}
+
+LLONG_MAX,LLONG_MIN
+return (long long)a*b;
+```
+
+
+
+### `auto dfs=[&](auto &&dfs,int i)`
 
 ```cpp
 auto dfs = [&](auto&& dfs, int i) -> long long {
@@ -3987,6 +4149,17 @@ heapreplace(heap, item)
 
 
 `defaultdict(int)` is faster than `Counter()`
+
+### Out Of Memory
+
+```python
+@cache
+def dfs():
+
+res=dfs()
+dfs.cache_clear()
+return res
+```
 
 
 
