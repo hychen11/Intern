@@ -1,3 +1,58 @@
+# OJ
+
+```
+2
+a b
+b c
+2.0 3.0
+5
+a c
+b a
+a e
+a a
+x x
+```
+
+```python
+import sys
+from collections import defaultdict, deque
+
+# 读取输入
+input = sys.stdin.read
+data = input().splitlines()
+
+# 读取 equations 和 values
+n = int(data[0])  # 第一行是 equations 的数量
+equations = []
+values = []
+
+for i in range(n):
+    equations.append(data[i + 1].split())
+    
+values = list(map(float, data[n + 1].split()))
+
+# 读取 queries
+m = int(data[n + 2])  # equations 部分之后是 queries 的数量
+queries = []
+for i in range(m):
+    queries.append(data[n + 3 + i].split())
+
+print(equations)
+print(values)
+print(queries)
+
+```
+
+```python
+import sys
+input = sys.stdin.read
+print = sys.stdout.write
+
+data = input().splitlines()
+
+split(";",n) #分割n次
+```
+
 # Prefix
 
 ```python
@@ -257,6 +312,8 @@ myTuple = ("John", "Peter", "Vicky")
 x = "#".join(myTuple)
 print(x)
 #connect myTuple with '#'
+
+"".join(array)
 ```
 
 # **Chain Comparison**
@@ -327,7 +384,7 @@ prime_list = [x for x in range(2, n) if is_prime(x)]
 
 # **IO operation**
 
-```
+```python
 # Reading the entire file
 with open('example.txt', 'r') as file:
     content = file.read()
