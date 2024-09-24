@@ -1,5 +1,21 @@
 # OJ
 
+#### 2306
+
+```python
+from itertools import combinations
+
+a=defaultdict(int)
+groups=defaultdict(set)
+for s in ideas:
+  	groups[s[0]].add(s[1:])
+ans=0
+for a,b in combinations(groups.values(),2):
+  	m=len(a&b)
+    ans+=(len(a)-m)*(len(b)-m)
+return ans*2
+```
+
 ```
 2
 a b
@@ -52,6 +68,50 @@ data = input().splitlines()
 
 split(";",n) #分割n次
 ```
+
+#### 399
+
+```python
+class Solution:
+    def calcEquation(self, equations: List[List[str]], values: List[float], queries: List[List[str]]) -> List[float]:
+        graph={}
+        for (s,e),v in zip(equations,values):
+            if s not in graph:
+                graph[s]={}
+            graph[s][e]=v
+            if e not in graph:
+                graph[e]={}
+            graph[e][s]=1/v
+            graph[e][e]=1.0
+            graph[s][s]=1.0
+
+        queue=[]
+        n=len(queries)
+        ans=[-1.0]*n
+        for i,(qx,qy) in enumerate(queries):
+            if qx not in graph or qy not in graph:
+                continue
+            queue=[[qx,1.0]]
+            visited=set([qx])
+            while queue:
+                node,mul=queue.pop(0)
+                for neighbor,weight in graph[node].items():
+                    if neighbor==qy:
+                        ans[i]=mul*weight
+                        break
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append([neighbor,mul*weight])
+        return ans
+```
+
+```python
+text = "   hello world   "
+result = text.strip() #remove space before and after string!
+print(result)  # 'hello world'
+```
+
+
 
 # Prefix
 
