@@ -27,7 +27,23 @@ Memory management is automatic with the help of the garbage collector. Developer
 
 boolean
 
-Integer
+Int
+
+byte
+
+char
+
+double
+
+float
+
+int
+
+long
+
+short
+
+null
 
 ```java
 String myString;
@@ -36,9 +52,15 @@ myString.length();
 myString.charAt(index);
 ```
 
+#### Final
+
+`final` 含义是这是最终的、不可更改的结果，被 `final` 修饰的变量只能被赋值一次，赋值后不再改变。
+
 #### String
 
-`==` compare the same object! rather than value!
+String is Object! is not datatype!!
+
+`==` compare the **same object!** rather than value!
 
 `str1.equals(str2)`
 
@@ -78,12 +100,76 @@ public class StringComparison {
 
 ```
 
+#### Scanner
 
+```java
+import java.util.Scanner;
 
-### Data Structures
+Scanner scan=new Scanner(System.in);
+int a=scan.nextInt();
+String c=scan.nextLine();
+```
+
+### BufferReader
+
+```java
+BufferedReader reader = new BufferedReader(new FileReader("input.txt"));
+String line;
+while ((line = reader.readLine()) != null) {
+    System.out.println(line);
+}
+reader.close();
+```
+
+### Lambda
+
+```java
+// 1. 不需要参数，返回值为 5
+() -> 5
+
+// 2. 接收一个参数（数字类型），返回其 2 倍的值
+x -> 2 * x
+
+// 3. 接受 2 个参数（数字）并返回他们的差值
+(x, y) -> x – y
+
+// 4. 接收 2 个 int 类型整数并返回他们的和
+(int x, int y) -> x + y
+
+// 5. 接受一个 String 对象并在控制台打印，不返回任何值（看起来像是返回 void）
+(String s) -> System.out.print(s)
+```
+
+### Data Structures & Collection
+
+`import java.math.BigInteger;`
 
 ```java
 import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.LinkedList;
+
+static void add() {
+    array.add(1);  // 时间复杂度为 O(1) 
+    linked.add(1);  // 时间复杂度为 O(1) 
+}
+
+static void get() {
+    array.get(10);  // 时间复杂度为 O(1) 
+    linked.get(10);  // 时间复杂度为 O(11) 
+}
+
+static void addIdx() {
+    array.add(0, 2);  // 最坏情况下时间复杂度为 O(n)
+    linked.add(0, 2);  // 最坏情况下时间复杂度为 O(n)
+}
+
+static void size() {
+    array.size();  // 时间复杂度为 O(1)
+    linked.size();  // 时间复杂度为 O(1)
+}
+
 
 public class test {
     public static void main(String[] args) throws Exception {
@@ -97,6 +183,7 @@ public class test {
         for(String c:arrayList){
             //...
         }
+      
         // LinkedList
         LinkedList<String> linkedList = new LinkedList<>();
         linkedList.add("London");
@@ -136,8 +223,41 @@ public class test {
         Queue<Integer> queue = new LinkedList<>();
         queue.add(5);
         queue.add(15);
+    
+    		Set<Integer> s1=new HashSet<>();
+        Set<Integer> s2 = new LinkedHashSet<>();//保持插入顺序的 Set。
+      	TreeSet<Integer> s1=new TreeSet<>();
+      	TreeSet<Integer> s4 = new TreeSet<>((x, y) -> {return y - x;});  // 降序 
     }
 
+  	static Set<Integer> s1 = new HashSet<>();
+    static Set<Integer> s2 = new LinkedHashSet<>();
+
+    static void add() {
+        s1.add(1);
+    }
+
+    static void contains() {  // 判断 set 中是否有元素值为 2，有则返回 true，否则返回 false 
+        s1.contains(2);
+    }
+
+    static void test1() {  // s1 与 s2 的并集 
+        Set<Integer> res = new HashSet<>();
+        res.addAll(s1);
+        res.addAll(s2);
+    }
+
+    static void test2() {  // s1 与 s2 的交集 
+        Set<Integer> res = new HashSet<>();
+        res.addAll(s1);
+        res.retainAll(s2);
+    }
+
+    static void test3() {  // 差集：s1 - s2 
+        Set<Integer> res = new HashSet<>();
+        res.addAll(s1);
+        res.removeAll(s2);
+    }
 }
 ```
 
