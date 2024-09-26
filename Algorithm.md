@@ -1,5 +1,26 @@
 https://oi-wiki.org/
 
+# OJ
+
+```c++
+while(std::getline(cin,line)){
+  cout<<line<<endl;
+}
+#include <string>
+std::stoi(str); //string to int
+
+#include <functional>
+function<int(int)> dfs=[&](int i)->int{
+  	//...
+};
+//or just 
+auto dfs=[&](auto &&dfs,int i)->int{
+  //...
+};
+```
+
+
+
 # Algorithm
 
 注意要&!不然占用内存!
