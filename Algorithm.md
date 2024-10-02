@@ -101,6 +101,20 @@ line=input()
 input_string=line.replace(";",",").split(","); #split ","
 a=list(map(int,input_string))
 ''.join(a)
+               
+m1 = [[] for _ in range(n)] 
+for u, v, w in edges:
+    m1[u].append((v, w))
+    m1[v].append((u, w))               
+               
+m1 = defaultdict(list)
+for i in edges:
+    m1[i[0]].append((i[1], i[2]))
+    m1[i[1]].append((i[0], i[2]))
+
+inf = float('inf')     
+               
+return min([dfs(i) for i in m[node]])
 ```
 
 
