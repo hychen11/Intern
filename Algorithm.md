@@ -4137,9 +4137,13 @@ class Solution:
 
 # Trick
 
-### long long
+### LLONG_MAX,LLONG_MIN
 
 ```c++
+#include<climits>
+using ll = long long;
+ll a=1e14;//1e15 may out range!
+
 vector<array<long long, 4>> memo(n);
 for (auto& row : memo) {
     ranges::fill(row, LLONG_MIN); 
@@ -4148,8 +4152,6 @@ for (auto& row : memo) {
 LLONG_MAX,LLONG_MIN
 return (long long)a*b;
 ```
-
-
 
 ### `auto dfs=[&](auto &&dfs,int i)`
 
