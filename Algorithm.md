@@ -1,5 +1,124 @@
 https://oi-wiki.org/
 
+# OJ
+
+```c++
+while(std::getline(cin,line)){
+  cout<<line<<endl;
+}
+#include <string>
+std::stoi(str); //string to int
+
+#include <functional>
+function<int(int)> dfs=[&](int i)->int{
+  	//...
+};
+//or just 
+auto dfs=[&](auto &&dfs,int i)->int{
+  //...
+};
+```
+
+Readin c++
+
+`stoi`是stirng to int
+
+`atoi`是char to int
+
+```c++
+#include<bits/stdc++.h>
+#include<iostream>
+#include<sstream>
+using namespace std;
+
+cin>>n;
+cin.ignore();//忽略换行符
+for(int i=0;i<n;i++){
+  string line;
+  getline(cin,line);
+  int tmp=stoi(line);//string to int
+  istringstream iss(line);//or directly trun to int 
+  int neighbor;
+  while(iss>>neighbor){
+     cout<<neighbor<<endl;
+  }
+}
+```
+
+```c++
+  int n;
+  cin >> n;
+  cin.ignore(); 
+
+  vector<vector<int>> graph(n);
+  string line;
+
+  // 读取图的邻接表表示
+  for (int i = 0; i < n; i++) {
+      getline(cin, line);
+      istringstream iss(line);
+      int neighbor;
+      while (iss >> neighbor) {
+          graph[i].push_back(neighbor);
+      }
+  }
+```
+
+Readin python
+
+`input()` 函数每次调用时会读取一行输入，并将输入内容作为字符串返回
+
+```python
+from functools import cache
+from collections import deque,Counter,defaultdict
+import heapq
+import itertools
+import math
+import bisect
+
+a=[1,2,3]
+permutations=list(itertools.permutation(a))
+list(itertools.combinations(a, 2)) #2个数的组合
+
+gcd=math.gcd(12,15)
+factorial=math.factorial(5) #5!
+sqrt_value=math.sqrt()
+
+arr = [1, 2, 4, 5]
+bisect.insort(arr, 3)
+index = bisect.bisect(arr, 4)
+bisect.bisect_left(arr, 3, lo=0, hi=len(a))
+bisect.bisect_right(arr, 3, lo=0, hi=len(a))
+
+n=int(input())
+graph=[]
+for i in range(n):
+  line=input().split() #split space!
+  graph.append(list(map(int,line))
+               
+#if there are different split way
+line=input()               
+input_string=line.replace(";",",").split(","); #split ","
+a=list(map(int,input_string))
+''.join(a)
+               
+m1 = [[] for _ in range(n)] 
+for u, v, w in edges:
+    m1[u].append((v, w))
+    m1[v].append((u, w))               
+               
+m1 = defaultdict(list)
+for i in edges:
+    m1[i[0]].append((i[1], i[2]))
+    m1[i[1]].append((i[0], i[2]))
+
+inf = float('inf')     
+               
+return min([dfs(i) for i in m[node]])
+```
+
+
+
 # Algorithm
 
 注意要&!不然占用内存!
@@ -880,6 +999,105 @@ class Solution:
 ```
 
 # 线段树
+
+### 线段树二分
+
+```c++
+class BookMyShow {
+    int n, m;
+    vector<int> mn;
+    vector<int long> sum;
+
+    // 把下标 i 上的元素值增加 val
+    void update(int o, int l, int r, int i, int val) {
+        if (l == r) {
+            mn[o] += val;
+            sum[o] += val;
+            return;
+        }
+        int m = (l + r) / 2;
+        if (i <= m) {
+            update(o * 2, l, m, i, val);
+        } else {
+            update(o * 2 + 1, m + 1, r, i, val);
+        }
+        mn[o] = min(mn[o * 2], mn[o * 2 + 1]);
+        sum[o] = sum[o * 2] + sum[o * 2 + 1];
+    }
+
+    // 返回区间 [L,R] 内的元素和
+    long long querySum(int o, int l, int r, int L, int R) {
+        if (L <= l && r <= R) {
+            return sum[o];
+        }
+        long long res = 0;
+        int m = (l + r) / 2;
+        if (L <= m) {
+            res = querySum(o * 2, l, m, L, R);
+        }
+        if (R > m) {
+            res += querySum(o * 2 + 1, m + 1, r, L, R);
+        }
+        return res;
+    }
+
+    // 返回区间 [0,R] 中 <= val 的最靠左的位置，不存在时返回 -1
+    int findFirst(int o, int l, int r, int R, int val) {
+        if (mn[o] > val) {
+            return -1; // 整个区间的元素值都大于 val
+        }
+        if (l == r) {
+            return l;
+        }
+        int m = (l + r) / 2;
+        if (mn[o * 2] <= val) {
+            return findFirst(o * 2, l, m, R, val);
+        }
+        if (R > m) {
+            return findFirst(o * 2 + 1, m + 1, r, R, val);
+        }
+        return -1;
+    }
+
+public:
+    BookMyShow(int n, int m) : n(n), m(m), mn(2 << (__lg(n) + 1)), sum(2 << (__lg(n) + 1)) {}
+
+    vector<int> gather(int k, int maxRow) {
+        // 找第一个能倒入 k 升水的水桶
+        int r = findFirst(1, 0, n - 1, maxRow, m - k);
+        if (r < 0) { // 没有这样的水桶
+            return {};
+        }
+        int c = querySum(1, 0, n - 1, r, r);
+        update(1, 0, n - 1, r, k); // 倒水
+        return {r, c};
+    }
+
+    bool scatter(int k, int maxRow) {
+        // [0,maxRow] 的接水量之和
+        long long s = querySum(1, 0, n - 1, 0, maxRow);
+        if (s > (long long) m * (maxRow + 1) - k) {
+            return false; // 水桶已经装了太多的水
+        }
+        // 从第一个没有装满的水桶开始
+        int i = findFirst(1, 0, n - 1, maxRow, m - 1);
+        while (k) {
+            int left = min(m - (int) querySum(1, 0, n - 1, i, i), k);
+            update(1, 0, n - 1, i, left); // 倒水
+            k -= left;
+            i++;
+        }
+        return true;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/booking-concert-tickets-in-groups/solutions/1523876/by-endlesscheng-okcu/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+
 
 更严格的大小是
 
@@ -3919,9 +4137,13 @@ class Solution:
 
 # Trick
 
-### long long
+### LLONG_MAX,LLONG_MIN
 
 ```c++
+#include<climits>
+using ll = long long;
+ll a=1e14;//1e15 may out range!
+
 vector<array<long long, 4>> memo(n);
 for (auto& row : memo) {
     ranges::fill(row, LLONG_MIN); 
@@ -3930,8 +4152,6 @@ for (auto& row : memo) {
 LLONG_MAX,LLONG_MIN
 return (long long)a*b;
 ```
-
-
 
 ### `auto dfs=[&](auto &&dfs,int i)`
 

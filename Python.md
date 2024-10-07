@@ -1,3 +1,118 @@
+# OJ
+
+#### 2306
+
+```python
+from itertools import combinations
+
+a=defaultdict(int)
+groups=defaultdict(set)
+for s in ideas:
+  	groups[s[0]].add(s[1:])
+ans=0
+for a,b in combinations(groups.values(),2):
+  	m=len(a&b)
+    ans+=(len(a)-m)*(len(b)-m)
+return ans*2
+```
+
+```
+2
+a b
+b c
+2.0 3.0
+5
+a c
+b a
+a e
+a a
+x x
+```
+
+```python
+import sys
+from collections import defaultdict, deque
+
+# 读取输入
+input = sys.stdin.read
+data = input().splitlines()
+
+# 读取 equations 和 values
+n = int(data[0])  # 第一行是 equations 的数量
+equations = []
+values = []
+
+for i in range(n):
+    equations.append(data[i + 1].split())
+    
+values = list(map(float, data[n + 1].split()))
+
+# 读取 queries
+m = int(data[n + 2])  # equations 部分之后是 queries 的数量
+queries = []
+for i in range(m):
+    queries.append(data[n + 3 + i].split())
+
+print(equations)
+print(values)
+print(queries)
+
+```
+
+```python
+import sys
+input = sys.stdin.read
+print = sys.stdout.write
+
+data = input().splitlines()
+
+split(";",n) #分割n次
+```
+
+#### 399
+
+```python
+class Solution:
+    def calcEquation(self, equations: List[List[str]], values: List[float], queries: List[List[str]]) -> List[float]:
+        graph={}
+        for (s,e),v in zip(equations,values):
+            if s not in graph:
+                graph[s]={}
+            graph[s][e]=v
+            if e not in graph:
+                graph[e]={}
+            graph[e][s]=1/v
+            graph[e][e]=1.0
+            graph[s][s]=1.0
+
+        queue=[]
+        n=len(queries)
+        ans=[-1.0]*n
+        for i,(qx,qy) in enumerate(queries):
+            if qx not in graph or qy not in graph:
+                continue
+            queue=[[qx,1.0]]
+            visited=set([qx])
+            while queue:
+                node,mul=queue.pop(0)
+                for neighbor,weight in graph[node].items():
+                    if neighbor==qy:
+                        ans[i]=mul*weight
+                        break
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append([neighbor,mul*weight])
+        return ans
+```
+
+```python
+text = "   hello world   "
+result = text.strip() #remove space before and after string!
+print(result)  # 'hello world'
+```
+
+
+
 # Prefix
 
 ```python
@@ -257,6 +372,8 @@ myTuple = ("John", "Peter", "Vicky")
 x = "#".join(myTuple)
 print(x)
 #connect myTuple with '#'
+
+"".join(array)
 ```
 
 # **Chain Comparison**
@@ -327,7 +444,7 @@ prime_list = [x for x in range(2, n) if is_prime(x)]
 
 # **IO operation**
 
-```
+```python
 # Reading the entire file
 with open('example.txt', 'r') as file:
     content = file.read()
