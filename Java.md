@@ -444,11 +444,7 @@ public class JDBCDemo {
 }
 ```
 
-# Mybatis
 
-先封装SQL，接着调用JDBC操作数据库，最后把数据库返回的表结果封装成Java类。
-
-![image.png](https://cdn.nlark.com/yuque/0/2021/png/250654/1617635030060-035d7ee6-b901-4e3f-9797-5397c7453508.png?x-oss-process=image%2Fformat%2Cwebp)
 
 # SSM
 
@@ -458,4 +454,101 @@ public class JDBCDemo {
 
 **MyBatis**：一个持久层框架，用于简化与数据库的交互。相比于 Hibernate 等 ORM 框架，MyBatis 提供了更细粒度的 SQL 操作控制，开发者可以编写自己的 SQL 语句。
 
-# SpringMVC
+## Sping
+
+![](./assert/Java_Spring_1.png)
+
+### IOC/DI
+
+
+
+### MyBatis
+
+### AOP
+
+### Transaction
+
+
+
+## SpringMVC
+
+## Maven
+
+## SpringBoot
+
+## MaBatisPlus
+
+先封装SQL，接着调用JDBC操作数据库，最后把数据库返回的表结果封装成Java类。
+
+![image.png](https://cdn.nlark.com/yuque/0/2021/png/250654/1617635030060-035d7ee6-b901-4e3f-9797-5397c7453508.png?x-oss-process=image%2Fformat%2Cwebp)
+
+# JUC
+
+Concurrency: 统一时间处理多个任务
+
+Parallelism：多个任务统一时间执行（在不同核心上运行）
+
+#### Override Run()
+
+( bad extension! since one class can only extend one class! so it only extends Thread and cannot extend other thread!
+
+```java
+package org.example;
+
+public class Mythread extends Thread {
+    @Override
+    public void run(){
+        for(int i=0;i<100;i++){
+            System.out.println(getName()+"hello");
+        }
+    }
+}
+```
+
+#### Override Runnable()
+
+不能直接获得thread类中的方法
+
+```java
+package org.example;
+
+public class MyRun implements Runnable {
+    @Override
+    public void run() {
+        for(int i=0;i<100;i++) {
+            Thread t = Thread.currentThread(); 
+            System.out.println(t.getName() + "myrun");
+        }
+    }
+}
+```
+
+```java
+MyRun mr=new MyRun();
+Thread t1=new Thread(mr);
+Thread t2=new Thread(mr);
+
+t1.setName("1");
+t1.setName("2");
+
+t1.start();
+t2.start();
+```
+
+#### Override Callable() -> can get Result!
+
+```java
+import java.util.concurrent.Callable;
+
+public class MyCallable implements Callable<Integer> {
+    @Override
+    public Integer call() throws Exception{
+        int sum=0;
+        for(int i=1;i<100;i++){
+            sum+=i;
+        }
+        return sum;
+    }
+}
+```
+
