@@ -2743,6 +2743,7 @@ Q4
 求前缀和T2602
 
 ```python
+from itertools import accumulate
 pre=list(accumulate(nums,initial=0))# this is prefix sum!
 ```
 
@@ -4381,9 +4382,59 @@ dfs.cache_clear()
 return res
 ```
 
+#### set
+
+```python
+class Solution:
+    def remainingMethods(self, n: int, k: int, invocations: List[List[int]]) -> List[int]:
+        g=[[] for _ in range(n)]
+        for x,y in invocations:
+            g[x].append(y)
+        
+        suspicious=set()
+        def dfs(x:int)->None:
+            suspicious.add(x)
+            for y in g[x]:
+                if y not in suspicious:
+                    dfs(y)
+        dfs(k)
+        for x,y in invocations:
+            if x not in suspicious and y in suspicious:
+                return list(range(n))
+        return list(set(range(n))-suspicious)
+```
+
 
 
 # Week414 Q4
 
 n=15 考虑状压dp！
+
+# Booth's Algorithm
+
+```python
+def solution(dna_sequence):
+    def booth(s):
+        """Booth's Algorithm to find the lexicographically smallest rotation."""
+        s = s + s  # Create a string that represents all rotations
+        n = len(s) // 2
+        f = [-1] * len(s)  # Failure function
+        k = 0  # Least rotation of string found so far
+        for j in range(1, len(s)):
+            i = f[j - k - 1]
+            while i != -1 and s[k + i + 1] != s[j]:
+                if s[j] < s[k + i + 1]:
+                    k = j - i - 1
+                i = f[i]
+            if s[k + i + 1] != s[j]:  # mismatch after i matches
+                if s[j] < s[k]:
+                    k = j
+                f[j - k] = -1
+            else:
+                f[j - k] = i + 1
+        return k
+
+    min_rotation_start = booth(dna_sequence)
+    return dna_sequence[min_rotation_start:] + dna_sequence[:min_rotation_start]
+```
 

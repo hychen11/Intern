@@ -1,3 +1,11 @@
+brute_force
+
+recursion
+
+Memoized search
+
+
+
 # free delete
 
 malloc free (heap)
