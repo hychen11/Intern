@@ -23,6 +23,8 @@ nextInt()
 
 Memory management is automatic with the help of the garbage collector. Developers use `new` for object instantiation, but memory deallocation is handled automatically.
 
+`Arrays.asList(couponEntity)`用于将数组或单个对象转成 `List` 类型的集合
+
 ### Datatypes
 
 boolean
