@@ -3609,6 +3609,47 @@ class Solution:
 
 # Dijkstra算法
 
+#### W422 Q3
+
+```c++
+class Solution {
+    static constexpr int dirs[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+public:
+    int minTimeToReach(vector<vector<int>>& moveTime) {
+        int n = moveTime.size(), m = moveTime[0].size();
+        vector<vector<int>> dis(n, vector<int>(m, INT_MAX));
+        dis[0][0] = 0;
+        priority_queue<tuple<int, int, int>, vector<tuple<int, int, int>>, greater<>> pq;
+        pq.emplace(0, 0, 0);
+        for (;;) {
+            auto [d, i, j] = pq.top();
+            pq.pop();
+            if (i == n - 1 && j == m - 1) {
+                return d;
+            }
+            if (d > dis[i][j]) {
+                continue;
+            }
+            for (auto& q : dirs) {
+                int x = i + q[0], y = j + q[1];
+                if (0 <= x && x < n && 0 <= y && y < m) {
+                    int new_dis = max(d, moveTime[x][y]) + (i + j) % 2 + 1;
+                    if (new_dis < dis[x][y]) {
+                        dis[x][y] = new_dis;
+                        pq.emplace(new_dis, x, y);
+                    }
+                }
+            }
+        }
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/find-minimum-time-to-reach-last-room-ii/solutions/2975554/dijkstra-zui-duan-lu-pythonjavacgo-by-en-alms/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
 #### 2642
 
 ```cpp
@@ -4436,5 +4477,230 @@ def solution(dna_sequence):
 
     min_rotation_start = booth(dna_sequence)
     return dna_sequence[min_rotation_start:] + dna_sequence[:min_rotation_start]
+```
+
+# modular multiplicative inverse
+
+```c++
+const int MOD = 1'000'000'007;
+const int MX = 41;
+
+long long F[MX]; // F[i] = i!
+long long INV_F[MX]; // INV_F[i] = i!^-1
+
+long long pow(long long x, int n) {
+    long long res = 1;
+    for (; n; n /= 2) {
+        if (n % 2) {
+            res = res * x % MOD;
+        }
+        x = x * x % MOD;
+    }
+    return res;
+}
+
+auto init = [] {
+    F[0] = 1;
+    for (int i = 1; i < MX; i++) {
+        F[i] = F[i - 1] * i % MOD;
+    }
+    INV_F[MX - 1] = pow(F[MX - 1], MOD - 2);
+    for (int i = MX - 1; i; i--) {
+        INV_F[i - 1] = INV_F[i] * i % MOD;
+    }
+    return 0;
+}();
+
+class Solution {
+public:
+    int countBalancedPermutations(string num) {
+        int cnt[10];
+        int total = 0;
+        for (char c : num) {
+            cnt[c - '0']++;
+            total += c - '0';
+        }
+
+        if (total % 2) {
+            return 0;
+        }
+
+        // 原地求前缀和
+        partial_sum(cnt, cnt + 10, cnt);
+
+        int n = num.size(), n1 = n / 2;
+        vector<vector<vector<int>>> memo(10, vector(n1 + 1, vector<int>(total / 2 + 1, -1))); // -1 表示没有计算过
+        auto dfs = [&](auto& dfs, int i, int left1, int left_s) -> int {
+            if (i < 0) {
+                return left_s == 0;
+            }
+            int& res = memo[i][left1][left_s]; // 注意这里是引用
+            if (res != -1) { // 之前计算过
+                return res;
+            }
+            res = 0;
+            int c = cnt[i] - (i ? cnt[i - 1] : 0);
+            int left2 = cnt[i] - left1;
+            for (int k = max(c - left2, 0); k <= min(c, left1) && k * i <= left_s; k++) {
+                int r = dfs(dfs, i - 1, left1 - k, left_s - k * i);
+                res = (res + r * INV_F[k] % MOD * INV_F[c - k]) % MOD;
+            }
+            return res;
+        };
+        return F[n1] * F[n - n1] % MOD * dfs(dfs, 9, n1, total / 2) % MOD;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/count-number-of-balanced-permutations/solutions/2975507/duo-zhong-ji-pai-lie-shu-ji-shu-dppython-42ky/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+https://leetcode.cn/circle/discuss/mDfnkW/
+
+# MOD
+
+congruence modulo
+
+负数取模注意！
+
+`(a+MOD)%MOD`
+
+```c++
+MOD = 1_000_000_007
+
+// 加
+(a + b) % MOD
+
+// 减 
+(a - b + MOD) % MOD
+
+// 把任意整数 a 取模到 [0,MOD-1] 中，无论 a 是正是负
+(a % MOD + MOD) % MOD
+
+// 乘（注意使用 64 位整数）
+a * b % MOD
+
+// 多个数相乘，要步步取模，防止溢出
+a * b % MOD * c % MOD
+
+// 除（MOD 是质数且 b 不是 MOD 的倍数）
+a * qpow(b, MOD - 2, MOD) % MOD
+
+//Quick Power 
+def qpow(base, exp, mod):
+  result = 1
+  base %= mod
+  while exp > 0:
+      if exp % 2 == 1:  # 如果当前位是1
+          result = (result * base) % mod
+      base = (base * base) % mod  # 平方
+      exp //= 2  # 移动到下一位
+  return result
+```
+
+```python
+a*pow(b,MOD-2,MOD)%MOD
+a*pow(b, -1, MOD) % MOD
+```
+
+![Untitled](./lc_assert/Untitled 11.png)
+
+![Untitled](./lc_assert/Untitled 12.png)
+
+所以这个就是逆元
+
+# Manacher’s Algorithm
+
+```c++
+class Solution {
+public:
+    vector<bool> findAnswer(vector<int>& parent, string s) {
+        int n = parent.size();
+        vector<vector<int>> g(n);
+        for (int i = 1; i < n; i++) {
+            int p = parent[i];
+            // 由于 i 是递增的，所以 g[p] 必然是有序的，下面无需排序
+            g[p].push_back(i);
+        }
+
+        // dfsStr 是后序遍历整棵树得到的字符串
+        string dfsStr(n, 0);
+        // nodes[i] 表示子树 i 的后序遍历的开始时间戳和结束时间戳+1（左闭右开区间）
+        vector<pair<int, int>> nodes(n);
+        int time = 0;
+        auto dfs = [&](auto&& dfs, int x) -> void {
+            nodes[x].first = time;
+            for (int y : g[x]) {
+                dfs(dfs, y);
+            }
+            dfsStr[time++] = s[x]; // 后序遍历
+            nodes[x].second = time;
+        };
+        dfs(dfs, 0);
+
+        // Manacher 模板
+        // 将 dfsStr 改造为 t，这样就不需要讨论 n 的奇偶性，因为新串 t 的每个回文子串都是奇回文串（都有回文中心）
+        // dfsStr 和 t 的下标转换关系：
+        // (dfsStr_i+1)*2 = ti
+        // ti/2-1 = dfsStr_i
+        // ti 为偶数，对应奇回文串（从 2 开始）
+        // ti 为奇数，对应偶回文串（从 3 开始）
+        string t = "^";
+        for (char c : dfsStr) {
+            t += '#';
+            t += c;
+        }
+        t += "#$";
+
+        // 定义一个奇回文串的回文半径=(长度+1)/2，即保留回文中心，去掉一侧后的剩余字符串的长度
+        // halfLen[i] 表示在 t 上的以 t[i] 为回文中心的最长回文子串的回文半径
+        // 即 [i-halfLen[i]+1,i+halfLen[i]-1] 是 t 上的一个回文子串
+        vector<int> halfLen(t.length() - 2);
+        halfLen[1] = 1;
+        // boxR 表示当前右边界下标最大的回文子串的右边界下标+1
+        // boxM 为该回文子串的中心位置，二者的关系为 r=mid+halfLen[mid]
+        int boxM = 0, boxR = 0;
+        for (int i = 2; i < halfLen.size(); i++) { // 循环的起止位置对应着原串的首尾字符
+            int hl = 1;
+            if (i < boxR) {
+                // 记 i 关于 boxM 的对称位置 i'=boxM*2-i
+                // 若以 i' 为中心的最长回文子串范围超出了以 boxM 为中心的回文串的范围（即 i+halfLen[i'] >= boxR）
+                // 则 halfLen[i] 应先初始化为已知的回文半径 boxR-i，然后再继续暴力匹配
+                // 否则 halfLen[i] 与 halfLen[i'] 相等
+                hl = min(halfLen[boxM * 2 - i], boxR - i);
+            }
+            // 暴力扩展
+            // 算法的复杂度取决于这部分执行的次数
+            // 由于扩展之后 boxR 必然会更新（右移），且扩展的的次数就是 boxR 右移的次数
+            // 因此算法的复杂度 = O(len(t)) = O(n)
+            while (t[i - hl] == t[i + hl]) {
+                hl++;
+                boxM = i;
+                boxR = i + hl;
+            }
+            halfLen[i] = hl;
+        }
+
+        // t 中回文子串的长度为 hl*2-1
+        // 由于其中 # 的数量总是比字母的数量多 1
+        // 因此其在 dfsStr 中对应的回文子串的长度为 hl-1
+        // 这一结论可用在 isPalindrome 中
+
+        // 判断左闭右开区间 [l,r) 是否为回文串  0<=l<r<=n
+        // 根据下标转换关系得到 dfsStr 的 [l,r) 子串在 t 中对应的回文中心下标为 l+r+1
+        // 需要满足 halfLen[l + r + 1] - 1 >= r - l，即 halfLen[l + r + 1] > r - l
+        auto isPalindrome = [&](int l, int r) -> bool {
+            return halfLen[l + r + 1] > r - l;
+        };
+
+        vector<bool> ans(n);
+        for (int i = 0; i < n; i++) {
+            ans[i] = isPalindrome(nodes[i].first, nodes[i].second);
+        }
+        return ans;
+    }
+};
 ```
 
