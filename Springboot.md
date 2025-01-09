@@ -406,7 +406,7 @@ public void save(EmployeeDTO employeeDTO){
     void insert(Employee employee);
 ```
 
-#### jwtTokenAdminiIntercptor
+#### jwtTokenAdminiInterceptor
 
 拦截器，也就是要校验jwt token
 
@@ -1138,7 +1138,7 @@ xml里的
 
 ### Spring Task
 
-定时任务定时处理
+定时任务定时处理cron
 
 #### cron表达式 交给gpt处理！
 
@@ -1156,7 +1156,7 @@ xml里的
 
 ### WebSocket 长连接
 
-http1.1长连接， 1.0短连接
+**http1.1长连接， 1.0短连接**
 
 QQ聊天UDP，文件传输TCP
 
@@ -1605,7 +1605,7 @@ public class UploadController{
 
 yml主流
 
-bean创建好就放在IOC容器中，默认的Bean是单例的，多次获取到的都是同一个地址
+bean创建好就放在IOC容器中，默认的Bean是单例singleton的，多次获取到的都是同一个地址
 
 ```java
 	//step1 获取IOC容器

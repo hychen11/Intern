@@ -870,6 +870,33 @@ cost[x]
 
 `choose=min(l_choose,l_by_fa,l_by_children)+min(r_choose,r_by_fa,r_by_children)+cost[node]`
 
+#### 3367
+
+```python
+class Solution:
+    def maximizeSumOfWeights(self, edges: List[List[int]], k: int) -> int:
+        g = defaultdict(list)
+        for x, y, wt in edges:
+            g[x].append((y, wt))
+            g[y].append((x, wt))
+
+        def dfs(x: int, fa: int) -> Tuple[int, int]:
+            not_choose = 0
+            inc = []
+            for y, wt in g[x]:
+                if y == fa:
+                    continue
+                nc, c = dfs(y, x)
+                not_choose += nc  # 先都不选
+                if (d := c + wt - nc) > 0:
+                    inc.append(d)
+            inc.sort(reverse=True)
+            # 再选增量最大的 k 个或者 k-1 个
+            return not_choose + sum(inc[:k]), not_choose + sum(inc[:k - 1])
+        return max(dfs(0, -1))
+
+```
+
 # DP BW 132 Q4
 
 ```python
@@ -1233,7 +1260,7 @@ class NumArray {
         else 
             return quary(node.left,left,mid)+quary(node.right,mid+1,right);
     }
-}Python
+}
 ```
 
 C++
@@ -1471,6 +1498,64 @@ public:
 
 # Lazy线段树
 
+[729](https://leetcode.cn/problems/my-calendar-i/)
+
+```c++
+class MyCalendar {
+    unordered_set<int> tree, lazy;
+
+public:
+    bool query(int start, int end, int l, int r, int idx) {
+        if (r < start || end < l) {
+            return false;
+        }
+        /* 如果该区间已被预订，则直接返回 */
+        if (lazy.count(idx)) {
+            return true;
+        }
+        if (start <= l && r <= end) {
+            return tree.count(idx);
+        }
+        int mid = (l + r) >> 1;
+        return query(start, end, l, mid, 2 * idx) ||
+               query(start, end, mid + 1, r, 2 * idx + 1);
+    }
+
+    void update(int start, int end, int l, int r, int idx) {
+        if (r < start || end < l) {
+            return;
+        }
+        if (start <= l && r <= end) {
+            tree.emplace(idx);
+            lazy.emplace(idx);
+        } else {
+            int mid = (l + r) >> 1;
+            update(start, end, l, mid, 2 * idx);
+            update(start, end, mid + 1, r, 2 * idx + 1);
+            tree.emplace(idx);
+            if (lazy.count(2 * idx) && lazy.count(2 * idx + 1)) {
+                lazy.emplace(idx);
+            }
+        }
+    }
+
+    bool book(int start, int end) {
+        if (query(start, end - 1, 0, 1e9, 1)) {
+            return false;
+        }
+        update(start, end - 1, 0, 1e9, 1);
+        return true;
+    }
+};
+
+作者：力扣官方题解
+链接：https://leetcode.cn/problems/my-calendar-i/solutions/1643942/wo-de-ri-cheng-an-pai-biao-i-by-leetcode-nlxr/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+
+
 线段树上限4n O(n)<=4n
 
 最后一行补满<=2n,求和4n
@@ -1524,6 +1609,186 @@ class Solution:
             if m>=L: update(o*2,l,m,L,R,add)
             if m<R: update(o*2+1,m+1,r,L,R,add)
 ```
+
+#### 3356
+
+```c++
+class SegmentTree {
+    int n;
+    vector<int> mx;
+    vector<int> todo;
+
+    void do_(int o, int v) {
+        mx[o] -= v;
+        todo[o] += v;
+    }
+
+    void spread(int o) {
+        if (todo[o]) {
+            do_(o * 2, todo[o]);
+            do_(o * 2 + 1, todo[o]);
+            todo[o] = 0;
+        }
+    }
+
+    void maintain(int o) {
+        mx[o] = max(mx[o * 2], mx[o * 2 + 1]);
+    }
+
+    void build(int o, int l, int r, vector<int>& nums) {
+        if (l == r) {
+            mx[o] = nums[l];
+            return;
+        }
+        int m = (l + r) / 2;
+        build(o * 2, l, m, nums);
+        build(o * 2 + 1, m + 1, r, nums);
+        maintain(o);
+    }
+
+    void update(int o, int l, int r, int ql, int qr, int v) {
+        if (ql <= l && r <= qr) {
+            do_(o, v);
+            return;
+        }
+        spread(o);
+        int m = (l + r) / 2;
+        if (ql <= m) {
+            update(o * 2, l, m, ql, qr, v);
+        }
+        if (m < qr) {
+            update(o * 2 + 1, m + 1, r, ql, qr, v);
+        }
+        maintain(o);
+    }
+
+public:
+    SegmentTree(vector<int>& nums) {
+        n = nums.size();
+        int m = 2 << (32 - __builtin_clz(n));
+        mx.resize(m);
+        todo.resize(m);
+        build(1, 0, n - 1, nums);
+    }
+
+    void update(int ql, int qr, int v) {
+        update(1, 0, n - 1, ql, qr, v);
+    }
+
+    int query_all() {
+        return mx[1];
+    }
+};
+
+class Solution {
+public:
+    int minZeroArray(vector<int>& nums, vector<vector<int>>& queries) {
+        SegmentTree tree(nums);
+        if (tree.query_all() <= 0) {
+            return 0;
+        }
+        for (int i = 0; i < queries.size(); ++i) {
+            auto& q = queries[i];
+            tree.update(q[0], q[1], q[2]);
+            if (tree.query_all() <= 0) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/zero-array-transformation-ii/solutions/2991505/liang-chong-fang-fa-er-fen-da-an-chai-fe-rcvg/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处
+```
+
+动态开点
+
+```c++
+struct Node {
+    int val, lazy;
+    Node *left, *right;
+    Node() : val(0), lazy(0), left(nullptr), right(nullptr) {}
+};
+
+class Solution {
+    // vector<int> lazy;   
+    // vector<int> tree;
+    // void build(int o,int l,int r,vector<int> nums){
+    //     if(l==r){
+    //         tree[o]=nums[l];
+    //         return;
+    //     }
+    //     int m=(l+r)/2;
+    //     build(o*2,l,m,nums);
+    //     build(o*2+1,m+1,r,nums);
+    //     tree[o]=max(tree[o*2],tree[o*2+1]);
+    // }
+    void propagate(Node *node, int l, int r) {
+        if (node->lazy != 0) {
+            node->val += node->lazy;
+            if (l != r) { 
+                if (!node->left) node->left = new Node();
+                if (!node->right) node->right = new Node();
+                node->left->lazy += node->lazy;
+                node->right->lazy += node->lazy;
+            }
+            node->lazy = 0; 
+        }
+    }
+    
+    void update(Node *node,int l,int r,int L,int R,int val){
+        propagate(node, l, r);
+        if(l>R||r<L) return;
+        if (L <= l && r <= R) {
+            node->lazy += val; 
+            propagate(node, l, r); 
+            return;
+        }
+        
+        
+        int m=(l+r)/2;
+        if (!node->left) node->left = new Node();
+        if (!node->right) node->right = new Node();
+        update(node->left,l,m,L,R,val);
+        update(node->right,m+1,r,L,R,val);
+        node->val = max(node->left->val, node->right->val);
+        return;
+    }
+    int query(Node* node,int l,int r,int L,int R){
+        propagate(node, l, r);
+        if (!node || l > R || r < L) return INT_MIN;
+        if(L<=l&&R>=r){
+            return node->val;
+        }
+        int m=(l+r)/2;
+        return max(query(node->left,l,m,L,R),query(node->right,m+1,r,L,R));
+    }
+public:
+    int minZeroArray(vector<int>& nums, vector<vector<int>>& queries) {
+        if(ranges::max(nums)<=0) return 0;
+        int n=nums.size();
+        Node* root = new Node();
+        for (int i = 0; i < n; i++) {
+            update(root, 0, n - 1, i, i, nums[i]);
+        }
+        for (int i = 0; i < queries.size(); i++) {
+            int l = queries[i][0];
+            int r = queries[i][1];
+            int v = queries[i][2];
+            update(root, 0, n - 1, l, r, -v); 
+            if (query(root, 0, n - 1, 0, n - 1) <= 0) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+};
+```
+
+
 
 #### 2569
 
@@ -1789,6 +2054,8 @@ public:
 
 # 树状数组
 
+树状数组是一种实现了高效查询「前缀和」与「单点更新」
+
 ![Untitled](./lc_assert/Untitled 4.png)
 
 ```cpp
@@ -1913,6 +2180,44 @@ public:
 [**315. 计算右侧小于当前元素的个数**](https://leetcode.cn/problems/count-of-smaller-numbers-after-self/)
 
 [**LCR 170. 交易逆序对的总数**](https://leetcode.cn/problems/shu-zu-zhong-de-ni-xu-dui-lcof/)
+
+```c++
+class BIT{
+public:
+    vector<int> tree;
+    BIT(int n):tree(n){}
+    int query(int n){
+        int res=0;
+        while(n>0){
+            res+=tree[n];
+            n-=n&-n;
+        }
+        return res;
+    }   
+    void add(int n,int val){
+        while(n<tree.size()){
+            tree[n]+=val;
+            n+=n&-n;
+        }
+    } 
+};
+class Solution {
+public:
+    int reversePairs(vector<int>& record) {
+        int n=record.size(),ans=0;
+        BIT *t=new BIT(n+1);//1-n
+        vector<int> a(record.begin(),record.end());
+        sort(a.begin(),a.end());
+        a.erase(unique(a.begin(),a.end()),a.end());
+        for(int i=n-1;i>=0;i--){
+            int id=lower_bound(a.begin(),a.end(),record[i])-a.begin()+1;
+            ans+=t->query(id-1);
+            t->add(id,1);
+        }
+        return ans;
+    }
+};
+```
 
 变化的前缀和（离散化树状数组）
 
@@ -2604,6 +2909,14 @@ public:
 
 ### 动态开点
 
+```
+struct Node{
+
+}
+```
+
+
+
 ```cpp
 class CountIntervals {
     CountIntervals *left = nullptr, *right = nullptr;
@@ -2956,6 +3269,72 @@ public:
     }
 };
 ```
+
+# Z函数
+
+**Z[i] 表示从位置** i **开始的子串** s[i:] **与整个字符串** s **的前缀** s[0:] **的最长公共前缀（LCP, Longest Common Prefix）的长度**。
+
+```c++
+auto z=[&](vector<int> s,int len){
+		int l=0,r=0;
+		vector<int> z(len);
+		for(int i=1;i<n;i++){
+      	if(i<=r){
+          	z[i]=max(min(z[i-l],r-i+1),0);
+        }
+				while(i+z[i]<n&&s[z[i]]==s[z[i]+i]){
+          	l=i;
+            r=z[i]+i;
+          	++z[i];
+        }
+		}
+		return z;
+}
+```
+
+```c++
+class Solution {
+    vector<int> calc_z(vector<int>& s, int start) {
+        int n = s.size() - start;
+        vector<int> z(n); // 注意这样会每次创建一个新的 vector，复用的写法见写法二
+        int box_l = 0, box_r = 0; // z-box 左右边界
+        for (int i = 1; i < n; i++) {
+            if (i <= box_r) {
+                z[i] = min(z[i - box_l], box_r - i + 1);
+            }
+            while (i + z[i] < n && s[start + z[i]] == s[start + i + z[i]]) {
+                box_l = i;
+                box_r = i + z[i];
+                z[i]++;
+            }
+        }
+        return z;
+    }
+
+public:
+    int beautifulSplits(vector<int>& nums) {
+        int n = nums.size();
+        int ans = 0;
+        vector<int> z0 = calc_z(nums, 0);
+        for (int i = 1; i < n - 1; i++) {
+            vector<int> z = calc_z(nums, i);
+            for (int j = i + 1; j < n; j++) {
+                if (i <= j - i && z0[i] >= i || z[j - i] >= j - i) {
+                    ans++;
+                }
+            }
+        }
+        return ans;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/count-beautiful-splits-in-an-array/solutions/3020939/liang-chong-fang-fa-lcp-shu-zu-z-shu-zu-dwbrd/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+
 
 # KMP
 
@@ -3607,6 +3986,14 @@ class Solution:
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
 
+# PRIM算法
+
+
+
+# Kruskal算法
+
+
+
 # Dijkstra算法
 
 #### W422 Q3
@@ -3954,6 +4341,43 @@ public:
 
 # Difference Array
 
+[3347. 执行操作后元素的最高频率 II](https://leetcode.cn/problems/maximum-frequency-of-an-element-after-performing-operations-ii/)
+
+```c++
+class Solution {
+public:
+    int maxFrequency(vector<int>& nums, int k, int numOperations) {
+        unordered_map<int, int> cnt;
+        //to count itself's appeared times
+        map<int,int> diff;
+        for(int x:nums){
+            cnt[x]++;
+            diff[x];//first insert x into diff;
+            diff[x-k]++;
+            diff[x+k+1]--;
+        }
+        int ans=0,sum_d=0;
+        for(auto &[x,d]:diff){
+            sum_d+=d;
+            ans=max(ans,min(sum_d,cnt[x]+numOperations));
+        }
+        return ans;
+    }
+};
+```
+
+!Attention
+
+```c++
+diff[x]//把 x 插入 diff，以保证下面能遍历到 x
+//is just like
+if(!m.contains(x)){
+	m[x]=0;
+}
+```
+
+
+
 #### 3229
 
 ```c++
@@ -4179,6 +4603,10 @@ class Solution:
 
 # Trick
 
+反悔贪心：遍历过程维护一个heap
+
+python里对角线翻转` fruits = list(zip(*fruits))`
+
 ### LLONG_MAX,LLONG_MIN
 
 ```c++
@@ -4272,6 +4700,17 @@ return dp[n];//!!
 sort(m.begin(),m.end(),[&](int i, int j) { return nums[i] < nums[j]; });
 ranges::stable_sort(m, [&](int i, int j) { return nums[i] < nums[j]; });
 ranges::sort(m);
+ranges::sort(container, comp, proj);
+```
+
+container：要排序的容器（如 vector）。
+
+comp（比较函数）：决定排序顺序的函数，默认为升序（std::less<>）。
+
+proj（投影函数）：指定一个转换函数，用于生成排序所依据的关键值。
+
+```
+ranges::sort(tiles,{},[](auto &t){return t[0];});
 ```
 
 ```cpp

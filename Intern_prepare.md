@@ -1,10 +1,601 @@
+# LP
+
+#### Customer Obsession
+
+客户角度出发解决问题
+
+#### Ownership
+
+不是我的工作也愿意dive in
+
+#### Are Right, A Lot
+
+incomplete information做决策
+
+#### Bias for Action
+
+了解风险快速行动，solution是reversible的 take action, move fast
+
+#### Think Big
+
+create something new, start from small, divide and conquer
+
+#### Invent and Simplify
+
+做long term的gain driven， 创新+collaborate简化
+
+#### Learn and Be Curious
+
+持续学习
+
+#### Dive Deep
+
+复杂系统debug，控制变量，make assumption
+
+#### Insist on the Highest Standards
+
+大问题拆小achieve challenging goal
+
+#### Earn Trust
+
+#### Deliver Results
+
+#### Strive to be Earth’s Best Employer
+
+#### Success and Scale Bring Broad Responsibility
+
+#### Have Backbone; Disagree and Commit
+
+#### Frugality
+
+#### Hire and Develop the Best
+
+# RegEx
+
+**正则表达式 ^(.).\*\\1$**
+
+​	1.	^: 匹配字符串的开头。
+
+​	2.	(.): 捕获一个字符，并将其存入一个捕获组（捕获组编号为 1）。
+
+​	3.	.*: 匹配任意数量的任意字符（可以为空）。
+
+​	4.	\\1: 匹配第一个捕获组（即第一个字符）。
+
+	5.	$: 匹配字符串的结尾。
+
+
+
+# Shuffle
+
+#### Fisher-Yates
+
+```c++
+for(int i=0;i<n;i++){
+	int j=rand()%(nums.size()-i)+i;
+	swap(nums[j],nums[i]);
+}
+```
+
+
+
+```c++
+class Solution {
+public:
+    vector<int> nums;
+    vector<int> original;
+    Solution(vector<int>& nums){
+        this->nums=nums;
+        this->original.resize(nums.size());
+        copy(nums.begin(),nums.end(),original.begin());
+    }
+    
+    vector<int> reset() {
+        copy(original.begin(),original.end(),nums.begin());
+        return nums;
+    }
+    
+    vector<int> shuffle() {
+        for(int i=0;i<nums.size();i++){
+            int j=i+rand()%(nums.size()-i);
+            swap(nums[j],nums[i]);
+        }
+        return nums;
+    }
+};
+
+/**
+ * Your Solution object will be instantiated and called as such:
+ * Solution* obj = new Solution(nums);
+ * vector<int> param_1 = obj->reset();
+ * vector<int> param_2 = obj->shuffle();
+ */
+```
+
+# Isstringstream
+
+```c++
+std::string text = "Split this string by spaces";
+std::istringstream stream(text);
+std::string word;
+while (stream >> word) {
+    
+}
+
+```
+
+# Regex
+
+```c++
+'.' //任意
+'*' //前0-n个
+'\d' digital
+'\w' a-zA-Z0-9_
+'\s' space
+  
+std::regex_search(test, pattern)
+std::regex_match(test, pattern)
+std::regex pattern("hackerrank");
+std::string test = "I love hackerrank!";
+std::string result = std::regex_replace(test, pattern, "coding");
+```
+
+# Random
+
+https://leetcode.cn/problems/implement-rand10-using-rand7/description/
+
+Rand10()->Rand7()
+
+``` c++
+int num=rand10();
+while(1){
+  	if(num>7){
+      num=rand10();
+    }else{
+      return num;
+    }
+}
+```
+
+Rand7()->Rand10()
+
+```c++
+//(randX()-1)*X+randX()
+//(randX()-1)*X range from 0,X,....X*(X-1)
+//(randX()-1)*X+randX() range from 1-X^2
+class Solution {
+public:
+    int rand10() {
+        int n=(rand7()-1)*7+rand7();
+        while(1){
+            if(n<=40){
+                return n%10+1;
+            }
+            n=(rand7()-1)*7+rand7();
+        }
+    }
+};
+```
+
+# Research
+
+nerf+diffusion
+
+# ProxyLab
+
+**RIO**：直接将数据读入程序自定义的缓冲区，**无用户态缓冲区**，系统调用次数多。
+
+**标准 I/O**：数据先写入标准库提供的缓冲区，然后再传入程序缓冲区，**减少系统调用次数**，适合小数据操作。
+
+rio_readlineb cannot read binary file, because binary file in Maxos or Linux have 0xa for `\n` and it marks EOF for rio_readlineb
+
+http ends with `\r\n`
+
+**HTTP** 是 **text-based（基于文本）** 的协议，而不是 **binary-based（基于二进制）**
+
+ps aux 是一个命令，用于显示当前系统中所有正在运行的**进程信息**
+
+URL static直接转发，Dynamic URL要处理，代理服务器可以对 URL 进行**重写（rewrite）**、**重定向（redirect）** 或添加参数。适用于需要**灵活处理 URL** 的场景，比如负载均衡、API 网关、URL 映射和规则匹配
+
+```
+client -> proxy
+GET http://www.cmu.edu/hub/index.html HTTP/1.1
+
+proxy -> server
+GET /hub/index.html HTTP/1.1
+Host: http://www.cmu.edu
+Connection: close
+Proxy-Connection: close
+```
+
+<img src="/Users/chenhaoyang/Library/Application Support/typora-user-images/image-20241217013700648.png" alt="image-20241217013700648" style="zoom:50%;" />
+
+### Concurrent
+
+create thread pool
+
+```c++
+void* targetFunc(void* argvp){
+    pthread_detach(pthread_self()); //no need to wait for master thread
+
+    while(1){
+        ClientInfo info = sm.removeFd();
+        handleRequest(info);
+        close(info.fd);
+    }
+}
+//create a thread pool like in java
+pthread_t tid;
+for(int i = 0; i < NUM_THREAD; i++){
+    pthread_create(&tid, NULL, targetFunc, NULL); //args
+}
+```
+
+### Cache
+
+LRU hashmap+linkedlist
+
+LFU freqmap+hashmap(int,linkedlist)
+
+# Database
+
+latch 和lock
+
+**Latch**:
+
+​	•	用于短期的、轻量级的同步操作，通常用于内存数据结构保护。
+
+​	•	没有事务语义和复杂的死锁检测逻辑。
+
+**Lock**:
+
+​	•	用于长期的、复杂的同步操作，特别是在事务管理中。
+
+​	•	支持事务隔离级别、多种锁模式和死锁检测。
+
+```c++
+void accessNode(Node* node) {
+    latch.acquire(); // 加锁
+    // 访问节点
+    latch.release(); // 解锁
+}
+```
+
+latch crabbing。顾名思义，就像螃蟹一样，移动一只脚，放下，移动另一只脚，再放下。基本思想是： 1. 先锁住 parent page， 2. 再锁住 child page， 3. 假设 child page 是*安全*的，则释放 parent page 的锁。*安全*指当前 page 在当前操作下一定不会发生 split/steal/merge。同时，*安全*对不同操作的定义是不同的，Search 时，任何节点都安全；Insert 时，判断 max size；Delete 时，判断 min size。
+
+### Search
+
+Search 时，从 root page 开始，先给 parent 上读锁，再给 child page 上读锁，然后释放 parent page 的锁。如此向下递归。
+
+RLatch
+
+### Insert
+
+Insert 时，从 root page 开始，先给 parent 上**写锁**，再给 child page 上**写锁**。假如 child page 安全，则释放所有祖先的锁；否则不释放锁，继续向下递归。在 child page 不安全时，需要持续持有祖先的写锁。并在出现安全的 child page 后，释放所有祖先写锁。并且用transaction来记录哪些page持有锁，并且为后面的dead lock detection起作用
+
+WLatch
+
+### Delete
+
+和 Insert 基本一样。仅是判断是否安全的方法不同（检测 min size）。需要另外注意的是，当需要 steal/merge sibling 时，也需要对 sibling 加锁。**并在完成 steal/merge 后马上释放**。这里是为了避免其他线程正在对 sibling 进行 Search/Insert 操作，从而发生 data race。这里的加锁就不需要在 transaction 里记录了，只是临时使用。
+
+和insert类似，先WLatch向下遍历，如果需要修改就升级为写锁，如果父节点需要合并，就对父节点和他兄弟节点进行加锁
+
+### Optimization
+
+在 Insert/Delete 操作中，我们可以先乐观地认为不会发生 split/steal/merge，对沿途的节点上读锁，并及时释放，对 leaf page 上写锁。当发现操作对 leaf page 确实不会造成 split/steal/merge 时，可以直接完成操作。当发现操作会使 leaf page split/steal/merge 时，则放弃所有持有的锁，从 root page 开始重新悲观地进行这次操作，即沿途上写锁。
+
+# Backend
+
+JWT
+
+1. **用户认证**:
+
+​	•	客户端登录后，服务器签发一个 JWT，**客户端每次请求时将 JWT 附在请求头中**。
+
+​	•	服务器通过验证 JWT 来识别用户。
+
+2. **信息交换**:
+
+​	•	JWT 可以在多个服务之间传递经过验证的数据，避免频繁查询数据库。
+
+#### Inspector
+
+jwtTokenAdminiInterceptor 拦截器，也就是要校验jwt token
+
+#### Structure
+
+```
+src/main/java
+  └── com.example.project
+      ├── controller     // 控制器层
+      │    └── EmployeeController.java
+      ├── service        // 服务层
+      │    ├── EmployeeService.java       // 接口
+      │    └── EmployeeServiceImpl.java   // 接口实现类
+      ├── repository     // 数据访问层
+      │    └── EmployeeRepository.java
+      ├── model          // 实体类（Domain/Entity）
+      │    └── Employee.java
+      ├── dto            // 数据传输对象（可选）
+      │    └── EmployeeDTO.java
+      └── Application.java // 启动类
+```
+
+Controller 控制层，控制Service服务层，这里Service里有接口和Impl实现累，还有封装的DTO
+
+#### DAO
+
+DAO（Data Access Object）层是应用程序中的一个逻辑层，负责与数据库进行交互。它封装了对数据源的访问逻辑，并提供了操作数据库的接口（如增删改查）。DAO 层是典型的 **分层架构** 中的一部分，专注于数据持久化操作。
+
+#### IOC
+
+将对象之间的相互依赖关系交给 IoC 容器来管理，并由 IoC 容器完成对象的注入。这样可以很大程度上简化应用的开发，把应用从复杂的依赖关系中解放出来。 IoC 容器就像是一个工厂一样，当我们需要创建一个对象的时候，只需要配置好配置文件/注解即可，完全不用考虑对象是如何被创建出来的。
+
+一个 Service 类可能依赖了很多其他的类，假如我们需要实例化这个 Service，你可能要每次都要搞清这个 Service 所有底层类的构造函数，这可能会把人逼疯。如果利用 IoC 的话，你只需要配置好，然后在需要的地方引用就行了，这大大增加了项目的可维护性且降低了开发难度
+
+@Autowire
+
+#### BaseContext
+
+通过 BaseContext.getCurrentId()上下文获得当前用户ID
+
+#### Bean
+
+Bean 代指的就是那些被 IoC 容器所管理的对象
+
+`@Component`：通用的注解，可标注任意类为 `Spring` 组件。如果一个 Bean 不知道属于哪个层，可以使用`@Component` 注解标注。
+
+`@Repository` : 对应**持久层即 Dao** 层，主要用**于数据库相**关操作。
+
+`@Service` : 对应服务层，主要涉及一些复杂的逻辑，需要用到 **Dao** 层。
+
+`@Controller` : 对应 Spring MVC 控制层，主要用于接受用户请求并调用 `Service` 层返回数据给前端页面
+
+#### 分页查询
+
+`PageHelper.startPage()`  page number, page size
+
+```
+   <update id="update" parameterType="Employee">
+        update employee
+        <set>
+            <if test="name != null">
+                name = #{name},
+            </if>
+            <if test="username != null">
+                username = #{username},
+            </if>
+            <if test="password != null">
+                password = #{password},
+            </if>
+            <if test="phone != null">
+                phone = #{phone},
+            </if>
+            <if test="sex != null">
+                sex = #{sex},
+            </if>
+            <if test="idNumber != null">
+                id_Number = #{idNumber},
+            </if>
+
+            <if test="updateTime != null">
+                update_Time = #{updateTime},
+            </if>
+            <if test="updateUser != null">
+                update_User = #{updateUser},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+```
+
+这个是动态SQL
+
+# Raft
+
+MapReduce no heartbeat, 当worker callfortask, check the local task list, 检测是否所有任务完成或者超时，出现超时就重新分配任务，这里worker完成任务就是不断call for task
+
+kv server put和get都说幂等操作，append就是查看requestID如果小于server本地id就返回最新值，如果大于就操作更新
+
+raft：
+
+![raft-figure2](https://tonixwd.github.io/images/raft-figure2.png)
+
+#### election
+
+- 正常运行
+  `Leader`不断发送心跳函数给`Follower`, `Follower`回复, 这个心跳是通过`AppendEntries RPC`实现的, 只不过其中`entries[]`是空的。
+- 选举
+  1. 当指定的心跳间隔到期时， `Follower`转化为`Candidate`并开始进行投票选举, 会为自己投票并自增`term`
+  2. 每一个收到投票请求的`Server`(即包括了`Follower`, `Candidate`或旧的`Leader`), 判断其`RPC`的参数是否符合`Figure2`中的要求, 符合则投票
+  3. 除非遇到了轮次更靠后的投票申请, 否则投过票的`Server`不会再进行投票
+  4. 超过一半的`Server`的投票将选举出新的`Leader`, 新的`Leader`通过心跳`AppendEntries RPC`宣告自己的存在, 收到心跳的`Server`更新自己的状态
+  5. 若超时时间内无新的`Leader`产生, 再进行下一轮投票, 为了避免这种情况, 应当给不同`Server`的投票超时设定随机值
+
+#### log
+
+- **`leader`视角**
+
+1. `client`想集群的一个节点发送的命令, 如果不是`leader`, `follower`会通过心跳得知`leader`并返回给`client`
+2. `leader`收到了命令, 将其构造为一个日志项, 添加当前节点的`currentTerm`为日志项的`Term`, 并将其追加到自己的`log`中
+3. `leader`发送`AppendEntries RPC`将`log`复制到所有的节点, `AppendEntries RPC`需要增加`PrevLogIndex`、`PrevLogTerm`以供`follower`校验, 其中`PrevLogIndex`、`PrevLogTerm`由`nextIndex`确定
+4. 如果`RPC`返回了成功, 则更新`matchIndex`和`nextIndex`, 同时寻找一个满足过半的`matchIndex[i] >= N`的索引位置`N`, 将其更新为自己的`commitIndex`, 并提交直到`commitIndex`部分的日志项
+5. 如果`RPC`返回了失败, 且伴随的的`Term`更大, 表示自己已经不是`leader`了, 将自身的角色转换为`Follower`, 并更新`currentTerm`和`votedFor`, 重启计时器
+6. 如果`RPC`返回了失败, 且伴随的的`Term`和自己的`currentTerm`相同, 将`nextIndex`自减再重试
+
+- **`follower`视角**
+
+1. `follower`收到`AppendEntries RPC`后,`currentTerm`不匹配直接告知更新的`Term`, 并返回`false`
+2. `follower`收到`AppendEntries RPC`后, 通过`PrevLogIndex`、`PrevLogTerm`可以判断出”`leader`认为自己`log`的结尾位置”是否存在并且`Term`匹配, 如果不匹配, 返回`false`并不执行操作;
+3. 如果上述位置的信息匹配, 则需要判断插入位置是否有旧的日志项, 如果有, 则向后将`log`中冲突的内容清除
+4. 将`RPC`中的日志项追加到`log`中
+5. 根据`RPC`的传入参数更新`commitIndex`, 并提交直到`commitIndex`部分的日志项
+
+#### 持久化
+
+而`Raft`的日志恢复的目的是, 将`Leader`的日志强行复制到其他节点
+
+**`Leader`维护的变量**
+
+- `nextIndex[]`: `Leader`认为下一个追加的日志在每个节点的索引
+- `matchIndex[]`: `Leader`认为每个节点中已经复制的日志项的最高索引
+
+快速恢复
+
+在之前**日志恢复**的介绍中, 如果有`Follower`的日志不匹配, 每次`RPC`中, `Leader`会将其`nextIndex`自减1来重试, 但其在某些情况下会导致效率很低(说的就是`Lab2`的测例)
+
+**`Follower`返回更多信息给`Leader`，使其可以以`Term`为单位来回退**
+
+持久化就是定期存到disk里，这里持久化的内容只包括: `votedFor`, `currentTerm`, `log`，可以通过这些恢复出全部的内容包括worker state等
+
+#### snapshot
+
+![image-20241218093928770](/Users/chenhaoyang/Library/Application Support/typora-user-images/image-20241218093928770.png)
+
+# File system
+
+
+
+# C++ 11/14/20 version difference
+
+### C++11 
+
+auto/Lambda/smart pointer (unique_ptr,shared_ptr)
+
+##### smart ptr
+
+```
+std::unique_ptr<int> uptr = std::make_unique<int>(10);//make_unique c++14?
+```
+
+##### **移动语义和** rvalue **引用**
+
+```
+std::vector<int> v = {1, 2, 3};
+std::vector<int> v2 = std::move(v); // v 的资源被移动到 v2
+```
+
+##### Lambda
+
+```
+auto add = [](int a, int b) { return a + b; };
+```
+
+##### constexptr
+
+允许编译期计算常量表达式。
+
+```
+constexpr int square(int x) { return x * x; }
+constexpr int result = square(5); // 在编译时计算
+```
+
+##### std::thread **和多线程库**
+
+```
+std::thread t([]() { std::cout << "Hello from thread\n"; });
+t.join();
+```
+
+### **C++17**
+
+##### **结构化绑定（Structured Bindings）**
+
+```
+std::pair<int, int> p = {1, 2};
+auto [x, y] = p; // x = 1, y = 2
+```
+
+##### if **和** switch **带初始化**
+
+```
+if (auto it = m.find(key); it != m.end()) {
+    std::cout << it->second;
+}
+```
+
+##### std::optional
+
+```
+std::optional<int> x = 10;
+if (x) std::cout << *x;
+x.value_or(-1);
+```
+
+##### variant
+
+```
+std::variant<int, double> v = 3.14;
+```
+
+##### reduce
+
+并行算法库中的函数，支持并行数据处理。
+
+```c++
+#include <numeric>
+#include <execution>
+std::vector<int> v = {1, 2, 3, 4};
+int sum = std::reduce(std::execution::par, v.begin(), v.end(), 0);
+
+auto sum = std::reduce(data.begin(), data.end(), 0);
+auto product = std::reduce(data.begin(), data.end(), 1,std::multiplies<>{});
+```
+
+### C++20
+
+##### std::ranges  std::views
+
+范围操作
+
+```c++
+#include <iostream>
+#include <vector>
+#include <ranges>
+
+int main() {
+    std::vector<int> v = {1, 2, 3, 4, 5, 6};
+		std::ranges::sort(v, [](int a, int b) { return a < b; });
+    // 使用 views::filter 过滤偶数，views::transform 将偶数加倍
+    auto result = v | std::views::filter([](int n) { return n % 2 == 0; })
+                    | std::views::transform([](int n) { return n * 2; });
+
+    for (int x : result) {
+        std::cout << x << " "; // 输出 4 8 12
+    }
+    std::cout << std::endl;
+
+    return 0;
+}
+```
+
+##### string_view
+
+std::string_view 不会拷贝字符串数据，而是直接引用原字符串。比传递 std::string 更高效，适用于只读操作。
+
+string_view 只是字符串的一个视图，如果原字符串销毁了，string_view 将变为悬空指针。
+
+
+
+
+
 brute_force
 
 recursion
 
 Memoized search
 
+delete删除对象，构析函数 （new）
 
+free malloc
+
+当一个指针通过 free（或者 delete）释放了所指向的内存后，**指针本身并不会被置为** NULL。这意味着它仍然保存着原来的地址，但该地址所指向的内存已经被释放，成为不可访问的状态。
+
+此时，这个指针就变成了**野指针**（Dangling Pointer），**如果继续使用这个指针（如读取或写入数据），将导致未定义行为**
 
 # free delete
 
@@ -108,9 +699,9 @@ on heap need manual release
 
 ## 模板方法
 
+# Overload
 
-
-# virtual
+# virtual overriding
 
 **有 `virtual` 关键字**：方法调用是基于对象的动态类型（即**实际对象的类型**），在运行时决定调用哪个方法。这种机制称为动态绑定（runtime binding）或后期绑定（late binding）
 
@@ -326,7 +917,7 @@ public:
 - **用途**：提供低级别的重新解释转换，几乎可以进行任何指针、整型之间的转换。但使用时需非常小心，因为它可能导致平台依赖的代码。
 - **例子**：`int* a = new int(65); char* b = reinterpret_cast<char*>(a);`
 
-hash底层std::vector<std::list<int>> table; 
+hash底层std::vector\<std::list\<int>> table; 
 
 map->RBT
 
@@ -334,7 +925,7 @@ map->RBT
 
 ```c++
 #include<bits/stdc++.h>
-std::copy(src.begin(),src.end(),target.begin());//terget cap must larger than src!! else error!
+std::copy(src.begin(),src.end(),target.begin());//target cap must larger than src!! else error!
 std::copy(src.begin(), src.end(), std::back_inserter(dest));//recommand!
 
 std::vector<int> src = {1, 2, 3, 4, 5};
@@ -504,6 +1095,8 @@ int64(t.Right().Key)
 
 #### C++
 
+RBT -> set
+
 ```c++
 multiset<long long> f;
 auto it=f.find(num);
@@ -521,6 +1114,8 @@ std::for_each(f.begin(),f.end(),[](const int &element){
 ## 懒删除堆??
 
 就是不改变，如果heap顶部和真实值不一样，就不断删除！
+
+# LRU
 
 # LFU
 
@@ -1274,9 +1869,9 @@ std::scoped_lock<std::mutex> lock(mutex_);
 
 会出现死锁，leaf index 左到右，delete 锁sibling，就死锁了，这里iterator得不到锁就自动放弃
 
-乐观锁
+**乐观锁**
 
-split/steal/merge，对沿途的节点上读锁，并及时释放，对 leaf page 上写锁。当发现操作对 leaf page 确实不会造成 split/steal/merge 时，可以直接完成操作。当发现操作会使 leaf page split/steal/merge 时，则放弃所有持有的锁，从 root page 开始重新悲观地进行这次操作，即沿途上写锁。
+**split/steal/merge，对沿途的节点上读锁，并及时释放，对 leaf page 上写锁。当发现操作对 leaf page 确实不会造成 split/steal/merge 时，可以直接完成操作。当发现操作会使 leaf page split/steal/merge 时，则放弃所有持有的锁，从 root page 开始重新悲观地进行这次操作，即沿途上写锁。**
 
 
 
