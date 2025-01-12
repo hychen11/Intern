@@ -1576,6 +1576,8 @@ lazy更新
 
 这里的todo数组就是lazy tag!下面是模板!
 
+#### 2569
+
 ```python
 class Solution:
     def handleQuery(self, nums1: List[int], nums2: List[int], queries: List[List[int]]) -> List[int]:
@@ -1608,6 +1610,78 @@ class Solution:
             m=(l+r)//2
             if m>=L: update(o*2,l,m,L,R,add)
             if m<R: update(o*2+1,m+1,r,L,R,add)
+```
+
+```python
+class Solution:
+    def handleQuery(self, nums1: List[int], nums2: List[int], queries: List[List[int]]) -> List[int]:       
+        n=len(nums1)
+        todo=[False]*(4*n)
+        cnt=[0]*(4*n)
+
+        #求和1的个数
+        def maintain(o:int)->None:
+            cnt[o]=cnt[o*2]+cnt[o*2+1]
+        #线段树从1-n？
+        #r,l are the tree range, L,R are update range
+        def build(o:int,l:int,r:int)->None:
+            if l==r:
+                cnt[o]=nums1[l-1]#从0开始
+                return
+            m=(l+r)//2
+            build(o*2,l,m)
+            build(o*2+1,m+1,r)
+            maintain(o)
+            #维护
+
+        def do(o:int,l:int,r:int)->None:
+            cnt[o]=r-l+1-cnt[o]
+            todo[o]=not todo[o]
+        
+        def query(o:int,l:int,r:int,L:int,R:int)->int:
+            if L<=l and R>=r:
+                return cnt[o]
+            m=(l+r)//2
+            if todo[o]:
+                do(o*2,l,m)
+                do(o*2+1,m+1,r)
+                todo[o]=False
+            #tranverse right tree first
+            if m>=L: return query(o*2,l,m,L,R)
+            if m+1<=R: return query(o*2+1,m+1,r,L,R)
+            return query(o*2,l,m,L,R)+query(o*2+1,m+1,r,L,R)
+
+        #l,r 就是线段树的范围，L，R是我更新的范围，是固定的，变的是l，r
+        def update(o:int,l:int,r:int,L:int,R:int)->None:
+            if L<=l and R>=r:
+                
+                # todo[o]+=add
+                do(o,l,r)
+                return
+            m=(l+r)//2
+            
+            #传递lazy tag
+            # if todo[o]!=0:
+            #     todo[o*2]+=todo[o]
+            #     todo[o*2+1]+=todo[o]
+            #     todo[o]=0
+            if todo[o]:
+                do(o*2,l,m)
+                do(o*2+1,m+1,r)
+                todo[o]=False
+
+            if m>=L: update(o*2,l,m,L,R)
+            if m+1<=R: update(o*2+1,m+1,r,L,R)
+            maintain(o)
+
+        build(1,1,n)
+        ans=[]
+        s=sum(nums2)
+        for op,l,r in queries:
+            if op==1: update(1,1,n,l+1,r+1)
+            elif op==2: s+=l*cnt[1]
+            else: ans.append(s)
+        return ans
 ```
 
 #### 3356
@@ -1788,75 +1862,7 @@ public:
 };
 ```
 
-
-
-#### 2569
-
-c++的模板
-
-```c++
-class Solution {
-    vector<int> cnt1, flip;
-
-    // 维护区间 1 的个数
-    void maintain(int o) {
-        cnt1[o] = cnt1[o * 2] + cnt1[o * 2 + 1];
-    }
-
-    // 执行区间反转
-    void do_(int o, int l, int r) {
-        cnt1[o] = r - l + 1 - cnt1[o];
-        flip[o] = !flip[o];
-    }
-
-    // 初始化线段树   o,l,r=1,1,n
-    void build(vector<int> &a, int o, int l, int r) {
-        if (l == r) {
-            cnt1[o] = a[l - 1];
-            return;
-        }
-        int m = (l + r) / 2;
-        build(a, o * 2, l, m);
-        build(a, o * 2 + 1, m + 1, r);
-        maintain(o);
-    }
-
-    // 反转区间 [L,R]   o,l,r=1,1,n
-    void update(int o, int l, int r, int L, int R) {
-        if (L <= l && r <= R) {
-            do_(o, l, r);
-            return;
-        }
-        int m = (l + r) / 2;
-        if (flip[o]) {
-            do_(o * 2, l, m);
-            do_(o * 2 + 1, m + 1, r);
-            flip[o] = false;
-        }
-        if (m >= L) update(o * 2, l, m, L, R);
-        if (m < R) update(o * 2 + 1, m + 1, r, L, R);
-        maintain(o);
-    }
-
-public:
-    vector<long long> handleQuery(vector<int> &nums1, vector<int> &nums2, vector<vector<int>> &queries) {
-        int n = nums1.size();
-        cnt1.resize(n * 4);
-        flip.resize(n * 4);
-        build(nums1, 1, 1, n);
-        vector<long long> ans;
-        long long sum = accumulate(nums2.begin(), nums2.end(), 0LL);
-        for (auto &q : queries) {
-            if (q[0] == 1) update(1, 1, n, q[1] + 1, q[2] + 1);
-            else if (q[0] == 2) sum += 1LL * q[1] * cnt1[1];
-            else ans.push_back(sum);
-        }
-        return ans;
-    }
-};
-```
-
-[2589. 完成所有任务的最少时间](https://leetcode.cn/problems/minimum-time-to-complete-all-tasks/)
+#### [2589. 完成所有任务的最少时间](https://leetcode.cn/problems/minimum-time-to-complete-all-tasks/)
 
 ```python
 class Solution:
@@ -1908,6 +1914,12 @@ class Solution:
         return cnt[1]
 
 ```
+
+# 离线算法
+
+把询问**排序**，通过改变回答询问的顺序，使问题更容易处理。
+
+> 相应的，**在线算法**就是按照 queries*queries* 的顺序一个一个处理
 
 
 
@@ -2057,6 +2069,21 @@ public:
 树状数组是一种实现了高效查询「前缀和」与「单点更新」
 
 ![Untitled](./lc_assert/Untitled 4.png)
+
+这里一般得用到离散化，离散化就是比如[7,3,9,5,4]变成index [3,0,4,2,1]
+
+```c++
+//二分离散化
+auto b=a;
+ranges::sort(b);
+b.erase(unique(b.begin(),b.end()),b.end());
+int dis=upper_bound(b.begin(),b.end(),nums[i])-b.begin();
+//unordered_map离散化
+unordered_map<long long, int> values;
+
+```
+
+
 
 ```cpp
 //~x+1=-x
