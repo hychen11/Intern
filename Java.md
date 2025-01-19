@@ -596,9 +596,9 @@ public class JDBCDemo {
 
 ## Maven
 
-## SpringBoot
+# SpringBoot
 
-## MaBatisPlus
+# MaBatisPlus
 
 先封装SQL，接着调用JDBC操作数据库，最后把数据库返回的表结果封装成Java类。
 
@@ -606,9 +606,15 @@ public class JDBCDemo {
 
 # JUC
 
-Concurrency: 统一时间处理多个任务
+重点的部分在于：**Synchornized锁升级机制**，**ReentrantLock**，**AQS**，**CAS**，**线程池**
 
-Parallelism：多个任务统一时间执行（在不同核心上运行）
+### 并发并行
+
+Concurrency: 统一时间处理多个任务，不断切换任务执行
+
+Parallelism：多个任务统一时间执行（在不同核心上运行），物理上的同时运行
+
+
 
 #### Override Run()
 
@@ -630,6 +636,8 @@ public class Mythread extends Thread {
 #### Override Runnable()
 
 不能直接获得thread类中的方法
+
+这里implements Runnable通过多个线程共享一个 `Runnable` 实例是其典型用法之一
 
 ```java
 package org.example;
@@ -674,3 +682,335 @@ public class MyCallable implements Callable<Integer> {
 }
 ```
 
+# JVM
+
+重点在于：**类加载过程**，**内存分区**，**垃圾回收算法**，**垃圾回收器**
+
+# Java八股
+
+### 单继承限制
+
+**单继承限制**：Java 中一个类只能继承一个类，如果继承了 `Thread`，就无法继承其他类
+
+### Runnable and Callable
+
+`Runnable` 是一个简单的任务接口，适合不需要返回结果或抛出异常的任务。
+
+```java
+public interface Runnable{
+	void run();
+}
+```
+
+没有返回值。
+
+不能抛出受检异常（Checked Exception）。
+
+`Callable` 是一个任务接口，适合需要返回结果或抛出异常的任务。
+
+```java
+public interface Callable<V> {
+    V call() throws Exception;
+}
+```
+
+execute 提交一个`Runnable`任务
+
+submit 提交一个task返回`Future`， `future.get()` 方法，可以阻塞当前线程并等待任务执行完成，返回结果
+
+# Mysql
+
+Master-Slave Replication
+
+**主库（Master）**：负责处理所有的 **写入（INSERT, UPDATE, DELETE）** 操作，并将数据的变更同步到从库。
+
+**从库（Slave）**：**只读数据库**，从主库接收更新数据，并提供 **查询（SELECT）** 业务，减轻主库压力。
+
+**读写分离**：主库负责写，从库负责读，提升数据库性能。
+
+**数据备份**：主库数据同步到多个从库，防止数据丢失。
+
+**高可用**：主库崩溃时，可以将某个从库提升为主库（故障转移）
+
+# Redis 2025.01.12 
+
+### 穿透
+
+getById/1
+
+根据Id查询文章，如果hit返回res，redis没有查询disk，然后返回结果，返回前也把请求缓存到redis
+
+穿透：redis里没有，disk也没有
+
+* 缓存空数据{key:1,value:null} 消耗内存，可能会数据不一致,(类似于双删延迟)
+
+- 布隆过滤器（hash算法，bitmap）,首先经过bloom filter,拦截不存在的数据, bloom filter存在是不保证的,不存在是一定的
+
+>bitmap
+>
+>key->multiple hash function->hash1, hash2, hash3, then turn these position into 1, use  & to judge
+>
+>Redisson, Guava: implementation 
+>
+>```java
+>bloomfilter.tryInit(size,0.05);//误判率
+>```
+
+### 击穿
+
+热点key设置过期时间,然后并发的request会把DB打崩
+
+![](./Java/redis1.png)
+
+* 互斥锁 (强一致性)
+* 逻辑过期  key过期了只有在查询的时候返回old value,然后异步更新
+
+### 雪崩
+
+统一时间大量key同时失效或者redis宕机
+
+给不同key的TTL设置随机值
+
+redis集群(Sentinel,集群模式)
+
+降级限流策略 nginx或者spring cloud gateway
+
+添加多级缓存 Guava或Caffeine
+
+>  没有什么问题是加一层解决不了的
+
+### 双写一致
+
+双写一致:修改了数据库同时也更新缓存数据,让redis和db数据一致
+
+延迟双删->delete redis->change disk-> delay->delete redis
+
+有脏数据的风险
+
+要**强一致性**就加分布式锁,性能就低了
+
+要性能好点就+RWLock
+
+```java
+RReadWriteLock readWriteLock = redissonClient.getReadWriteLock("ITEM_READ_WRITE_LOCK");
+RLock writeLock = readWriteLock.writeLock();
+RLock readLock = readWriteLock.readLock();
+try{
+	writeLock.lock(); // 加锁
+}
+```
+
+![](./Java/redis2.png)
+
+**最终一致性**
+
+允许短暂不一致,保证最终一致性
+
+异步通知,MQ或者Canal中间件 的方式
+
+### 持久化
+
+#### RDB 
+
+Redis Database Backup file (redis数据快照)
+
+```
+redis-cli
+save
+bgsave #子进程来执行RDB
+```
+
+redis.conf
+
+```
+save 900 1 #900s里1key修改就bgsave
+```
+
+![](./Java/redis3.png)
+
+只拷贝**Page table**所以快
+
+如果RDB的时候有写怎么办,就直接copy-on-write,就是复制出来再修改
+
+连次RDB之间可能会丢失备份(如果宕机了) ,二进制文件,体积小,恢复快,可能丢数据
+
+### AOF
+
+Append only file
+
+redis处理每一个write都记录在AOF
+
+```
+appendonly yes
+appendfsync everysec #性能适中,最多丟1s数据
+```
+
+cpu资源占用低,主要是磁盘的IO资源,但是AOF重写会占用大量的CPU和内存
+
+宕机恢复速度慢
+
+### 数据过期，淘汰策略
+
+Lazy Deletion 只有在**访问键**时，Redis 才会检查它是否过期
+
+Scheduled Deletion  每 **100ms** 扫描一批设置了**过期时间**的 key，随机选择一些进行检查和删除
+
+Eviction Policy 当 Redis **内存达到上限**时，Redis 需要**主动清理**数据
+
+> **`volatile-lru`**（默认）：从**设置了过期时间的 key** 中，**淘汰最久未使用的 key**。
+>
+> **`volatile-ttl`**：从设置了过期时间的 key 中，优先淘汰**即将过期**的 key。
+>
+> **`allkeys-lru`**：对**所有 key**，淘汰最久未使用的 key（即使没有过期时间）。
+>
+> **`noeviction`**：内存满了后，直接返回错误，不删除任何 key。
+
+**Lazy Expiration** 高并发热点 key，防止缓存击穿,Redis 不会删除数据
+
+### 分布式锁
+
+setnx
+
+redisson
+
+场景:集群定时任务,抢单,幂等性
+
+```java
+Integer num=(Integer) redisTemplate.opsForValue().get("num");
+if(num==null || num<0){
+    throw new RuntimeException
+}
+num=num-1;
+redisTemplate.opsForValue().set("num",num);
+```
+
+超卖问题
+
+加锁 synchronized() **线程同步**，防止多个线程同时访问 **同一个对象** 造成数据不一致的问题。这个单体是没问题的,但是集群就不行了
+
+```java
+synchronized(this){
+
+}
+```
+
+**`this` 代表当前对象**
+
+- 用于 **实例方法、构造方法** 里，指向 **当前对象**。
+- `this.name = name;` 避免变量冲突
+
+#### setnx
+
+```
+SET lock value NX EX 10 #放在一起保证原子性,这里NX互斥,EX超时
+DEL key #释放锁 
+```
+
+加锁有EX时长,如果业务执行太长超过lock EX time
+
+#### Redisson
+
+1 **WatchDog**,有一个thread进行监控,如果业务太久就增加setnx时长
+
+**Redisson 会自动续期**，不需要手动增加 `SETNX` 过期时间
+
+**默认 30 秒持有锁，每 10 秒自动续期**，只要任务没有完成，锁就不会被释放,每ReleaseTime/3做一次续期
+
+手动释放锁,通知Watch Dog
+
+![](./Java/redis4.png)
+
+2 **重试机制,尝试等待,高并发增加分布式锁的使用性能**
+
+```java
+RLock lock = redissonClint.getLock("a");
+boolen isLock=lock.tryLock(10,TimeUnit.SECONDS); //while time =10 s
+if(isLock){
+    try{
+        
+    }finally{
+        lock.unlock();
+    }
+}
+//boolen isLock=lock.tryLock(10,30,TimeUnit.SECONDS); //30 is EX time, 30设置了就没有watch dog的监听了,不设置过期时间就是默认有watch Dog做续期
+```
+
+3 **加锁 设置过期时间等redisson命令都是lua脚本完成,保证执行的原子性**
+
+> 在 Redis 中，分布式锁的核心操作是：
+>
+> 1. **加锁**（SETNX）
+> 2. **设置过期时间**（EXPIRE）
+> 3. **解锁**（DEL）
+>
+> 如果我们**直接用普通命令实现加锁**：
+>
+> ```
+> bashCopyEditSETNX myLock "thread-1"  # 尝试加锁
+> EXPIRE myLock 10          # 设置超时时间
+> ```
+>
+>  **问题：这两个命令是分开的，存在并发安全问题！**
+>
+> - 如果 **在 `SETNX` 和 `EXPIRE` 之间** 发生 **线程崩溃** 或 **服务器宕机**，锁 **可能永远不会过期**（**死锁问题**）。
+> - **多个客户端可能同时加锁**，导致多个实例误认为自己持有锁。
+>
+> **✅ 解决方案：使用 Lua 脚本，一次性完成加锁 + 过期时间，保证原子性！**
+
+### 锁的重入（Reentrant Locking）
+
+同一个线程在持有锁的情况下，可以再次获取该锁，而不会发生死锁
+
+redisson实现的锁是可以重入的
+
+hash结构记录,key=thread id,value=reentrant times
+
+主从一致性
+Redis Master, Redis Slave,主从同步,为了防止Master加锁后down了,然后Slave变成Master后再加锁的情况:
+
+RedLock:不止在一个redis实例上加锁,而是在多个redis实例上创建锁(n/2+1)  但是很少用,性能差 
+
+为了保持数据强一致性,使用zookeeper实现的分布式锁 
+
+### 集群方案
+
+主从复制
+
+哨兵模式 (可以解决高可用,高并发读问题)
+
+监控Master Slave的正常工作,Master故障就Slave升Master,通知redis cli端
+
+heartbeat监控,主观下线,过半数Quorum就客观下线
+
+分片集群 (可以解决海量数据存储,高并发写问题)
+
+**多个master**,每个master存不同数据,有自己的slave,master之间互相监控ping
+
+client可以访问任意master,都会被转发到正确节点
+
+通过hash来分流
+
+### 为什么Redis单线程怎么快
+
+内存,单线程不用上下文切换可竞争条件,多线程要线程安全
+
+I/O多路复用,非阻塞IO 
+
+Redis瓶颈是网络延迟, I/O多路服用高效网络请求
+
+* User Space & Kernel Space
+* Blocking IO, Nonblocking IO, IO Multiplexing
+
+![](./Java/redis5.png)
+
+select
+
+poll
+
+好了就发signal,然后kernel论询查哪个fd好了
+
+epoll
+
+`epoll` **告诉用户进程具体哪个 socket（fd）变成可读/可写**
+
+性能影响IO diskIO,socketIO多线程

@@ -1,3 +1,33 @@
+# springboot
+
+### Controller
+
+`@RestController` 或 `@Controller`
+
+通常与具体的 URL 路径绑定（通过 `@RequestMapping`、`@GetMapping` 等）
+
+### Service
+
+处理业务逻辑
+
+有Impl部分，`@Service`
+
+### Entity
+
+`Entity` 是与数据库表直接映射的类，代表了系统中的数据模型。
+
+每个实体类通常对应数据库中的一张表，类的字段对应表的列。
+
+使用注解如 `@Entity`、`@Table`、`@Id`、`@Column` 等标识和配置。
+
+只负责存储数据，没有业务逻辑
+
+### DAO
+
+Data access object 仓库接口
+
+
+
 https://www.yuque.com/zhangshuaiyin/guli-mall
 
 https://www.yuque.com/mo_ming/gl7b70/azodep
@@ -784,4 +814,30 @@ public class HelloServiceImpl implements HelloService {
 HelloService helloService = (HelloService) context.getBean("helloService");
 String result = helloService.sayHello("Dubbo");
 ```
+
+# 三级API 1.10
+
+
+
+# 品牌管理 1.11
+
+# API属性分类+平台属性 1.12
+
+# 新增商品 1.13
+
+# 仓库管理 1.14
+
+# ES 1.15
+
+# 商品上架 1.16
+
+# 性能压测 1.17
+
+# 缓存 1.18
+
+# 检索服务 1.19
+
+# 异步 1.20
+
+# 商品详情 1.21
 
