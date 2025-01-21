@@ -718,19 +718,7 @@ execute 提交一个`Runnable`任务
 
 submit 提交一个task返回`Future`， `future.get()` 方法，可以阻塞当前线程并等待任务执行完成，返回结果
 
-# Mysql
 
-Master-Slave Replication
-
-**主库（Master）**：负责处理所有的 **写入（INSERT, UPDATE, DELETE）** 操作，并将数据的变更同步到从库。
-
-**从库（Slave）**：**只读数据库**，从主库接收更新数据，并提供 **查询（SELECT）** 业务，减轻主库压力。
-
-**读写分离**：主库负责写，从库负责读，提升数据库性能。
-
-**数据备份**：主库数据同步到多个从库，防止数据丢失。
-
-**高可用**：主库崩溃时，可以将某个从库提升为主库（故障转移）
 
 # Redis 2025.01.12 
 
@@ -1014,3 +1002,746 @@ epoll
 `epoll` **告诉用户进程具体哪个 socket（fd）变成可读/可写**
 
 性能影响IO diskIO,socketIO多线程
+
+# Mysql 2025.1.19
+
+Master-Slave Replication
+
+**主库（Master）**：负责处理所有的 **写入（INSERT, UPDATE, DELETE）** 操作，并将数据的变更同步到从库。
+
+**从库（Slave）**：**只读数据库**，从主库接收更新数据，并提供 **查询（SELECT）** 业务，减轻主库压力。
+
+**读写分离**：主库负责写，从库负责读，提升数据库性能。
+
+**数据备份**：主库数据同步到多个从库，防止数据丢失。
+
+**高可用**：主库崩溃时，可以将某个从库提升为主库（故障转移）
+
+### 定位慢查询
+
+**多表查询** 这个有
+
+聚合查询
+
+表数据过大查询
+
+深度分页查询
+
+表象:页面加载慢,接口压测响应时间过长超过1s
+
+Arthas
+
+Prometheus, Skywalking 接口响应时间+追踪
+
+Mysql自带慢日志查询(我也没用过) `/etc/mysql/my.cnf`
+
+```shell
+slow_query_log=1
+long_query_time=2
+#/var/lib/mysql/localhost-slow.log
+```
+
+首先回答场景:比如当时接口测试压测结果很慢5s,用MySQL慢日志查询,检测出sql里超过2s的日志(在调试阶段),dev时不用慢日志查询
+
+### 如何优化
+
+**多表查询**  : 优化sql语句
+
+聚合查询  : 优化sql语句,临时表
+
+表数据过大查询: 添加index
+
+深度分页查询
+
+分析sql的执行计划
+
+**EXPLAIN** DESC获取mysql查询信息
+
+key,key_len检查是否索引命中,也就是是否利用到了index
+
+```shell
+#Extra建议
+Using where; Using Index #不需要回表,索引列都能找到
+Using index condition #查找使用了索引,需要table lookup
+#type sql连接类新
+system #查询的内置表
+const #primary key查询
+eq_ref #primary 或者唯一索引查询,只能返回一条数据
+ref #其他索引查询,比如查name,可能返回多个
+range #范围查询
+index #索引树扫
+all #全盘扫
+```
+
+### 回表查询Table Lookup
+
+查询数据时，先通过 **索引** 查找 **主键 ID**，然后再通过 **主键索引（Clustered Index）** 获取完整的数据行。这通常发生在 **非聚簇索引（Secondary Index）** 查询
+
+### Index
+
+B+树利于扫库+区间查询
+
+叶子节点天然形成双向链表，顺序扫描更高效
+
+ **磁盘 I/O 访问次数少**,因为按照page存取16KB
+
+Mysql底层的innoDB采用的B+树,路径短,disk读取代价低
+
+### Cluster Index
+
+Primary key
+
+没Primary key就用地一个Unique的Index
+
+没有Unique的index, innoDB就会生成一个rowid作为隐藏的cluster index
+
+### 覆盖索引
+
+- 查询使用了索引，并需要返回的列，在该索引中已经全部能够找到（不需要回表查询）
+
+ ```sql
+ #当id、name创建了索引，id为主键
+ select * from user where id = 1; 
+ #是覆盖索引，聚集索引中包含id
+ select id, name from user where name = 'jack'; 
+ #是覆盖索引，二级索引中包含id，且name是索引
+ select id, name, gender from user where name = 'jack'; 
+ #是覆盖索引，二级索引中包含id，且name是索引,但是没有gender,需要回表查询
+ ```
+
+如果返回列中没有创建索引,可能会触发table lookup,尽量避免select *
+
+用id查询直接cluster index查询,性能好
+
+### MySQL超大分页处理
+
+- 当数据量特别大，limit分页查询，需要进行排序，效率低
+- 解决：覆盖索引+子查询
+
+```sql
+select * from tb limit 900000,10;
+#查询900010个返回900000-900010的数据, sort代价高
+
+select * from tb t,
+(select id from tb order by id limit 900000,10) a
+where t.id=a.id
+```
+
+先找id,然后再从id查询过滤
+
+**先用索引查找 `id`（子查询）**
+
+```sql
+SELECT id FROM tb ORDER BY id LIMIT 900000,10;
+```
+
+- 由于 `id` 是 **索引字段**，MySQL 只需要 **遍历索引 B+ 树**，可以 **快速跳过前 900000 条数据**。
+- **索引查找是 O(log N)，比 O(N) 全表扫描快很多**。
+
+**再用 `JOIN` 进行回表查询（避免大范围回表）**
+
+```sql
+WHERE t.id = a.id;
+```
+
+- 由于 `id` 是索引，**只查询 10 行数据，不会进行大规模回表**。
+- **相比直接 `LIMIT 900000, 10`，可以避免大量数据扫描**
+
+### 创建索引
+
+- 表数据量大，查询频繁，可以给表创建索引（单表超过10万条）
+- 字段常被用于条件、排序、分组，创建索引
+- 使用联合索引（复合索引），避免回表
+- 控制索引数量
+
+```sql
+show index from tb;
+#有多个column name的key name相同就是Composite Index
+```
+
+### Composite Index
+
+**普通索引** 只针对 **单个字段**（如 `INDEX idx_name(name)`）。
+
+**联合索引** 可以在 **多个字段** 上建立索引（如 `INDEX idx_name_age(name, age)`），查询时可以**同时利用**索引，提高查询效率。
+
+联合索引的 **查询生效规则** 受 **最左前缀匹配原则（Leftmost Prefix Matching Rule）**
+
+```sql
+CREATE INDEX idx_name_age_city ON users (name, age, city);
+(name)
+(name, age)
+(name, age, city)
+SELECT * FROM users WHERE name = 'Tom';  -- ✅ 使用索引
+SELECT * FROM users WHERE name = 'Tom' AND age = 25;  -- ✅ 使用索引
+SELECT * FROM users WHERE name = 'Tom' AND age = 25 AND city = 'New York';  -- ✅ 使用索引
+SELECT * FROM users WHERE age = 25;  -- ❌ 不能使用 (name, age, city) 索引
+SELECT * FROM users WHERE age = 25 AND city = 'New York';  -- ❌ 因为跳过了 name，索引无法生效
+SELECT * FROM users WHERE name = 'Tom' city = 'New York';  -- ❌ 只查name,city的索引失效
+```
+
+如果查询 age 和 city，需要额外创建索引 `INDEX idx_age_city(age, city);`
+
+### 多个索引如何存储
+
+**多个索引** 时，MySQL 为每个索引 **创建一棵独立的 B+ 树**
+
+**主键索引（聚簇索引）**：完整数据行存储在叶子节点
+
+**每个二级索引（非聚簇索引）**：叶子节点存储 **索引列值 + 主键 ID**
+
+MySQL 的 **索引和数据主要存储在磁盘（Disk）**，但 **查询时会加载部分索引和数据到内存（Memory）**，以提高性能。
+
+索引在 **内存和磁盘之间的存储机制** 受 **InnoDB 缓冲池（Buffer Pool）**
+
+内存缓存（**Memory - Buffer Pool**）
+
+**MySQL 在查询时，不会每次都去磁盘，而是会把部分索引页和数据页加载到内存**，存储在 **InnoDB Buffer Pool**。
+
+**B+ 树的内部节点（非叶子节点）会尽可能加载到内存**，这样查询时可以**快速查找到叶子节点**。
+
+### 索引什么时候失效
+
+其实并没有遇到过 :(
+
+使用explain在sql前判断是否索引失效
+
+- 联合索引，违反最左前缀原则
+
+- 范围查询右边的列，不能使用索引
+
+  - ```sql
+    select * from tb where name='a' and status>'1' and address = 'b';
+    #这里的status是范围查询,右边的address Miss
+    ```
+
+- 不要在索引列上进行运算操作
+
+- 字符串不加单引号（数字类型与String类型的 ‘0’）
+
+- 以百分号%开头like模糊查询，索引失效
+
+可以用Explain来查看sql是否有index miss的情况
+
+### SQL优化
+
+表设计优化->阿里开发手册
+
+- 避免使用select *
+- 避免索引失效写法
+- 用union all代替union，union会多一次过滤，效率低 (union去掉重复)
+- 避免在where字句中对字段进行表达式操作（可能索引失效
+- join优化,能inner join就不要left join和right join,如必须就要小表为驱动, inner join会把小表放外面,大表放里
+
+### 事务特性（ACID）
+
+原子性（Atomicity）：事务是不可分割的最小操作单元，要么全部完成，要么全部失败
+
+一致性（Consistency）：事务完成时，必须使所有数据都保持一致
+
+隔离性（Isolation）：允许并发事务同时对其数据进行读写和修改的能力， 隔离性可以防止多个事务并发执行时由于交叉执行而导致数据的不一致。
+
+持久性（Durability）：事务处理结束后，对数据的修改就是永久的
+
+### Isolation level
+
+读未提交（Read uncommitted）
+
+读提交（read committed） Oracle默认的隔离级别,解决脏读：读到事务没提交的数据
+
+可重复读（repeatable read） MySQL默认的隔离级别,解决不可重复读：事务读取同一条数据，读取数据不同
+
+串行化（Serializable）表级锁，读写都加锁，效率低下,安全性高,不能并发。解决幻读：查询时没有数据，插入时发现已经存在，好像出现幻觉
+
+### WAL write ahead log
+
+flush dirty page 的时候,发生错误宕机,redo log数据恢复,保证持久性
+
+undo log记录修改前数据 (logistic log),就是 insert时,undo log就delete,记录一个相反的日志,undo log可以roll back,保证transaction的原子性和一致性
+
+### MySQL主从同步
+
+Binlog日志,DDL和DML都记录,不包含查询操作
+
+Master 写binlog ->被Slave的IOthread读到,更新Relay log,再SQL thread去执行
+
+
+
+binlog是MySql的日志，redolog和undolog是InnoDB的日志
+
+### 分库分表 Sharding & Partitioning
+
+没用过,但是有了解过20G,100W以上
+
+#### Vertical Partitioning 
+
+按不同业务拆库
+
+把一个大表按照字段进行拆分：
+
+- `user_basic_info`（id, name, age）
+- `user_contact_info`（id, email, phone）
+
+表中部分字段访问频率高，部分字段访问频率低
+
+避免宽表导致的性能问题（单行数据过大）
+
+#### Sharding 水平 
+
+分表
+
+```
+user_0 (id: 1-99999)
+user_1 (id: 100000-199999)
+user_2 (id: 200000-299999)
+```
+
+将数据分布到不同的数据库中：
+
+```
+db1.user_0, db1.user_1
+db2.user_2, db2.user_3
+```
+
+分布式事务一致性,跨节点关联查询,跨节点分页,排序,主键啥的,加一层中间件Middleware,比如sharding,没有什么是加一层middleware不能解决的哈哈哈哈
+
+### MVCC
+
+事务隔离性->lock锁 or MVCC
+
+隐藏字段，undo log日志，readView读视图
+
+- 隐藏字段是指：在mysql中给每个表都设置了隐藏字段，有一个是trx_id(事务id)，记录每一次操作的事务id，是自增的；另一个字段是roll_pointer(回滚指针)，指向上一个版本的事务版本记录地址
+- undo log主要的作用是记录回滚日志，存储老版本数据，在内部会形成一个版本链，在多个事务并行操作某一行记录，记录不同事务修改数据的版本，通过roll_pointer指针形成一个链表 (事务提交后可被立即删除)
+- readView解决的是一个事务查询选择版本的问题，在内部定义了一些匹配规则和当前的一些事务id判断该访问那个版本的数据，不同的隔离级别**快照读** Snapshot Read是不一样的，最终的访问的结果不一样。如果是rc隔离级别，每一次执行快照读时生成ReadView，如果是rr隔离级别仅在事务中第一次执行快照读时生成ReadView，后续复用. Current Read当前读就是加锁的到最新版本
+
+ReadView访问规则
+
+![](./Java/mysql1.png)
+
+# frame 2025.1.20
+
+### Spring的bean是Singleton
+
+bean是否为单例，主要看其作用域。Spring的bean默认情况下是单例的。
+
+prototype:一个bean的定义里可以有多个实例
+
+单例bean是线程安全的吗? 不是thread safe的!
+
+> 无状态（Stateless）Bean 是指不存储实例变量（成员变量）或持久化数据的 Bean, Bean则是线程安全的
+>
+> 有状态的，那么Bean则不是线程安全的,有状态就是有可变的状态,比如Service类和DAO类
+>
+> 一个bean就是一个对象,在个对象类里不应该有成员变量(无状态)
+
+UserController 类默认是由 Spring 容器管理的单例 Bean（由于 @Controller 注解）因此，多个请求可能会同时访问 getById 方法。
+
+### AOP (我用过操作日志,比如对一个数据库操作添加时间,注册时间)
+
+**增强（Advice）** 指的是在 **不修改原始代码的情况下，为方法增加额外的功能**
+
+**AOP 的底层使用了动态代理(jdk default,cglib)，而动态代理本质上依赖于反射**
+
+**在特定位置切入自己的逻辑**，从而**简化代码、增强功能、减少重复**
+
+- 面向切面编程，将与业务无关，可重用的模块抽取出来，做统一处理
+- 使用场景：记录操作日志、缓存处理、spring中内置事务处理
+
+在**所有方法执行前后**自动记录日志
+
+在**某些方法调用时**进行权限验证
+
+在**异常抛出时**进行统一处理
+
+`/aop/SysAspect`
+
+```java
+@Component
+@Aspect //切面类
+
+//切点找的这个注解,如果有在个注解com.hychen.annotation.Log,就进入下面的around
+@Pointcut("@annotation(com.hychen.annotation.Log)")
+private void pointCut(){
+    
+}
+
+public Object around(ProceedingJoinPoint joinPoint){
+    //获取被增强的类和方法的信息
+    Signature signature = joinPoint.getSignature();
+    MethodSignature methodSignature.getMethod();
+    //获取被增强的类的function
+    Method method=methodSignature.getMethod();
+}
+```
+
+我在controller里的`public User getById`加了一个 `@Log("11")`
+
+### transaction实现本质是AOP
+
+方法前开启trx,执行后关闭提交or回滚trx
+
+声明式
+
+```java
+@Around("pointcut()")
+public Object around(Proceeding.JoinPoint joinPoint) throws Throwable{
+    try{
+        //init a transaction
+    	System.out.println("方法执行前...");
+        Object proceed=joinPoint.proceed(); //继续执行被AOP切面拦截的方法
+        System.out.println("方法执行后...");
+        //commit transaction
+        return proceed;
+    }catch(Exception e){
+        e.printStackTrace();
+        // roll back
+        return null;
+    }
+}
+```
+
+`@Around`**就是把被切的方法“包裹”起来**，在它**执行前后都能插入代码**，相当于“拦截器”或“包装器（Wrapper）”
+
+```java
+public class UserService {
+    @Log  // 被 AOP 切入的注解
+    public String getUser(String name) {
+        System.out.println("执行 getUser 方法");
+        return "Hello, " + name;
+    }
+}
+```
+
+```
+方法执行前...
+执行 getUser 方法
+方法执行后...
+```
+
+### 事务失效场景
+
+#### try catch
+
+**事务（Transaction）中不能 `try-catch` 直接吞掉异常，必须抛出**
+
+在 Spring 事务管理（`@Transactional`）中，有一个**重要的原则**：
+
+- **如果方法内部 `try-catch` 处理了异常，并且不往外抛出，事务不会回滚！**
+- **事务管理默认只有** **`RuntimeException`（非受检异常）和 `Error`** **才会触发回滚**，而**`checked Exception`（受检异常）默认不会回滚**。
+
+**Spring 事务在方法调用前**，开启事务（默认是 `Connection.setAutoCommit(false)`）。
+
+**方法执行过程中**，如果抛出了 `RuntimeException` 或 `Error`，Spring 事务管理会**捕获异常，并触发回滚**（`Connection.rollback()`）。
+
+**如果方法正常执行完毕**，Spring 事务会**提交事务**（`Connection.commit()`）。
+
+**如果方法内部 `try-catch` 捕获了异常**，Spring 事务管理**认为方法执行成功，不会回滚事务**。
+
+1. **`try` 块中如果没有异常**，整个 `try` 代码执行完后，`catch` 不会执行，直接进入 `finally`。
+2. **`try` 块中如果发生异常**，**立即跳到 `catch`**，`try` 里面异常之后的代码不会执行。
+3. **`finally` 块一定会执行**，无论 `try` 还是 `catch` 发生了什么（除非 `System.exit(0)` 终止 JVM）。
+
+#### throw exception
+
+roll back只捕获抛出的`RuntimeException` 异常
+
+**检查异常（`Checked Exception`，如 `IOException`, `SQLException`）不会触发回滚**，除非手动指定 `rollbackFor`
+
+```java
+@Transactional(rollbackFor=Exception.class)
+//只要是异常都回滚
+```
+
+#### non public
+
+本质上都是通过反射，什么情况下会让反射失效就会让这个事务失效
+
+Spring为方法创建代理、添加事务通知，前提是public的 
+
+解决：改为public方法
+
+### Bean 生命周期
+
+![](./Java/frame1.png)
+
+### `@Component & @ComponentScan` 
+
+**标记一个类为 Spring 组件（Bean）**
+
+**交给 Spring 容器管理**
+
+**可以在其他地方（如 `@Autowired`）直接使用**
+
+**支持自动扫描（`@ComponentScan`）**
+
+`@SpringBootApplication` 内部包含 `@ComponentScan`，会自动扫描 **同级及以下所有包** 里的 `@Component` 类。
+
+或者可以手动指定扫描路径`@ComponentScan("com.example.service")`, 这样 Spring 只会扫描 `com.example.service` 目录下的 `@Component`
+
+`@Component` 创建的 Bean 可以被 `@Autowired` 注入
+
+这里@Bean就是手动注册,Spring不会自动扫描,而是调用 `userService()` 方法创建 Bean
+
+```java
+@Configuration
+public class AppConfig {
+    @Bean
+    public UserService userService() {
+        return new UserService();
+    }
+}
+```
+
+而@Component自动扫描
+
+### `@Configuration`
+
+**用于定义 Spring Bean**（结合 `@Bean`）
+
+**代替 XML 配置文件**（Spring 以前用 `applicationContext.xml`）
+
+**Spring Boot 允许自动扫描和加载配置**
+
+### @Controller
+
+处理 Web 请求（MVC）
+
+❌ 需要手动 `@ResponseBody`
+
+```java
+@Controller
+public class UserController {
+    @GetMapping("/hello")
+    @ResponseBody  // 需要手动加，否则返回的是视图
+    public String hello() {
+        return "Hello, Spring!";
+    }
+}
+```
+
+@Controller public class UserController {    @GetMapping("/hello")    @ResponseBody  // 需要手动加，否则返回的是视图    public String hello() {        return "Hello, Spring!";    } }
+
+### @RestController
+
+`@Controller + @ResponseBody`
+
+✅ 默认返回 JSON
+
+`@Component`**通用组件**标记为 Spring 组件，默认被扫描（如果需要 `@Bean`）
+
+`@Service`  **Service 层**  业务逻辑类，语义清晰
+
+`@Repository`**DAO 层**数据访问层，异常转换
+
+`@Controller`**Web 层**处理 HTTP 请求 
+
+**Web 层用 `@RestController`**（如果是 JSON API）
+
+### Reflection
+
+`method.invoke()`是反射的核心
+
+```java
+UserService userService = new UserService();
+userService.getUser();  // 直接调用方法
+```
+
+但如果方法名在运行时才确定（比如**AOP、动态代理、框架**等场景），我们可以用 **反射**：
+
+```java
+Method method = UserService.class.getMethod("getUser");
+method.invoke(userService); // 运行时调用 getUser() 方法
+```
+
+**`Method.invoke()` 允许我们动态调用方法，而不需要在编译时写死方法名！**
+
+![](./Java/frame2.png)
+
+### 循环引用 Circular Dependency
+
+A init成半成品,需要B对象,去IOC里找对象,没有B就initB,B要A,但是没有A就循环了
+
+![](./Java/frame3.png)
+
+![](./Java/frame4.png)
+
+### 代理对象->三级缓存 解决set方法的注入依赖 (三级还不了解)
+
+set是初始化好了后依赖注入(这之后都能解决)
+
+构造函数的循环依赖,这里缓存没法解决 (延迟加载 @Lazy), 什么时候需要对象再进行bean对象的创建
+
+```java
+public A(B b){}
+public B(A a){}
+
+public A(@Lazy B b){}
+public B(@Lazy A a){}
+```
+
+### MVC流程
+
+springmvc的核心：dispatcherServlet
+
+![](./Java/frame5.png)
+
+![](./Java/frame6.png)
+
+![](./Java/frame7.png)
+
+用@RestController 可以不用加 @ResponseBody
+
+### SpringBoot自动配置原理
+
+`@Component` 只是一个**普通组件（Bean）**，被 `@ComponentScan` 发现并注册到 Spring 容器中。
+
+`@Configuration` 是一个**特殊的 `@Component`，用于定义 Bean**，并且可以确保 `@Bean` 方法的**单例性**。
+
+为什么 `@Configuration` 可以保证 `@Bean` 方法返回的是单例？
+
+Spring 通过 **CGLIB 代理**增强 `@Configuration`，保证 `@Bean` 方法只会执行一次，并返回同一个 Bean 实例。
+
+`@SpringBootApplication`中有一个`@EnableAutoConfiguration`注解,里面通过`@Import`注解导入相关配置选择器, 里面有`@ConditionalOnClass` 查看是否有对应的class文件,有就加载,把config的所有Bean加入Spring容器里
+
+![](./Java/frame8.png)
+
+### Annotation
+
+#### Spring
+
+![](./Java/frame9.png)
+
+![](./Java/frame10.png)
+
+**`@Controller`**：标注在类上，表示这个类是一个控制器，Spring MVC 会解析它。
+
+**`@ResponseBody`**：标注在方法上，表示**方法返回的对象会被自动转换为 JSON 或 XML，而不是返回视图页面**。
+
+**`@RestController`**：是 `@Controller` 和 `@ResponseBody` 的组合，作用于整个类，使所有方法默认都返回 JSON（无需额外加 `@ResponseBody`）。
+
+`@Controller` 的核心作用
+
+**用于处理 HTTP 请求**（如 GET/POST 请求）
+
+**返回 HTML 视图（如 `thymeleaf`、`JSP`、`freemarker`）**
+
+**通常用于 MVC 模式的 Web 应用**
+
+**配合 `ModelAndView` 或 `Model` 传递数据到视图层**
+
+`@Controller` 默认解析的是**视图名**，所以如果返回字符串 `"hello"`，Spring 会认为要跳转到 `hello.html` 页面，而不是返回 JSON。
+
+![](./Java/frame11.png)
+
+### MyBatis
+
+这块还不是很懂,等二刷
+
+### Interceptor
+
+请求处理的不同阶段（如控制器处理请求前、请求后、视图渲染后等）执行一些逻辑
+
+**请求预处理**
+
+- 在请求到达控制器之前，可以对请求进行检查或修改。
+- 例如：
+  - 用户权限验证（判断用户是否已登录，是否有权限访问特定资源）。
+  - 检查请求参数的合法性。
+  - 设置特定的上下文信息（如用户信息、追踪 ID）。
+  - 日志记录，例如记录请求的 URL、请求时间等。
+
+**请求后处理**
+
+- 在控制器处理完请求后，返回视图之前，执行特定逻辑。
+- 例如：
+  - 修改响应内容或附加信息。
+  - 记录操作日志或处理统计数据。
+  - 清理线程上下文中的信息，防止内存泄漏。
+
+**视图渲染后处理**
+
+- 在视图渲染完成后，通常用来进行资源清理等操作。
+- 例如：
+  - 清除缓存或关闭打开的资源。
+  - 记录整个请求的耗时。
+
+拦截器可以通过实现 `HandlerInterceptor` 接口来定义。它提供了以下三个方法：
+
+```java
+public interface HandlerInterceptor {
+    // 在请求进入 Controller 之前执行，返回 false 则请求中断
+    boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler);
+
+    // 在 Controller 执行完成后，尚未返回视图时执行
+    void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView);
+
+    // 在请求完成（视图渲染完成）后执行
+    void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex);
+}
+```
+
+**注册拦截器** 为了使拦截器生效，需要将其注册到拦截链中。通过实现 `WebMvcConfigurer` 接口的 `addInterceptors` 方法可以注册拦截器，同时可以配置哪些路径需要拦截，哪些路径排除。
+
+```java
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new MyInterceptor())
+                .addPathPatterns("/**")        // 拦截所有路径
+                .excludePathPatterns("/login", "/error"); // 排除登录和错误页面
+    }
+}
+```
+
+定义一个简单的拦截器：
+
+```java
+public class MyInterceptor implements HandlerInterceptor {
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        // 判断用户是否已登录
+        if (request.getSession().getAttribute("user") == null) {
+            response.sendRedirect("/login");
+            return false; // 中断请求
+        }
+        return true; // 放行请求
+    }
+
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) {
+        // 可以在这里修改 ModelAndView，例如添加额外的全局信息
+        System.out.println("postHandle: 请求处理完成");
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+        System.out.println("afterCompletion: 请求完成，清理资源");
+    }
+}
+```
+
+拦截器
+```java
+implements HandlerInterceptor  //继承拦截器
+boolean preHandle(){}		//重写方法，返回true放行；返回false拦截
+
+implements WebMvcConfigurer		//配置，注册拦截器
+void addInterceptors         //重写方法，可添加排除拦截的路径
+```
+
+Spring MVC 的拦截器（Interceptor）通常是先创建一个拦截器类（实现 `HandlerInterceptor` 接口），然后再通过 `WebMvcConfigurer` 进行注册，使其生效
+
+### SpringCloud
+
+- 注册中心/配置中心 Nacos
+- 服务网关 Gateway
+- 负载均衡 Ribbon
+- 服务调用 Feign
+- 服务保护 Sentinel
+
+
+

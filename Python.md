@@ -1007,16 +1007,4 @@ print((x.T + w).T)
 print(x + np.reshape(w, (2, 1)))
 ````
 
-# Matplotlib
-
-```python
-import matplotlib.pyplot as plt
-%matplotlib inline
-
-x = np.arange(0, 3 * np.pi, 0.1)
-y = np.sin(x)
-
-# Plot the points using matplotlib
-plt.plot(x, y)
-```
-
+# FastAPI

@@ -149,8 +149,8 @@ USE `gulimall_ums`;
 
 两个必要组键
 
-* Spring Web
-* OpenFeign
+* **Spring Web**
+* **OpenFeign**
 
 然后聚合，把不同微服务合在一起
 
