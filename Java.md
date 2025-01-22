@@ -1638,6 +1638,53 @@ Spring 通过 **CGLIB 代理**增强 `@Configuration`，保证 `@Bean` 方法只
 
 这块还不是很懂,等二刷
 
+![](./Java/frame12.png)
+
+创建完Session后执行SQL查询
+
+使用 Mapper 接口
+
+```java
+public interface UserMapper{
+    User selectUserById(int id);
+    List<User> selectAllUsers();
+}
+
+UserMapper mapper = session.getMapper(UserMapper.class);
+User user=mapper.selectUserById(1);
+```
+
+解析 SQL 语句
+
+XML 映射文件
+
+```xml
+<mapper namespace="com.example.mapper.UserMapper">
+    <select id="selectUserById" parameterType="int" resultType="com.example.model.User">
+        SELECT * FROM users WHERE id = #{id}
+    </select>
+</mapper>
+```
+
+使用注解
+
+```java
+public interface UserMapper {
+    @Select("SELECT * FROM users WHERE id = #{id}")
+    User selectUserById(int id);
+}
+```
+
+`#{}` 表示 **预编译参数**（防止 SQL 注入）。
+
+MyBatis 在执行前会把 `#{}` 替换为 `?` 并绑定参数。
+
+```
+User user = mapper.selectUserById(1);
+
+SELECT * FROM users WHERE id = ? 
+```
+
 ### Interceptor
 
 请求处理的不同阶段（如控制器处理请求前、请求后、视图渲染后等）执行一些逻辑
@@ -1743,5 +1790,4 @@ Spring MVC 的拦截器（Interceptor）通常是先创建一个拦截器类（�
 - 服务调用 Feign
 - 服务保护 Sentinel
 
-
-
+zookeeper 是cp（一致性、分区容错）、redis是ap（可用性和分区容错）ca（不能同时实现）所以有一个最终一致性和强一致性的问题  
