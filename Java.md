@@ -2800,17 +2800,220 @@ volatile开销较低，会影响 CPU 缓存一致性
 
 ## Thread Pool
 
-**corePoolSize 核心线程数**
-**maximumPoolSize 最大线程数 = （核心线程数+救急线程数）**
-keepAliveTime 生存时间：救济线程的生存时间，生存时间内没有新任务，此线程资源会释放
-unit 时间单位：救济线程生存时间单位
-workQueue 阻塞队列：核心线程已满，任务进入阻塞队列；阻塞队列满了，创建救急线程
-threadFactory 线程工厂：定制线程对象创建，可设置线程名字
-handler 拒绝策略：核心线程数、 阻塞队列、救急线程数全满，触发拒绝策略
+### ThreadPoolExecutor
+
+`Executors`是 **Java 提供的线程池工厂类**
+
+`newCachedThreadPool()` 无界线程池，最大线程数 = ` Integer.MAX_VALUE`
+
+**如果有空闲线程，则复用**，否则创建新线程
+
+**适用于短时大量任务（如高并发瞬时请求）**，但**容易引发 OOM（内存溢出）**
+
+```java
+ExecutorService cachedThreadPool = Executors.newCachedThreadPool();
+cachedThreadPool.execute(() -> {
+		System.out.println(Thread.currentThread().getName() + " 执行任务");
+});
+cachedThreadPool.shutdown();
+```
+
+
+
+`newFixedThreadPool()` **线程数固定（nThreads）**，不会回收
+
+```java
+ExecutorService fixedThreadPool = Executors.newFixedThreadPool(3);
+fixedThreadPool.execute(() -> {
+		System.out.println(Thread.currentThread().getName() + " 执行任务");
+});
+fixedThreadPool.shutdown();
+```
+
+
+
+`newScheduledThreadPool()`
+
+**可以执行定时任务和周期任务**。
+
+**线程数固定**，适用于**定期执行任务**。
+
+```java
+ScheduledExecutorService scheduledPool = Executors.newScheduledThreadPool(2);
+
+// 任务 1：延迟 3 秒执行
+scheduledPool.schedule(() -> {
+    System.out.println("延迟任务执行");
+}, 3, TimeUnit.SECONDS);
+
+// 任务 2：每 2 秒执行一次（周期任务）
+scheduledPool.scheduleAtFixedRate(() -> {
+    System.out.println("定期任务执行 " + System.currentTimeMillis());
+}, 1, 2, TimeUnit.SECONDS);
+```
+
+
+
+`newSingleThreadExecutor()`
+
+**只有一个线程**，保证任务**按顺序执行**。
+
+**适用于顺序任务（如日志写入、事件处理）**。
+
+### parameters
+
+```java
+ThreadPoolExecutor(
+    int corePoolSize,        // 核心线程数
+    int maximumPoolSize,     // 最大线程数
+    long keepAliveTime,      // 线程空闲存活时间
+    TimeUnit unit,           // 时间单位
+    BlockingQueue<Runnable> workQueue, // 任务队列
+    ThreadFactory threadFactory, // 线程工厂 r->new Thread(r,"name"+c.getAndIncrement()),
+    RejectedExecutionHandler handler // 拒绝策略 new ThreadPoolExecutor.DiscardPolicy()
+)
+```
+
+| **核心线程数（corePoolSize）**    | 线程池中始终保持的最小线程数量           |
+| --------------------------------- | ---------------------------------------- |
+| **最大线程数（maximumPoolSize）** | 线程池可以创建的最大线程数               |
+| **空闲存活时间（keepAliveTime）** | 超过核心线程数的线程在空闲时，存活的时间 |
+| **任务队列（workQueue）**         | 存放未执行的任务                         |
+| **线程工厂（threadFactory）**     | 创建线程的工厂（可自定义）               |
+| **拒绝策略（handler）**           | 当任务满时的处理方式                     |
 
 ![](./Java/juc10.png)
 
+**默认（AbortPolicy）**：适用于**关键任务，必须执行**。
+
+**CallerRunsPolicy**：适用于**任务较少，能用主线程执行**。
+
+**DiscardPolicy**：适用于**不重要的任务**（如日志）。
+
+**DiscardOldestPolicy**：适用于**保证新任务执行**。
+
+
+
+```java
+// 自定义线程池
+ThreadPoolExecutor executor = new ThreadPoolExecutor(
+    4, 10, 60L, TimeUnit.SECONDS,
+    new LinkedBlockingQueue<>(100),
+    Executors.defaultThreadFactory(),
+    new ThreadPoolExecutor.CallerRunsPolicy()
+);
+
+```
+
+### BlockingQueue
+
+| **队列类型**                        | **特性**                                                     | **适用场景**                 |
+| ----------------------------------- | ------------------------------------------------------------ | ---------------------------- |
+| **ArrayBlockingQueue**              | 有界，基于**数组**FIFO, only one lock                        | 适用于固定大小任务，防止 OOM |
+| **LinkedBlockingQueue**(主要用这个) | 无界（默认`Integer.MAX_VALUE`），支持有界，基于**链表**FIFO.  two locks(head and tail, can both insert queue and pop) | 适用于任务数不确定的情况     |
+| **SynchronousQueue**                | 无缓冲队列，直接交给线程                                     | 适用于高吞吐任务，避免排队   |
+| **PriorityBlockingQueue**           | 优先级队列，按优先级执行任务                                 | 适用于定制任务优先级         |
+| **DelayedWorkQueue**                | 优先级队列，执行时间最靠前的先出队（每个任务都有一个到期时间 `nextExecutionTime`） | 适用于定时任务（如缓存清理） |
+
+### corePoolSize
+
+N是CPU核数
+
+```java
+Runtime.getRuntime().availableProcessors();
+```
+
+- IO密集型任务：文件读写、DB读写、网络请求
+  - 核心线程数设置为2N+1
+- CPU密集型任务：计算型、Bitmap，Gson转换
+  - 核心线程数设置为N+1
+
+高并发执行时间短->CPU密集 (N+1)
+
+低并发执行时间长->IO密集 (N*2+1), CPU密集就(N+1)
+
+高并发执行时间长 首先考虑缓存cache，增加server 然后再threadpool
+
+java里IO比较多
+
+### 不允许Executors，用ThreadPoolExecutor
+
+FixedThreadPool and SingleThreadPool blockingQueue最大Integer.MAX_VALUE`，堆积request导致OOM
+
+CachedThreadPool允许创建thread最大`Integer.MAX_VALUE`，创建大量thread导致OOM
+
 ## Senario
+
+### CountDownLatch 
+
+```java
+CountDownLatch latch = new CountDownLatch(2);	//参数2
+new Thread(()->{
+	latch.countDown;	//调用一次减1
+}).start();
+new Thread(()->{
+	latch.countDown;
+}).start();
+latch.await();			//为0时唤醒，继续执行
+```
+
+### Future
+
+### Semaphore
+
+控制某个方法允许并发访问线程的数量（信号量）
+
+```java
+Semaphore semaphore=new Semaphore(3);
+try{
+  semaphore.acquire();
+}finally{
+  semaphore.release();
+}
+```
+
+### ThreadLocal
+
+每个 `Thread` 内部都有一个 **`ThreadLocalMap`**
+
+`ThreadLocal` 变量 **不存在线程之间共享**，它的值存储在 **当前线程的 `ThreadLocalMap`** 里，而不是全局变量。
+
+**每个线程操作 `ThreadLocal` 变量时，都是访问自己的 `ThreadLocalMap`，不会影响其他线程**。
+
+```java
+Thread.currentThread().ThreadLocalMap = {
+    ThreadLocal1 -> value1,
+    ThreadLocal2 -> value2,
+    ...
+}
+//每个线程（Thread）都有一个 ThreadLocalMap
+//一个 ThreadLocal 实例只能存储一个键值对。
+```
+
+set设置值、get获取值、remove清除值
+
+```java
+static ThreadLocal<String> threadLocal = new ThreadLocal<>();
+private static ThreadLocal<Integer> threadLocalValue = ThreadLocal.withInitial(() -> 0);
+```
+
+`threadLocal`用static修饰是为了让所有thread可见，在**所有线程中共享同一个 `ThreadLocal` 实例**，但每个线程仍然**存储自己的独立副本**
+
+### reference
+
+强引用
+
+弱引用
+
+
+
+ThreadLocal会导致内存泄漏，因为ThreadLocalMap中key是弱引用、value是强引用
+
+内存泄漏：已动态分配的堆内存由于某种原因程序未释放或无法释放
+
+也就是GC发现OOM了，优先去除WeakReference，也就是Key没了，value还在
+
+要主动remove释放key和value
 
 # JVM 2025.1.26
 
