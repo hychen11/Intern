@@ -580,24 +580,6 @@ public class JDBCDemo {
 
 ![](./assert/Java_Spring_1.png)
 
-### IOC/DI
-
-
-
-### MyBatis
-
-### AOP
-
-### Transaction
-
-
-
-## SpringMVC
-
-## Maven
-
-# SpringBoot
-
 # MaBatisPlus
 
 先封装SQL，接着调用JDBC操作数据库，最后把数据库返回的表结果封装成Java类。
@@ -3005,8 +2987,6 @@ private static ThreadLocal<Integer> threadLocalValue = ThreadLocal.withInitial((
 
 弱引用
 
-
-
 ThreadLocal会导致内存泄漏，因为ThreadLocalMap中key是弱引用、value是强引用
 
 内存泄漏：已动态分配的堆内存由于某种原因程序未释放或无法释放
@@ -3015,8 +2995,460 @@ ThreadLocal会导致内存泄漏，因为ThreadLocalMap中key是弱引用、valu
 
 要主动remove释放key和value
 
-# JVM 2025.1.26
+# JVM 2025.1.27
+
+### Program Counter Register
+
+thread private register
+
+**存储当前线程正在执行的字节码指令地址**，**控制代码执行顺序**
+
+### Memory Structure
+
+**shared**: Heap, Method Area(Metaspace), Runtime Constant Pool
+
+Heap is shared, stores **object instance** and **array**, can throw `OutOfMemoryError`, can GC
+
+Stack is private, store local variable and method reference, can throw `StackOverFlowError`, cannot GC
+
+
+
+**对象存放在堆中，虚拟机占存放着对象的地址**
+
+当一个对象被创建后，JVM 会在**堆**中分配内存来存储该对象的字段（成员变量）。
+
+**对象的引用（地址）存储在**方法的**栈帧（Stack Frame）**中的**局部变量表（Local Variable Table）**里。
+
+这样，当一个方法运行时，它可以通过 **栈中的引用** 访问 **堆中的对象**。
+
+![](./Java/jvm1.png)
+
+
+
+Metaspace store class or constant, java7的方法区/永久代放在java8的Metaspace（in local memory) to save heap space, to avoid OOM
+
+JDK 8 之后，JVM 使用 **Metaspace** 取代了 **永久代（PermGen）**
+
+### stack
+
+FILO, 每个线程有自己的独立的虚拟机stack，是线程安全的，由stack frame组成
+
+stack里只能有一个活动stack frame，对应当前正在执行的那个方法
+
+GC主要设计heap memory，而stack frame is popped from stack, the memory will be freed.
+
+Stack memory size is **1024K**, so if total memory is 512m, it has 512 stack, if we change the stack frame memory size, the number of stack frame will reduced.
+
+### Stack Overflow
+
+#stack frame太多导致内存溢出，recursive call function
+
+### Method Space
+
+各个线程共享的内存区域，存储
+
+* class Metadata
+
+* runtime constant pool
+* 静态变量（`static` 修饰的变量）
+
+jvm启动时创建，关闭释放
+
+MetaSpace默认没有上限
+
+`-XX:MaxMetaspaceSize=8m` ，太小会报错 OOM
+
+### Constant Pool
+
+存储各种**编译期生成的常量**，如字符串常量、基本数据类型常量、类、方法信息等
+
+为了提高**内存利用率**和**执行效率**
+
+可以看作一张表，jvm指令根据这个表找到执行的class name， method name，parameter type，字面量等信息
+
+当类被加载时，constant pool信息会放入runtime constant pool，里面符号地址变为真实地址`#20 -> 0x1020`
+
+**JDK 8+**运行时**常量池**存放在 **元空间（Metaspace）**
+
+### Direct Memory & NIO(New IO) & BIO(Blocking IO)
+
+DM是JVM **堆外**的一块内存区域（虚拟机的系统内存），**不受 JVM 垃圾回收（GC）管理**，由操作系统直接分配和释放。直接内存通常用于**提高 I/O 读写效率**，减少 Java 堆内存的拷贝开销，即使它的分配回收成本高
+
+**JVM 默认配置下**，Direct Memory 的最大大小 **与堆 (`-Xmx`) 大小相同**
+
+`MaxDirectMemorySize = -Xmx`
+
+`java -Xmx4g -XX:MaxDirectMemorySize=1g -jar app.jar`
+
+BIO
+
+![](./Java/jvm2.png)
+
+**第一次**：从 **磁盘/网络** 读取数据到 **操作系统的内核缓冲区（Kernel Buffer）**。
+
+**第二次**：从 **内核缓冲区** 拷贝到 **JVM 堆内存（Java Heap）** 供程序使用
+
+**每个请求都需要一个线程** 处理，线程会一直等待数据传输完成（阻塞）。
+
+适用于 **连接数较少**，但 **数据量大** 的场景（如传统文件 IO）
+
+NIO **基于 Buffer 和 Channel** 的 IO 方式
+
+![](./Java/jvm3.png)
+
+数据不需要拷贝到 **JVM 堆**，直接在 **OS 内核缓冲区** 和 **Direct Memory（堆外内存）** 之间传输。
+
+**只需要拷贝一次**，减少了 **JVM 堆内存和 OS 内核缓冲区之间的拷贝**，提高了性能。
+
+线程可以在数据未就绪时 **继续执行其他任务**，不会一直等待。
+
+适用于 **高并发、网络通信** 场景（如 Netty、Kafka）
+
+### class loader
+
+它按照 **类的全限定名（Fully Qualified Name）** 找到 `.class` 文件，并将其转换为 JVM 可执行的 **字节码（Bytecode）**，二进制的，可以用于JVM解释执行或者即时编译JIT
+
+`.java->javac->.class(Bytecode)->jvm interpreter/JIT`
+
+- Bootstrap 启动类加载器
+- ExtClassLoader 扩展类加载器
+- AppClassLoader 应用类加载器
+
+### Parent Delegation Model 双亲委派机制
+
+类加载机制，当一个类加载器要加载一个类时，它会先委托给父类加载器去加载，只有当父类加载器找不到该类时，才由自身去加载。**防止重复加载**，防止核心类API `String`被篡改，确保稳定性
+
+### 类加载的过程
+
+加载：将字节码文件通过IO流读取到JVM的方法区，并同时在堆中生成Class对像。
+
+验证：校验字节码文件的正确性。
+
+准备：为类的静态变量分配内存，并初始化为默认值；对于final static修饰的变量，在编译时就已经分配好内存了。
+
+解析：将类中的符号引用转换为直接引用。
+
+初始化：对类的静态变量初始化为指定的值，执行静态代码。
+
+```java
+public class B{
+	static int num;
+}
+public class A extends B{
+	static int num1;
+}
+//首次访问这个类的static或者static method就初始化
+//子类init后父类没初始化，引发父类初始化
+//子类访问父类num1，只触发父类init
+```
+
+### String Constant
+
+存储在 JVM 的字符串常量池（String Pool）
+
+字符串对象一般存储在堆（Heap）收到GC管理
+
+```java
+String s1="hello";//constant
+String s2=new String("hello");//object
+```
+
+### Garbage Collection
+
+GC heap，对象没有引用指向它，就是垃圾
+
+#### 引用计数法
+
+会出现循环引用，就失效了，引发内存泄漏
+
+#### Reachability Analysis 可达性分析算法
+
+**从 GC Roots（GC 根对象）出发**，找出所有可以到达的对象
+
+没有任何 GC Roots 关联的对象，就会被标记为垃圾
+
+| **GC Roots 类型**               | **示例**                                  |
+| ------------------------------- | ----------------------------------------- |
+| **JVM 栈（Stack）中的局部变量** | 方法内部的变量 `Person p = new Person();` |
+| **静态变量（Static Fields）**   | `static Person p = new Person();`         |
+| **常量池中的引用**              | `String s = "hello";`                     |
+| **JNI（本地方法）引用**         | `Native` 方法中引用的对象                 |
+
+### 回收算法
+
+- 标记清除
+  根据可达性分析进行标记，再清除，碎片化内存不连续（不用）
+
+- 标记整理
+  标记清除后，将存活对象都向内存一段移动（需要移动效率低）
+
+- 复制算法
+
+  一分为二，交换两个内存大角色，无碎片但是内存使用率低（用的多）
+
+### 分代回收
+
+Eden/s1/s0 8:1:1和old gen, new:old=1:2
+
+Eden不足就复制到s1，然后释放内存
+
+然后有不足就s1和存活的复制到s0，释放内存
+
+经过多次复制就复制到old gen
+
+### MinorGC MixedGC FullGC
+
+MinorGC 在young gen，STW短
+
+MixedGC在yound+old gen 部分区域回收，G1收集器特有？这个是什么？
+
+FullGC在yound+old gen全局回收，STW长，（不要使用）
+
+### GC
+
+Serial GC
+
+会阻塞别的thread，一个GC thread来STW来清除
+
+Parallel GC，default jdk8
+
+Parallel New复制 和 Parallel Old 标记整理，所有线程都STW
+
+CMS GC（Concurrent Mark-Sweep GC）
+
+![](./Java/jvm4.png)
+
+G1 GC（Garbage First GC，jdk9 default）
+
+等二刷！
+
+### Reference
+
+```java 
+System.gc();
+if(weadRef.get()!=null){
+  weakRef.get().name;//依然存活
+}
+```
+
+
+
+#### Strong reference
+
+只要GC Roots能找到，就不会被回收
+
+`User user=new User();`
+
+除非user=null才会被回收
+
+#### Soft reference
+
+```java
+User user=new User();
+SoftReference softReference=new SoftReference(user);
+```
+
+**如果 JVM 内存不足，才会回收软引用的对象，避免 OOM**
+
+#### Weak reference
+
+```java
+User user=new User();
+WeakReference weakReference=new WeakReference(user);
+//这里user就说weak reference
+```
+
+**立即回收弱引用的对象**，即使内存充足
+
+适用于缓存和 WeakHashMap（自动回收 key）
+
+ThreadLocal内存泄漏就是weak Reference
+
+```java
+static class Entry extends WeakReference<ThreadLocal<?>>{
+	Object value;
+	Entry(ThreadLocal<?> k,Object v){
+		super(k);//调用 WeakReference<ThreadLocal<?>> 的构造方法
+		value=v;
+	}
+}
+```
+
+#### Phantom Reference
+
+**不会影响对象的 GC，GC 一定会回收虚引用对象**
+
+**用于监控对象回收（如 Direct Memory 释放、JVM GC 监听）**
+
+ **必须配合 `ReferenceQueue` 使用**
+
+先加入引用队列，释放user，然后再释放 
+
+### JVM参数设置
+
+```
+nohup java -Xms512m -Xmx1024m -jar xxx.jar &
+```
+
+`-Xms`堆的初始大小
+
+`-Xmx`堆的最大大小
+
+虚拟机栈一般每个线程开1m memory，一般256k就足够
+
+`-Xss` stack的大小 `-Xss128k`
+
+`jps`
+
+`jstack`
+
+```shell
+ps -eo pid,ppid,cmd,%cpu --sort=-%cpu | head
+ps H -eo pid,tid,%cpu | grep #process_id
+jstack #process_id
+```
 
 # Senario 2025.1.27
 
+## 设计模式
+
+#### Simple Factory Pattern
+
+不是设计模式，通过一个 **静态工厂方法**，根据参数创建不同类型的对象，避免直接 `new`
+
+```java
+public class A {
+    public static Animal createAnimal() {
+        return new Animal(); // 需要返回一个 Animal 对象
+    }
+}
+
+// 直接通过类名调用静态方法
+Animal animal = A.createAnimal();
+```
+
+#### Factory Method Pattern
+
+**每个子类都有自己的工厂方法**，负责创建对应的对象，对象类型较多，符合开闭原则
+
+#### Abstract Factory Pattern
+
+可以创建其他工厂，也就是工厂的工厂
+
+### Strategy Pattern
+
+等二刷
+
+### Chain of Responsibility Pattern
+
+等二刷
+
+### SSO 单点登录 JWT
+
+一处登陆，处处运行 
+
+单体的tomcat里session可以共享，但是微服务分布式多个tomcat里session不共享
+
+* JWT
+* Oauth2
+* CAS
+
+![](./Java/s1.png)
+
+### RBAC Role-Based Access Control
+
+![](./Java/s2.png)
+
+### 对称加密/非对称加密
+
+对称加密：Encryption and decryption 采用相同的key密钥
+
+非对称加密：加密私钥private key，解密公钥public key
+
+### 难点
+
+设计模式
+
+登录，最开始if else（微服务？）但是经常有业务上的修改
+
+所以设计了工厂设计模式和策略模式
+
+线上bug cpu占用高，内存泄漏，线程死锁
+
+调优：慢sql，慢接口，缓存方案（redis+bloom filter）
+
+组件封装：分布式锁，接口幂，分布式事务，支付通用
+
+### 日志采集
+
+可以定位问题
+
+ELK：Elasticsearch，Logstash，Kibana
+
+logstash动态收集过滤数据（从logback里）
+
+![](./Java/s3.png)
+
+### 查看日志的命令
+
+```shell
+tail -f xx.log  #-f 查看变化的内容
+tail -n 100 -f xx.log
+head -n 100 xx.log
+cat -n | tail -n +100|head -n 100
+cat -n xx.log | grep "debug"
+|more |less
+```
+
+### 压测
+
+指标：响应时间，QPS，并发数，吞吐量，cpu，内存，disk io，错误率
+
+LoadRunner，Apache Jmeter
+
+监控： Prometheus+Grafana
+
+链路追踪：skywalking，zipkin
+
+线上诊断根据 Arthas
+
+### fire frame
+
+
+
 # 二刷
+
+### Reference
+
+```java
+Person p1 = new Person();  // 创建对象，p1 是引用
+Person p2 = p1;  // p2 复制 p1 的引用
+p1=null;//就不引用
+```
+
+`new Person()` 在堆（Heap）上创建一个 `Person` 对象
+
+**它返回的是对象的引用**，而不是对象本身。
+
+**这个引用存储在栈（Stack）中**，并指向堆中的对象。
+
+而C++的`new Person()`返回的直接是地址
+
+### Static
+
+**属于类（Class），而不是实例（Object）**。所有实例共享
+
+### final
+
+**对基本数据类型（int, double, boolean）**：
+
+- `final` **保证值不会改变**
+- **如果 `static final` 修饰，它会被存入** **常量池**（编译期确定）
+
+**对对象引用（非基本类型）**：
+
+- `final` 只保证 **引用不可变（不能指向新对象），但对象的内容可以修改**
+
+在编译期就能确定的值，会存入常量池
+
+**运行时才能确定的值，不会存入常量池**
