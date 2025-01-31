@@ -1,1 +1,0 @@
-ALTER USER 'root'@'localhost'  IDENTIFIED WITH caching_sha2_password BY 'chy3190102984X@'

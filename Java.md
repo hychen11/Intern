@@ -3418,6 +3418,12 @@ LoadRunner，Apache Jmeter
 
 # 二刷
 
+brackets，parentheses 括号
+
+recursive递归
+
+traverse遍历
+
 ### Reference
 
 ```java
@@ -3438,6 +3444,12 @@ p1=null;//就不引用
 
 **属于类（Class），而不是实例（Object）**。所有实例共享
 
+Java 默认所有的非 `static` 方法都是**虚方法（virtual methods）**，不需要加 `virtual` 关键字
+
+**方法调用默认是动态绑定（dynamic binding）**，这类似于 C++ 中的 `virtual` 机制
+
+Polymorphism 多态
+
 ### final
 
 **对基本数据类型（int, double, boolean）**：
@@ -3452,3 +3464,24 @@ p1=null;//就不引用
 在编译期就能确定的值，会存入常量池
 
 **运行时才能确定的值，不会存入常量池**
+
+### interface
+
+```java
+interface Animal{
+  	void speak();//public abstract void speak();
+}//just statement, cannot implement
+
+class Dog implements Animal{
+  	public void speak(){
+      
+    }
+}
+```
+
+```java
+public interface Animal{}
+//加上 public，那么这个接口可以被任何包（package）中的类访问
+//不加 public，这个接口默认是 package-private（包级可见），意味着只能在当前包内访问
+```
+
