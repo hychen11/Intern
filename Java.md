@@ -3485,3 +3485,157 @@ public interface Animal{}
 //不加 public，这个接口默认是 package-private（包级可见），意味着只能在当前包内访问
 ```
 
+# Mysql
+
+创建数据库
+
+```sql
+DROP DATABASE IF EXISTS mydb;
+CREATE DATABASE mydb;
+
+CREATE DATABASE IF NOT EXISTS mydb;
+
+SHOW DATABASES;
+SHOW CREATE DATABASE mydb;
+USE mydb;
+```
+
+创建表
+
+```sql
+SHOW TABLES;
+DROP TABLE IF EXISTS mytable;
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,  -- 自增的主键
+    name VARCHAR(100) NOT NULL,         -- 非空的字符串字段
+    email VARCHAR(255) UNIQUE,          -- 唯一约束
+    age INT CHECK (age >= 18),          -- 限制年龄必须大于等于18（某些 MySQL 版本可能不支持 CHECK）
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  -- 创建时间，默认为当前时间
+);
+
+INSERT INTO users (name, email, age) 
+VALUES 
+('Alice', 'alice@example.com', 25),
+('Bob', 'bob@example.com', 30),
+('Charlie', 'charlie@example.com', 22);
+```
+
+Rename
+
+```sql
+select device_id as user_infos_example from user_profile limit 2
+```
+
+判断非空
+
+```sql
+IS NOT NULL
+```
+
+排序
+
+```sql
+order by device_id; #default 就是升序
+order by device_id asc; #升序
+order by device_id desc; #降序
+```
+
+包含信息
+
+```sql
+where university like '%beijing%';
+```
+
+avg
+
+```sql
+select count(1) as male_num,avg(gpa) as avg_gpa from user_profile where gender='male';
+```
+
+having
+
+过滤分组后的数据 `group by`
+
+```sql
+select university,avg(question_cnt) as avg_question_cnt,avg(answer_cnt) as avg_answer_cnt from user_profile 
+group by 1 
+having avg(question_cnt) < 5 or avg(answer_cnt) < 20
+```
+
+```sql
+select university,avg(question_cnt) as avg_question_cnt from user_profile group by university order by avg_question_cnt asc
+```
+
+join
+
+```sql
+SELECT A.*, B.*
+FROM A
+JOIN B ON A.id = B.id;
+
+select a.device_id,
+a.question_id,
+a.result
+from question_practice_detail a join user_profile b 
+on a.device_id=b.device_id where b.university='浙江大学'
+order by question_id
+```
+
+distinct
+
+```sql
+count(a.question_id)/count(distinct a.device_id) as avg_answer_cnt
+```
+
+Union all
+
+和or不同点就在于union all 把两个条件分别查出来不去重合并，而or就是去重的
+
+```sql
+select
+    device_id,gender,age,gpa
+from
+    user_profile 
+where 
+    university='山东大学' 
+union all
+select
+    device_id,gender,age,gpa
+from
+    user_profile 
+where 
+     gender='male'
+```
+
+case
+
+```sql
+CASE 
+    WHEN condition1 THEN result1
+    WHEN condition2 THEN result2
+    ELSE result3  -- 可选（当所有条件都不满足时返回）
+END
+```
+
+```sql
+SELECT
+    CASE 
+        WHEN age < 25 OR age IS NULL THEN '25岁以下'  
+        WHEN age >= 25 THEN '25岁及以上'             
+    END AS age_cut, 
+    COUNT(1) AS number  
+FROM user_profile
+GROUP BY 1;
+```
+
+
+
+```sql
+UPDATE users SET age = 23 WHERE name = 'Charlie';
+```
+
+```sql
+DELETE FROM users WHERE name = 'Bob';
+TRUNCATE TABLE users; #删除所有数据且重置 AUTO_INCREMENT
+```
+
