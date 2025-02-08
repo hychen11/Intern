@@ -1,3 +1,5 @@
+# 术语
+
 quotation quote
 
 traverse
@@ -7,12 +9,6 @@ recursive
 bracket
 
 brace
-
-# self introduction
-
-
-
-
 
 # Static
 

@@ -706,6 +706,8 @@ submit 提交一个task返回`Future`， `future.get()` 方法，可以阻塞当
 
 ### 穿透
 
+Cache Penetration
+
 getById/1
 
 根据Id查询文章，如果hit返回res，redis没有查询disk，然后返回结果，返回前也把请求缓存到redis
@@ -728,6 +730,10 @@ getById/1
 
 ### 击穿
 
+Cache Breakdown / Cache Miss Storm
+
+一个热点key突然过期
+
 热点key设置过期时间,然后并发的request会把DB打崩
 
 ![](./Java/redis1.png)
@@ -736,6 +742,8 @@ getById/1
 * 逻辑过期  key过期了只有在查询的时候返回old value,然后异步更新
 
 ### 雪崩
+
+cache avalanche
 
 统一时间大量key同时失效或者redis宕机
 
@@ -1302,6 +1310,33 @@ ReadView访问规则
 ![](./Java/mysql1.png)
 
 # frame 2025.1.20
+
+MVC= model+view+controller
+
+controller 处理请求，调用model进行业务逻辑处理，Model 处理数据后，将数据返回给 Controller
+
+`Controller 层  ->  Service 层  ->  DAO（Mapper）层  ->  数据库`
+
+```
+Controller（控制层）	处理 HTTP 请求，调用 Service 层	@Controller, @RestController
+Service（业务逻辑层）	业务逻辑处理，调用 DAO 层	@Service
+Mapper / DAO（数据访问层）	负责数据库交互	MyBatis @Mapper, JPA @Repository
+Model（模型层）	数据实体对象	@Entity, @Data
+```
+
+### Server存放Controller,Mapper, Service
+
+`@RestController` 或 `@Controller`
+
+通常与具体的 URL 路径绑定（通过 `@RequestMapping`、`@GetMapping` 等）
+
+### POJO存放实体类
+
+Entity就是实体类，实体类一般与数据库表对应。（数据库字段一般是下划线命名，实体类属性一般是驼峰命名）使用注解如 `@Entity`、`@Table`、`@Id`、`@Column` 等标识和配置。只负责存储数据，没有业务逻辑
+
+DTO数据传输对象，DTO一般是作为方法传入的参数在使用，不局限于前端给controller层传参，也可以是controller层给service层传参
+
+VO是视图对象，用于前端数据的展示，所以一般是controller层把VO传给前端，然后前端展示
 
 ### Spring的bean是Singleton
 
