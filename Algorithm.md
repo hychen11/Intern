@@ -4626,13 +4626,17 @@ class Solution:
         return dp[n] if dp[n] != float('inf') else -1
 ```
 
-
-
 # Trick
 
-反悔贪心：遍历过程维护一个heap
+c++的map<> 可以直接`==`比较!!
+
+**反悔贪心：遍历过程维护一个heap** 忘了，得复习一下
 
 python里对角线翻转` fruits = list(zip(*fruits))`
+
+数位dp里python `string2.zfill(n)`, c++ `string str1=string('0',n-str1.length())+str1`
+
+zfill 也就是zero fill，左边填充，总长度为n
 
 ### LLONG_MAX,LLONG_MIN
 

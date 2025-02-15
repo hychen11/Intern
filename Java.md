@@ -1,16 +1,12 @@
-# BootCamp
+# Java basic
 
-```lua
-     +-----------------+
-     |      JDK        |
-     |  +-----------+  |
-     |  |    JRE    |  |  开发工具如编译器（javac）、调试器（jdb）、打包工具（jar）等
-     |  | +-------+ |  |
-     |  | |  JVM  | |  |  Java 核心类库
-     |  | +-------+ |  |
-     |  +-----------+  |
-     +-----------------+
-```
+.java->javac->.class->jvm(JIT)->linux/win/Mac
+
+`.class` 字节码
+
+![JVM 的大致结构模型](https://oss.javaguide.cn/github/javaguide/java/basis/jvm-rough-structure-model.png)
+
+
 
 ### Syntactical
 
@@ -27,25 +23,7 @@ Memory management is automatic with the help of the garbage collector. Developer
 
 ### Datatypes
 
-boolean
-
-Int
-
-byte
-
-char
-
-double
-
-float
-
-int
-
-long
-
-short
-
-null
+`boolean`，`Int`，`byte`，`char`，`double`，`float`，`int`，`long`，`short`，`null`
 
 ```java
 String myString;
@@ -102,6 +80,12 @@ public class StringComparison {
 
 ```
 
+String to Integer
+
+`Integer.parseInt()`, `Integet.valueOf()`, 传入char就输出ASCII值，传入string就。
+
+`String.valueOf()`, `Integer.toString()`
+
 #### Scanner
 
 ```java
@@ -144,138 +128,102 @@ x -> 2 * x
 
 ### Data Structures & Collection
 
-`import java.math.BigInteger;`
+`HashMap` 是非线程安全的，`Hashtable` 是线程安全的,因为 `Hashtable` 内部的方法基本都经过`synchronized` 修饰
 
-```java
-import java.util.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.LinkedList;
+不要用`Hashtable`，保证线程安全就`ConcurrentHashMap`
 
-static void add() {
-    array.add(1);  // 时间复杂度为 O(1) 
-    linked.add(1);  // 时间复杂度为 O(1) 
-}
+`ConcurrentHashMap` jdk 1.7 **每个 `Segment` 维护一个 `ReentrantLock`**，插入时 **只锁住一个 `Segment`，而不是整个 `ConcurrentHashMap`**，提高并发性能
 
-static void get() {
-    array.get(10);  // 时间复杂度为 O(1) 
-    linked.get(10);  // 时间复杂度为 O(11) 
-}
+jdk 1.8+ CAS+synchronized **使用 `synchronized` 保护单个桶的并发修改**。**使用 CAS（Compare-And-Swap）进行无锁并发操作**，比如 `putIfAbsent()` 方法
 
-static void addIdx() {
-    array.add(0, 2);  // 最坏情况下时间复杂度为 O(n)
-    linked.add(0, 2);  // 最坏情况下时间复杂度为 O(n)
-}
-
-static void size() {
-    array.size();  // 时间复杂度为 O(1)
-    linked.size();  // 时间复杂度为 O(1)
-}
-
-
-public class test {
-    public static void main(String[] args) throws Exception {
-        // ArrayList is just like vector in c++
-        ArrayList<String> arryList = new ArrayList<>();
-        arryList.add("a");
-        arryList.add("b");
-        fruits.get(0);
-		arryList.set(1,"c");
-        fruits.remove(0);
-        for(String c:arrayList){
-            //...
-        }
-      
-        // LinkedList
-        LinkedList<String> linkedList = new LinkedList<>();
-        linkedList.add("London");
-        linkedList.add("Paris");
-	
-        //TreeMap
-        Map<Integer, Integer> cnt = new TreeMap<>();
-        Map<Integer, Integer> cnt = new HashMap<>();
-        count=cnt.getOrDefault(card, 0);
-        cnt.put(count);
-
-        for (Map.Entry<Integer, Integer> entry : cnt.entrySet()) {
-            entry.getKey();
-            entry.getValue();
-        }
-        for (int key : cnt.keySet()) {
-            cnt.get(key);
-        }
-        for (int value : cnt.values())
-        
-        // HashMap
-        HashMap<String, Integer> hashMap = new HashMap<>();
-        hashMap.put("Alice", 25);
-        hashMap.put("Bob", 30);
-
-        // HashSet
-        HashSet<String> hashSet = new HashSet<>();
-        hashSet.add("Red");
-        hashSet.add("Green");
-
-        // Stack
-        Stack<Integer> stack = new Stack<>();
-        stack.push(10);
-        stack.push(20);
-
-        // Queue
-        Queue<Integer> queue = new LinkedList<>();
-        queue.add(5);
-        queue.add(15);
-    
-    		Set<Integer> s1=new HashSet<>();
-        Set<Integer> s2 = new LinkedHashSet<>();//保持插入顺序的 Set。
-      	TreeSet<Integer> s1=new TreeSet<>();
-      	TreeSet<Integer> s4 = new TreeSet<>((x, y) -> {return y - x;});  // 降序 
-    }
-
-  	static Set<Integer> s1 = new HashSet<>();
-    static Set<Integer> s2 = new LinkedHashSet<>();
-
-    static void add() {
-        s1.add(1);
-    }
-
-    static void contains() {  // 判断 set 中是否有元素值为 2，有则返回 true，否则返回 false 
-        s1.contains(2);
-    }
-
-    static void test1() {  // s1 与 s2 的并集 
-        Set<Integer> res = new HashSet<>();
-        res.addAll(s1);
-        res.addAll(s2);
-    }
-
-    static void test2() {  // s1 与 s2 的交集 
-        Set<Integer> res = new HashSet<>();
-        res.addAll(s1);
-        res.retainAll(s2);
-    }
-
-    static void test3() {  // 差集：s1 - s2 
-        Set<Integer> res = new HashSet<>();
-        res.addAll(s1);
-        res.removeAll(s2);
-    }
-}
+```cpp
+ConcurrentHashMap
+ ├── Bucket 1 (CAS + synchronized)
+ ├── Bucket 2 (CAS + synchronized)
 ```
+
+#### List
+
+* ArrayList 动态数组，默认容量 `10`，超过后 1.5 倍扩容，Array静态数组
+
+* Vector, 线程安全的 `ArrayList`, 所有方法加 `synchronized`
+
+* ```java
+  List<String> list = new ArrayList<>();
+  list.add(1, "X"); // 在索引 1 插入 X
+  list.get(1);
+  list.remove("B");  // 按值删除
+  list.remove(1);     // 按索引删除
+  ```
+
+#### Set
+
+* HashSet: HashMap实现的
+
+* LinkedHashSet: HashSet 的子类，并且其内部是通过 LinkedHashMap
+
+* TreeSet: RBT 不能get(index)来索引查
+
+* ```java
+  Set<String> set = new HashSet<>();
+  set.add("A");
+  set.remove("B");
+  
+  Set<Integer> set = new TreeSet<>();
+  set.add(3);
+  Iterator<Integer> iterator = set.iterator();
+  while (iterator.hasNext()) {
+      iterator.next();
+  }
+  ```
+
+#### Queue
+
+- `PriorityQueue`: `Object[]` 数组来实现小顶堆
+
+- ```java
+  PriorityQueue<Integer> maxHeap = new PriorityQueue<>(Collections.reverseOrder());//max heap
+  ```
+
+- `DelayQueue`:`PriorityQueue` 延迟队列，其中的元素只有到了其指定的延迟时间，才能够从队列中出队
+
+- `ArrayDeque`: 可扩容动态双向数组
+
+- ```java
+  PriorityQueue<Integer> pq=new PriotityQueue<>();
+  pq.add();
+  pq.poll();
+  
+  Deque<String> deque = new ArrayDeque<>();
+  deque.addFirst("A"); // 栈操作
+  deque.addLast("B");  // 队列操作
+  System.out.println(deque.pollFirst()); // 输出 A
+  ```
+
+* `BlockingQueue`
+
+#### Map
+
+- `HashMap`：JDK1.8 之前 `HashMap` 由数组+链表组成的，数组是 `HashMap` 的主体，链表则是主要为了解决哈希冲突而存在的（“拉链法”解决冲突）。JDK1.8 以后在解决哈希冲突时有了较大的变化，当链表长度大于阈值（默认为 8）（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）时，将链表转化为红黑树，以减少搜索时间。
+
+- `LinkedHashMap`：`LinkedHashMap` 继承自 `HashMap`，所以它的底层仍然是基于拉链式散列结构即由数组和链表或红黑树组成。另外，`LinkedHashMap` 在上面结构的基础上，增加了一条双向链表，使得上面的结构可以保持键值对的插入顺序。同时通过对链表进行相应的操作，实现了访问顺序相关逻辑。
+
+- `Hashtable`：数组+链表组成的，数组是 `Hashtable` 的主体，链表则是主要为了解决哈希冲突而存在的。
+
+- `TreeMap`：红黑树
+
+- ```java
+  Map<String, Integer> map = new HashMap<>();
+  map.put("A", 1);
+  System.out.println(map.get("A")); // 输出 1
+  map.remove("B");
+  ```
 
 ### Oops Concepts
 
-#### Automatic Memory Management
-
-Java uses automatic memory management through garbage collection. The responsibility of allocating and deallocating memory is handled by the Java Virtual Machine (JVM).
-
-#### Inheritance and Method Overriding
-
-all classes implicitly inherit from the `Object` class, which serves as the root of the class hierarchy. Java supports single inheritance, meaning a class can only inherit from one superclass
-
 #### Interface
 
-一个类不能继承多个类，但一个类可以实现多个接口，这被视为一种多重继承的形式。
+一个类不能继承多个类，**但一个类可以实现多个接口**，这被视为一种多重继承的形式。
 
 ```java
 public interface MyInterface {
@@ -463,7 +411,7 @@ public class ThreadCommunicationExample {
 }
 ```
 
-# JDBC
+## JDBC
 
 ![image.png](https://cdn.nlark.com/yuque/0/2021/png/250654/1617635428930-b9a6a9c8-f15d-41d3-abc0-ee634a2a39bd.png?x-oss-process=image%2Fformat%2Cwebp)
 
@@ -566,8 +514,6 @@ public class JDBCDemo {
 }
 ```
 
-
-
 # SSM
 
 **Spring**：核心框架，提供依赖注入（Inversion of Control, IoC）和面向切面编程（Aspect-Oriented Programming, AOP）等功能，用于管理整个应用的对象生命周期和事务管理。
@@ -578,95 +524,7 @@ public class JDBCDemo {
 
 ## Sping
 
-![](./assert/Java_Spring_1.png)
-
-# MaBatisPlus
-
-先封装SQL，接着调用JDBC操作数据库，最后把数据库返回的表结果封装成Java类。
-
-![image.png](https://cdn.nlark.com/yuque/0/2021/png/250654/1617635030060-035d7ee6-b901-4e3f-9797-5397c7453508.png?x-oss-process=image%2Fformat%2Cwebp)
-
-# JUC
-
-重点的部分在于：**Synchornized锁升级机制**，**ReentrantLock**，**AQS**，**CAS**，**线程池**
-
-### 并发并行
-
-Concurrency: 统一时间处理多个任务，不断切换任务执行
-
-Parallelism：多个任务统一时间执行（在不同核心上运行），物理上的同时运行
-
-
-
-#### Override Run()
-
-( bad extension! since one class can only extend one class! so it only extends Thread and cannot extend other thread!
-
-```java
-package org.example;
-
-public class Mythread extends Thread {
-    @Override
-    public void run(){
-        for(int i=0;i<100;i++){
-            System.out.println(getName()+"hello");
-        }
-    }
-}
-```
-
-#### Override Runnable()
-
-不能直接获得thread类中的方法
-
-这里implements Runnable通过多个线程共享一个 `Runnable` 实例是其典型用法之一
-
-```java
-package org.example;
-
-public class MyRun implements Runnable {
-    @Override
-    public void run() {
-        for(int i=0;i<100;i++) {
-            Thread t = Thread.currentThread(); 
-            System.out.println(t.getName() + "myrun");
-        }
-    }
-}
-```
-
-```java
-MyRun mr=new MyRun();
-Thread t1=new Thread(mr);
-Thread t2=new Thread(mr);
-
-t1.setName("1");
-t1.setName("2");
-
-t1.start();
-t2.start();
-```
-
-#### Override Callable() -> can get Result!
-
-```java
-import java.util.concurrent.Callable;
-
-public class MyCallable implements Callable<Integer> {
-    @Override
-    public Integer call() throws Exception{
-        int sum=0;
-        for(int i=1;i<100;i++){
-            sum+=i;
-        }
-        return sum;
-    }
-}
-```
-
-# JVM
-
-重点在于：**类加载过程**，**内存分区**，**垃圾回收算法**，**垃圾回收器**
+## ![](./assert/Java_Spring_1.png)
 
 # Java八股
 
@@ -2286,7 +2144,11 @@ hash扰动算法，使hash更具加均匀，减少hash冲突
 (h=key.hashCode())^(h>>>16);
 ```
 
+无符号右移，忽略符号位，空位都以 0 补齐
 
+n>32,移动n%32
+
+`x<<42`等同于`x<<10`，`x>>42`等同于`x>>10`，`x >>>42`等同于`x >>> 10`
 
 ```java
 (n-1)&hash //代替取模销量高
@@ -2301,6 +2163,8 @@ hash扰动算法，使hash更具加均匀，减少hash冲突
 hashmap 1.7扩容多线程会造成死循环，因为头插法，而1.8以后尾插法不会死循环
 
 # JUC 2025.1.25
+
+重点的部分在于：**Synchornized锁升级机制**，**ReentrantLock**，**AQS**，**CAS**，**线程池**
 
 ## Thread
 
@@ -3031,6 +2895,8 @@ ThreadLocal会导致内存泄漏，因为ThreadLocalMap中key是弱引用、valu
 要主动remove释放key和value
 
 # JVM 2025.1.27
+
+重点在于：**类加载过程**，**内存分区**，**垃圾回收算法**，**垃圾回收器**
 
 ### Program Counter Register
 
