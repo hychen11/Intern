@@ -4628,13 +4628,26 @@ class Solution:
 
 # Trick
 
+千万别忘记queue<> 是front！不是top！我个呆呆！
+
+```c++
+lower_bound(matrix.begin(), matrix.end(), target, [](const vector<int>& a,int val) { return a[0] < val; });
+upper_bound(matrix.begin(), matrix.end(), target, [](int val, const vector<int>& a) { return val < a[0]; });
+```
+
+lower_bound 先a，再val，upper_bound 先val后a
+
+`constexpr int dirs[4][2]={}`在class外用，因为这个是预编译的
+
+或者class里用`constexpr static int dirs[4][2]={{0,1},{1,0},{0,-1},{-1,0}};`
+
 c++的map<> 可以直接`==`比较!!
 
 **反悔贪心：遍历过程维护一个heap** 忘了，得复习一下
 
 python里对角线翻转` fruits = list(zip(*fruits))`
 
-数位dp里python `string2.zfill(n)`, c++ `string str1=string('0',n-str1.length())+str1`
+数位dp里python `string2.zfill(n)`, c++ `string str1=string(n-str1.length(),'0')+str1`
 
 zfill 也就是zero fill，左边填充，总长度为n
 
@@ -4740,8 +4753,10 @@ comp（比较函数）：决定排序顺序的函数，默认为升序（std::le
 
 proj（投影函数）：指定一个转换函数，用于生成排序所依据的关键值。
 
-```
-ranges::sort(tiles,{},[](auto &t){return t[0];});
+```c++
+ranges::sort(tiles,{},[](auto &t){return t[0];});//升序
+ranges::sort(tiles,greater<>{},[](auto &t){return t[0];});//降序
+ranges::sort(tiles,{},[](auto &t){return -t[0];});//降序
 ```
 
 ```cpp
@@ -5170,6 +5185,30 @@ public:
             ans[i] = isPalindrome(nodes[i].first, nodes[i].second);
         }
         return ans;
+    }
+};
+```
+
+# Intervals problem 经典贪心
+
+#### [435. Non-overlapping Intervals](https://leetcode.cn/problems/non-overlapping-intervals/)
+
+右端点排序
+
+```c++
+class Solution {
+public:
+    int eraseOverlapIntervals(vector<vector<int>>& intervals) {
+        ranges::sort(intervals,{},[](auto &a){return a[1];});
+        int ans=0;
+        int pre=INT_MIN;
+        for(auto &p:intervals){
+            if(p[0]>=pre){
+                pre=p[1];
+                ans++;
+            }
+        }
+        return intervals.size()-ans;
     }
 };
 ```
