@@ -1212,6 +1212,12 @@ prototype:一个bean的定义里可以有多个实例
 
 UserController 类默认是由 Spring 容器管理的单例 Bean（由于 @Controller 注解）因此，多个请求可能会同时访问 getById 方法。
 
+### AOP
+
+```java
+
+```
+
 ### AOP (我用过操作日志,比如对一个数据库操作添加时间,注册时间)
 
 **增强（Advice）** 指的是在 **不修改原始代码的情况下，为方法增加额外的功能**
@@ -1508,6 +1514,14 @@ Spring 通过 **CGLIB 代理**增强 `@Configuration`，保证 `@Bean` 方法只
 `@Controller` 默认解析的是**视图名**，所以如果返回字符串 `"hello"`，Spring 会认为要跳转到 `hello.html` 页面，而不是返回 JSON。
 
 ![](./Java/frame11.png)
+
+#### Lombok
+
+**Java 编译时注解处理库**，它可以帮助开发者 **自动生成样板代码**（如 `getter`、`setter`、`toString()`、`equals()`、`hashCode()` 等）
+
+`@Data` 可以一键生成 **getter、setter、toString()、equals() 和 hashCode()**
+
+
 
 ### MyBatis
 

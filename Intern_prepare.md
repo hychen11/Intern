@@ -1,3 +1,58 @@
+请你讲讲aop,你具体是怎么在项目实现的(代码实现) 
+
+如果不用java提供的切点表达式和通知，你该怎么实现aop 
+
+给你一个sql语句(主键a，联合索引b,c，select a,b,c from table where b = x and c = y and a = z），请问他的索引有没有使用，请你说说他具体是怎么查找的，在不改变mysql字段的情况下你该怎么进行代码层面的优化
+
+这里bc查询出来后需要回表查询a=z，效率低
+
+`EXPLAIN SELECT a, b, c FROM table WHERE b = x AND c = y AND a = z;`
+
+**如果 `key = PRIMARY`**，说明 MySQL 直接走了主键索引 `(a)`
+
+**如果 `key = idx_bc`**（即 `(b, c)` 索引），说明 MySQL 先查 `b, c` 再回表查 `a`
+
+用更好的索引：
+
+`SELECT a, b, c FROM table FORCE INDEX (idx_bc) WHERE b = x AND c = y AND a = z;`
+
+```sql
+SELECT a FROM table WHERE b = x AND c = y;  -- 先获取 a
+SELECT a, b, c FROM table WHERE a = z;  -- 再用 a 查完整数据
+```
+
+避免回表
+
+或者直接代码里筛选 `a = z`
+
+或者把这个结果存入ES或者Redis
+
+### **(A) TCP 连接建立（3 次握手）**
+
+| 状态             | 说明                                               | 触发方          |
+| ---------------- | -------------------------------------------------- | --------------- |
+| **CLOSED**       | 初始状态，连接未建立                               | -               |
+| **SYN_SENT**     | 客户端发送 `SYN`，等待服务器响应                   | **客户端**      |
+| **SYN_RECEIVED** | 服务器收到 `SYN`，发送 `SYN + ACK`，等待客户端确认 | **服务器**      |
+| **ESTABLISHED**  | 连接建立，开始数据传输                             | 客户端 & 服务器 |
+
+### **(B) TCP 连接断开（4 次挥手）**
+
+| 状态           | 说明                                   | 触发方                                |
+| -------------- | -------------------------------------- | ------------------------------------- |
+| **FIN_WAIT_1** | 发送 `FIN`，等待 `ACK`                 | 关闭连接的 **主动方**（通常是客户端） |
+| **CLOSE_WAIT** | 收到 `FIN`，发送 `ACK`，等待应用层关闭 | 被动方（通常是服务器）                |
+| **FIN_WAIT_2** | 收到 `ACK`，等待对方 `FIN`             | **主动方**                            |
+| **LAST_ACK**   | 发送 `FIN` 后等待 `ACK`                | **被动方**                            |
+| **TIME_WAIT**  | 收到 `FIN` 并回复 `ACK`，等待 2×MSL    | **主动方**                            |
+| **CLOSED**     | 连接完全关闭                           | 双方                                  |
+
+找TCP连接个数
+
+`netstat -an | grep ESTABLISHED | wc -l`
+
+
+
 # 术语
 
 quotation quote

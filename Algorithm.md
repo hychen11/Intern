@@ -5213,3 +5213,234 @@ public:
 };
 ```
 
+# Quick select
+
+```c++
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <ctime>
+
+using namespace std;
+
+// 分区函数
+int partition(vector<int>& arr, int left, int right) {
+    int pivot = arr[right]; // 选取最右侧元素为 pivot
+    int i = left;
+    for (int j = left; j < right; j++) {
+        if (arr[j] > pivot) { // 选择 Top K，所以大于 pivot 的在左边
+            swap(arr[i], arr[j]);
+            i++;
+        }
+    }
+    swap(arr[i], arr[right]);
+    return i;
+}
+
+// 快速选择算法
+void quickSelect(vector<int>& arr, int left, int right, int k) {
+    if (left < right) {
+        int pivotIndex = partition(arr, left, right);
+        int leftSize = pivotIndex - left + 1;
+        if (leftSize == k) return;
+        else if (leftSize > k) quickSelect(arr, left, pivotIndex - 1, k);
+        else quickSelect(arr, pivotIndex + 1, right, k - leftSize);
+    }
+}
+
+vector<int> findTopK(vector<int>& nums, int k) {
+    quickSelect(nums, 0, nums.size() - 1, k);
+    return vector<int>(nums.begin(), nums.begin() + k);
+}
+
+int main() {
+    vector<int> nums = {3, 1, 5, 12, 2, 11, 15, 8, 7, 6, 20, 30, 25, 18, 19};
+    int k = 5;
+    vector<int> result = findTopK(nums, k);
+    
+    cout << "Top " << k << " numbers: ";
+    for (int num : result) cout << num << " ";
+    cout << endl;
+
+    return 0;
+}
+```
+
+# Big Integer Divide
+
+二分+倍增
+
+乘法倍增
+
+[29. 两数相除](https://leetcode.cn/problems/divide-two-integers/)
+
+```c++
+int mul(int a, int k) {
+    int ans = 0;
+    while (k > 0) {
+        if ((k & 1) == 1) ans += a;
+        k >>= 1;
+        a += a;
+    }
+    return ans;
+}
+//prune, here x,y are both negative!
+auto quickAdd = [&](int y, int z, int x) -> bool {
+    int res = 0, add = y;
+    while (z) {
+        if (z & 1) {
+            if (res < x - add) return false;
+            res += add;
+        }
+        if (z != 1) {
+            if (add < x - add) return false;
+            add += add;
+        }
+        z >>= 1;
+    }
+    return true;
+};
+```
+
+# Difference 1 bit
+
+```
+int c=a^b;
+return (c&(c-1))==0;
+```
+
+# SkipList
+
+[1206. 设计跳表](https://leetcode.cn/problems/design-skiplist/)
+
+```c++
+struct Node{
+  int val;
+  vector<Node*> next; // record different level!
+  Node(int _val,int _MaxLevel):val(_val),next(_MaxLevel,nullptr){}
+};
+```
+
+随机简历索引
+
+```c++
+constexpr int MAX_LEVEL = 32;
+constexpr double P_FACTOR = 0.25;
+
+mt19937 gen{random_device{}()};
+uniform_real_distribution<double> dis;
+
+int randomLevel(){
+    int lv=1;
+    while(dis(gen)<P_FACTOR&&lv<MAX_LEVEL){
+        lv++;
+    }
+    return lv;
+}
+```
+
+或者更简单的方法
+
+```c++
+int randomLevel() {
+    int lv = 1;
+    while (rand() % 4 == 0 && lv < MAX_LEVEL) {  // 1/4 的概率进入下一层
+        lv++;
+    }
+    return lv;
+}
+```
+
+```c++
+constexpr int MAX_LEVEL = 32;
+struct Node{
+    int val;
+    vector<Node*> next;
+    Node(int _val,int _maxLevel=MAX_LEVEL):val(_val),next(_maxLevel,nullptr){}
+};
+
+class Skiplist {
+public:
+    Node *root;
+    int level;
+
+    Skiplist():root(new Node(-1)),level(0){}
+    
+    bool search(int target) {
+        Node* node=root;
+        if(node==nullptr) return false;
+        for(int i=level-1;i>=0;i--){
+            while(node->next[i]&&node->next[i]->val<target){
+                node=node->next[i];
+            }
+        }
+        node=node->next[0];
+        return node&&node->val==target;
+    }
+    
+    void add(int num) {
+        Node *cur=root;
+        vector<Node*> update(MAX_LEVEL,root);
+        //record the down path in update path
+        for(int i=level-1;i>=0;i--){
+            while(cur->next[i]&&cur->next[i]->val<num){
+                cur=cur->next[i];
+            }
+            update[i]=cur;
+        }
+        //update level
+        int lv=randomLevel();
+        level=max(level,lv);
+
+        Node* newNode=new Node(num,lv);
+        for(int i=0;i<lv;i++){
+            newNode->next[i]=update[i]->next[i];
+            update[i]->next[i]=newNode;
+        }
+    }
+    
+    bool erase(int num) {
+        Node *cur=root;
+        vector<Node*> update(MAX_LEVEL,nullptr);
+        //record the down path in update path
+        for(int i=level-1;i>=0;i--){
+            while(cur->next[i]&&cur->next[i]->val<num){
+                cur=cur->next[i];
+            }
+            update[i]=cur;
+        }
+        cur=cur->next[0];
+        if(!cur||cur->val!=num){
+            return false;
+        }
+
+        for(int i=0;i<level;i++){
+            if(update[i]->next[i]!=cur){
+                break;
+            }     
+            update[i]->next[i]=cur->next[i];      
+        }
+        delete cur;
+        while(level>1&&root->next[level-1]==nullptr){
+            level--;
+        }
+        return true;
+    }
+    int randomLevel(){
+        int lv=1;
+        while(rand()%4==0&&lv<MAX_LEVEL){
+            lv++;
+        }
+        return lv;
+    }
+};
+
+/**
+ * Your Skiplist object will be instantiated and called as such:
+ * Skiplist* obj = new Skiplist();
+ * bool param_1 = obj->search(target);
+ * obj->add(num);
+ * bool param_3 = obj->erase(num);
+ */
+```
+
