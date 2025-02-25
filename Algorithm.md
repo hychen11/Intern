@@ -4502,6 +4502,24 @@ class Solution:
 
 # Trick
 
+`s.substr()`提速！ `string_view`， 还有`emplace`提速
+
+`push_back(obj)`: **用于已存在的对象**，会有 **拷贝/移动**（如果对象不是 `std::move` 传入）
+
+`emplace_back(args...)`: **直接在容器内部构造对象**，**避免拷贝/移动**，提高性能
+
+```c++
+//不好
+unordered_set<string> dict(wordDict.begin(),wordDict.end());
+
+unordered_set<string_view> dict;  // 直接存储 string_view
+for (const string& word : wordDict) {
+    dict.emplace(word); // string_view 指向 word，避免拷贝
+}
+
+string_view(s).substr();//比直接s.substr()更快
+```
+
 千万别忘记queue<> 是front！不是top！我个呆呆！
 
 ```c++
