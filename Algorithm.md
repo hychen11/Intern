@@ -1195,154 +1195,62 @@ class NumArray:
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
 
-just build tree structure
 
-```java
-class NumArray {
-    class TreeNode{
-        public int start,end;
-        public int sum;
-        public TreeNode left,right;
-        public TreeNode(int start,int end){
-            this.start=start;
-            this.end=end;
-        };
-
-    }
-    TreeNode root=null;
-    public NumArray(int[] nums) {
-        root=build(nums,0,nums.length-1);
-    }
-    public TreeNode build(int []nums,int left,int right){
-        if(left>right) return null;
-        else if(left==right) {
-            TreeNode node=new TreeNode(left,right);
-            node.sum=nums[left];
-            return node;
-        }
-        else{
-            TreeNode node=new TreeNode(left,right);
-            int mid=left+(right-left)/2;
-            node.left=build(nums,left,mid);
-            node.right=build(nums,mid+1,right);
-            node.sum=node.left.sum+node.right.sum;
-            return node;
-        }
-
-    }
-    public void update(int index, int val) {
-        update(root,index,val);
-    }
-    public void update(TreeNode node,int index, int val) {
-        if(node.start==node.end){
-            node.sum=val;
-            return;
-        }
-        else {
-            int mid=node.start+(node.end-node.start)/2;
-            if(index<=mid)
-                update(node.left,index,val);
-            else 
-                update(node.right,index,val);
-            node.sum=node.left.sum+node.right.sum;
-        }
-    }
-    public int sumRange(int left, int right) {
-        return quary(root,left,right);
-    }
-    public int quary(TreeNode node,int left, int right){
-        if(node.start==left && node.end==right) return node.sum;
-        int mid=node.start+(node.end-node.start)/2;
-        if(right<=mid)
-            return quary(node.left,left,right);
-        else if(left>mid)
-            return quary(node.right,left,right);
-        else 
-            return quary(node.left,left,mid)+quary(node.right,mid+1,right);
-    }
-}
-```
-
-C++
 
 ```cpp
-class Tree{
+class NumArray {
 public:
-    int start,end;
-    int sum;
-    Tree *left,*right;
-    Tree(){};
-    Tree(int start,int end):start(start),end(end),sum(0){};
-    Tree* build(int l,int r,vector<int> &nums){
-        if(l>r) return nullptr;
-        else if(l==r) {
-            Tree *node=new Tree(l,r);
-            node->sum=nums[l];
-            return node;
-        }
-        else {
-            int mid=l+(r-l)/2;
-            Tree *node=new Tree(l,r);
-            cout<<l<<" "<<r<<" "<<mid<<" "<<mid+1<<endl;
-            node->left=build(l,mid,nums);
-            node->right=build(mid+1,r,nums);
-            node->sum=node->left->sum+node->right->sum;
-            cout<<node->sum<<endl;
-            return node;
-        }
-    }
-    void update(Tree* node,int index,int value){
-        if(node->start==node->end){
-            node->sum=value;
+    vector<int> vec;
+    int n;
+    void build(vector<int> &nums,int l,int r,int o){
+        if(l==r){
+            vec[o]=nums[l];
             return;
         }
-        else{
-            int mid=node->start+(node->end-node->start)/2;
-            if(index<=mid){
-                update(node->left,index,value);
-            }
-            else{
-                update(node->right,index,value);
-            }
-            node->sum=node->left->sum+node->right->sum;
-        }
+        int m=(l+r)>>1;
+        build(nums,l,m,o*2);
+        build(nums,m+1,r,o*2+1);
+        vec[o]=vec[o*2]+vec[o*2+1];
     }
-    int query(Tree* node,int l,int r){
-        if(node->start==l&&node->end==r) return node->sum;
-        int mid=node->start+(node->end-node->start)/2;
-        if(r<=mid){
-            return query(node->left,l,r);
+    int query(int l,int r, int o,int L,int R){
+        if(L<=l&&R>=r){
+            return vec[o];
         }
-        else if(l>mid){
-            return query(node->right,l,r);
+        int m=(l+r)>>1;
+        if(R<=m){
+            return query(l,m,o*2,L,R);
         }
-        else {
-            return query(node->left,l,mid)+query(node->right,mid+1,r);
+        if(L>m){
+            return query(m+1,r,o*2+1,L,R);
         }
+        return query(l,m,o*2,L,R)+query(m+1,r,o*2+1,L,R);
     }
-};
-class NumArray:public Tree {
-public:
-    Tree *root=nullptr;
+    void update1(int l,int r,int o,int i,int val){
+        if(l==r){
+            vec[o]=val;
+            return;
+        }
+        int m=(l+r)>>1;
+        if(i<=m)
+            update1(l,m,o*2,i,val);
+        else update1(m+1,r,o*2+1,i,val);
+        vec[o]=vec[o*2]+vec[o*2+1];
+    }
+
     NumArray(vector<int>& nums) {
-        root=Tree::build(0,nums.size()-1,nums);
+        n=nums.size();
+        vec.resize(4*n);
+        build(nums,0,n-1,1);
     }
     
     void update(int index, int val) {
-        Tree::update(root,index,val);
+        update1(0,n-1,1,index,val);
     }
     
     int sumRange(int left, int right) {
-        return Tree::query(root,left,right);
+        return query(0,n-1,1,left,right);
     }
 };
-
-/**
- * Your NumArray object will be instantiated and called as such:
- * NumArray* obj = new NumArray(nums);
- * obj->update(index,val);
- * int param_2 = obj->sumRange(left,right);
- */
 ```
 
 #### 715 range 动态开点
@@ -1498,7 +1406,7 @@ public:
 
 # Lazy线段树
 
-[729](https://leetcode.cn/problems/my-calendar-i/)
+#### [729](https://leetcode.cn/problems/my-calendar-i/)
 
 ```c++
 class MyCalendar {
@@ -1576,41 +1484,7 @@ lazy更新
 
 这里的todo数组就是lazy tag!下面是模板!
 
-#### 2569
-
-```python
-class Solution:
-    def handleQuery(self, nums1: List[int], nums2: List[int], queries: List[List[int]]) -> List[int]:
-        
-        n=len(nums1)
-        todo = [0]*(4*n)
-
-        #o is node index!
-        def build(o:int,l:int,r:int)->None:
-            if l==r:
-                return
-            #left son is o*2, right son is 2*o+1
-            m=(l+r)//2
-            build(o*2,l,m)
-            build(o*2+1,m+1,r)
-        
-        #Update [L,R]
-        def update(o:int,l:int,r:int,L:int,R:int,add:int)->None:
-            if l>=L and r<=R:
-                todo[o]+=add  #no need to recurse update
-
-                return 
-            #left son is o*2, right son is 2*o+1
-            #lazy tag
-            if todo[o]!=0:
-                todo[o*2]+=todo[o]
-                todo[o*2+1]+=todo[o]
-                todo[o]=0
-
-            m=(l+r)//2
-            if m>=L: update(o*2,l,m,L,R,add)
-            if m<R: update(o*2+1,m+1,r,L,R,add)
-```
+#### 2569 灵神模版题
 
 ```python
 class Solution:
@@ -5443,4 +5317,33 @@ public:
  * bool param_3 = obj->erase(num);
  */
 ```
+
+# Deep copy
+
+#### 135
+
+这种都是要hashmap记录是否已经创建过new Node！
+
+```c++
+class Solution {
+public:
+    unordered_map<Node*,Node*> visited;//key oldnode, value newnode;
+
+    Node* cloneGraph(Node* node) {
+        if(node==nullptr) return node;
+        if(visited.contains(node)){
+            return visited[node];
+        }
+
+        Node *newNode=new Node(node->val);
+        visited[node]=newNode;
+        for(auto &neighbor:node->neighbors){
+            newNode->neighbors.push_back(cloneGraph(neighbor));
+        }
+        return newNode;
+    }
+};
+```
+
+
 
