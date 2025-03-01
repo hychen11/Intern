@@ -3400,6 +3400,19 @@ public interface Animal{}
 //不加 public，这个接口默认是 package-private（包级可见），意味着只能在当前包内访问
 ```
 
+# Servlet
+
+- **处理客户端（浏览器）的 HTTP 请求**
+- **生成动态 Web 内容（HTML、JSON、XML 等）**
+- **与数据库或其他业务逻辑交互**
+- **返回 HTTP 响应**
+
+1. **客户端（浏览器）发送 HTTP 请求**
+2. **Servlet 容器（Tomcat）接收请求**
+3. **Servlet 解析请求参数，执行业务逻辑**
+4. **Servlet 生成响应（HTML、JSON 等）并返回给客户端**
+5. **客户端渲染响应内容**
+
 # Mysql
 
 创建数据库

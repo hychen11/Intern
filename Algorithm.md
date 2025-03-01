@@ -4502,6 +4502,8 @@ class Solution:
 
 # Trick
 
+加之前底层用的哈希表存储的这些属性，加 `__slots__` 后相当于每个 `Node` 的大小是固定的了，不需要哈希表去维护属性，适合对象初始化后不会新增属性的场景。
+
 `s.substr()`提速！ `string_view`， 还有`emplace`提速
 
 `push_back(obj)`: **用于已存在的对象**，会有 **拷贝/移动**（如果对象不是 `std::move` 传入）
@@ -5361,6 +5363,85 @@ public:
         return newNode;
     }
 };
+```
+
+# LRU
+
+```c++
+class LRUCache {
+public:
+    list<pair<int,int>> l;
+    unordered_map<int,list<pair<int,int>>::iterator> m;
+    int capacity;
+    LRUCache(int capacity):capacity(capacity){}
+    
+    int get(int key) {
+        if(!m.contains(key)) return -1;
+        int value=m[key]->second;
+        l.erase(m[key]);
+        l.push_front({key,value});
+        m[key]=l.begin();
+        return value;
+    }
+    
+    void put(int key, int value) {
+        if(m.contains(key)){
+            l.erase(m[key]);
+            l.push_front({key,value});
+            m[key]=l.begin();
+            return;
+        }
+
+        if(l.size()<capacity){
+            l.push_front({key,value});
+            m[key]=l.begin();
+            return;
+        }else{
+            int tmpk=l.back().first;
+            l.erase(m[tmpk]);
+            m.erase(tmpk);
+
+            l.push_front({key,value});
+            m[key]=l.begin();
+            return;
+        }
+    }
+};
+
+/**
+ * Your LRUCache object will be instantiated and called as such:
+ * LRUCache* obj = new LRUCache(capacity);
+ * int param_1 = obj->get(key);
+ * obj->put(key,value);
+ */
+```
+
+```java
+class LRUCache extends LinkedHashMap<Integer,Integer>{
+    private static final float DEFAULT_LOAD_FACTOR = 0.75f;
+    private final int capacity;
+
+    public LRUCache(int capacity) {
+        super(capacity, DEFAULT_LOAD_FACTOR, true);
+        this.capacity = capacity;
+    }
+    
+    public int get(int key) {
+        return super.getOrDefault(key, -1);
+    }
+    
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<Integer, Integer> eldest) {
+        return size() > capacity;
+    }
+}
+
+/**
+ * Your LRUCache object will be instantiated and called as such:
+ * LRUCache obj = new LRUCache(capacity);
+ * int param_1 = obj.get(key);
+ * obj.put(key,value);
+ */
 ```
 
 

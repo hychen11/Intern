@@ -1,6 +1,96 @@
-2025.2.24
+Postman 调试jwt有Authorization可以添加
 
-八股网络各种（TCP，UDP）
+如何拿到Jwt token 呢，跑post employee login拿到token，然后直接粗暴System.nanoTime()拿到时间差，然后redis benchmark
+
+```shell
+redis-benchmark -h localhost -p 6379 -c 100 -n 1000000
+#-c并发连接数 100， -n 1,000,000次请求, -n <total_requests>, -c <clients>, -d <data_size>
+redis-benchmark -t SET,GET
+#只测试 SET 和 GET 命令的性能
+```
+
+Bloomfilter redisson的
+
+第一个问题依赖exclusion
+
+```xml
+<dependency>
+    <groupId>org.redisson</groupId>
+    <artifactId>redisson-spring-boot-starter</artifactId>
+    <version>3.17.7</version>
+    <exclusions>
+        <exclusion>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <groupId>org.springframework.boot</groupId>
+        </exclusion>
+    </exclusions>
+</dependency>
+```
+
+然后初始化的时候要先把数据加入bloomfilter，这里没有数据就直接返回，问题是如何处理数据修改的问题？感觉如果数据变更得手动改bloomfilter 
+
+* 如果数据量较小且更新频率不高，**重建布隆过滤器** 是一个简单且有效的方法。
+* 如果频繁更新数据，使用 **计数布隆过滤器** 或通过 **维护已删除集合** 来标记删除元素是更合适的解决方案。
+* 在某些情况下，如果能容忍延迟，使用 **延迟更新** 可以减少对布隆过滤器的频繁操作。
+
+`@PostConstruct`就是在bean建立完后再运行
+
+```java
+package com.sky.config;
+
+import com.sky.service.DishService;
+import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import javax.annotation.PostConstruct;
+import java.util.List;
+@Slf4j
+@Configuration
+public class BloomFilterConfig {
+
+    private static final String BLOOM_FILTER_KEY = "dish_bloom_filter";
+
+    @Autowired
+    private DishService dishService;
+
+    @Autowired
+    private RedissonClient redissonClient;
+
+    @Bean
+    public RedissonClient redissonClient() {
+        Config config = new Config();
+        config.useSingleServer().setAddress("redis://127.0.0.1:6379");  // 你的 Redis 地址
+        return org.redisson.Redisson.create(config);
+    }
+
+    @Bean
+    public RBloomFilter<Long> dishBloomFilter() {
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(BLOOM_FILTER_KEY);
+        bloomFilter.tryInit(100000, 0.01);  // 预计存储10万数据，误判率1%
+        return bloomFilter;
+    }
+
+    /**
+     * 初始化布隆过滤器，加载所有有效的 categoryId
+     */
+    @PostConstruct
+    private void initializeBloomFilter() {
+        log.info("initializeBloomFilter");
+        RBloomFilter<Long> bloomFilter = dishBloomFilter();
+        List<Long> categoryIds = dishService.getAllValidCategoryIds();
+        for (Long categoryId : categoryIds) {
+            bloomFilter.add(categoryId);
+        }
+    }
+}
+```
+
+
 
 
 
@@ -64,7 +154,7 @@ SELECT a, b, c FROM table WHERE a = z;  -- 再用 a 查完整数据
 
 `netstat -an | grep ESTABLISHED | wc -l`
 
-
+ 	
 
 # 术语
 
