@@ -558,107 +558,112 @@ execute 提交一个`Runnable`任务
 
 submit 提交一个task返回`Future`， `future.get()` 方法，可以阻塞当前线程并等待任务执行完成，返回结果
 
+# Redis 2025.01.12 3.1二刷
 
+场景：缓存，分布式锁，计数器，保存token，消息队列MQ，延迟队列
 
-# Redis 2025.01.12 
-
-### 穿透
-
-Cache Penetration
-
-getById/1
+### 穿透 Cache Penetration
 
 根据Id查询文章，如果hit返回res，redis没有查询disk，然后返回结果，返回前也把请求缓存到redis
 
-穿透：redis里没有，disk也没有
+穿透：redis里没有，disk也没有 （受外部攻击）
 
-* 缓存空数据{key:1,value:null} 消耗内存，可能会数据不一致,(类似于双删延迟)
+* 缓存空数据`{key:1,value:null}`消耗内存，可能会数据不一致,(类似于双删延迟)就是后续有数据了，但是redis里value还是null
 
-- 布隆过滤器（hash算法，bitmap）,首先经过bloom filter,拦截不存在的数据, bloom filter存在是不保证的,不存在是一定的
+- 布隆过滤器`hash+bitmap`，首先经过bloom filter，拦截不存在的数据, bloom filter不存在就一定没有，有的话实际也不一定存在（误判）
 
 >bitmap
 >
->key->multiple hash function->hash1, hash2, hash3, then turn these position into 1, use  & to judge
+>key->multiple hash function->hash1, hash2, hash3
 >
->Redisson, Guava: implementation 
+>p1=hash1(key), p2=hash2(key), p3=hash3(key)
+>
+>then turn these position into 1, use  & to judge
+>
+>**Redisson**, Guava: implementation 
 >
 >```java
 >bloomfilter.tryInit(size,0.05);//误判率
+>//init的时候就要加入数据了
+>bloomfilter.add(x); 
 >```
 
-### 击穿
+缓存预热时，预热bloom filter
 
-Cache Breakdown / Cache Miss Storm
+数组越大误判率越小，数组越小误判率越大，但是大数组会更多内存损耗
 
-一个热点key突然过期
+### 击穿Cache Miss Storm
 
-热点key设置过期时间,然后并发的request会把DB打崩
+击穿就是本来redis有，但是热点key expire，需要到数据库查询，然后更新redis，但是会有**50ms的空档**，并发的request会把DB打崩
 
 ![](./Java/redis1.png)
 
 * 互斥锁 (强一致性)
-* 逻辑过期  key过期了只有在查询的时候返回old value,然后异步更新
+* 逻辑过期  这里也获取互斥锁，只不过是直接返回old value，然后另开一个线程异步更新value+expire time
 
-### 雪崩
+### 雪崩 cache avalanche
 
-cache avalanche
+同一时间大量key同时失效或者redis宕机
 
-统一时间大量key同时失效或者redis宕机
+* 给不同key的TTL设置随机值
 
-给不同key的TTL设置随机值
+* redis集群(Sentinel,集群模式)
 
-redis集群(Sentinel,集群模式)
+* 降级限流策略 nginx或者spring cloud gateway
 
-降级限流策略 nginx或者spring cloud gateway
-
-添加多级缓存 Guava或Caffeine
+* 添加多级缓存 Guava或Caffeine
 
 >  没有什么问题是加一层解决不了的
 
 ### 双写一致
 
-双写一致:修改了数据库同时也更新缓存数据,让redis和db数据一致
+写入缓存的数据都是读多写少的！不然不如直接读数据库，因此读多写少，可以用读写锁
 
-延迟双删->delete redis->change disk-> delay->delete redis
+双写一致:修改了数据库同时也更新缓存数据, 让redis和db数据一致
+
+* 延迟双删->delete redis->change disk-> delay->delete redis
 
 有脏数据的风险
 
-要**强一致性**就加分布式锁,性能就低了
-
-要性能好点就+RWLock
+要**强一致性**就加锁,性能就低了，RWLock适用于强一致性的业务，因为在Write的时候还是会阻塞别的Read！
 
 ```java
 RReadWriteLock readWriteLock = redissonClient.getReadWriteLock("ITEM_READ_WRITE_LOCK");
+//这里ITEM_READ_WRITE_LOCK名称要一致！
 RLock writeLock = readWriteLock.writeLock();
+
 RLock readLock = readWriteLock.readLock();
 try{
 	writeLock.lock(); // 加锁
+  redisTemplate.opsForValue().get(key);
+  redisTemplate.opsForValue().set(key);
+  redisTemplate.opsForValue().delete(key);
 }
 ```
 
 ![](./Java/redis2.png)
 
-**最终一致性**
+但是实际上我们一般有**最终一致性**就好了，允许短暂不一致，保证最终一致性
 
-允许短暂不一致,保证最终一致性
+**异步通知**，就是先修改数据库，然后item-service发布消息到MQ，cache-service监听MQ，然后更新缓存
 
-异步通知,MQ或者Canal中间件 的方式
+（据说Canal已经不用了，好处是不改变业务代码 ）
 
-### 持久化
+基于Canal的异步通知，修改数据到item-service，然后写入数据库， 数据库一旦变化，cannal监听mysql的binlog（二进制日志），通知cache-service数据变化，更新缓存
 
-#### RDB 
+### 持久化 （就是存到disk里）
 
-Redis Database Backup file (redis数据快照)
+#### RDB (Redis Database Backup)
 
-```
+```shell
 redis-cli
-save
+save #主进程，会阻塞别的命令
 bgsave #子进程来执行RDB
 ```
 
 redis.conf
 
-```
+```shell
 save 900 1 #900s里1key修改就bgsave
 ```
 
@@ -666,22 +671,22 @@ save 900 1 #900s里1key修改就bgsave
 
 只拷贝**Page table**所以快
 
-如果RDB的时候有写怎么办,就直接copy-on-write,就是复制出来再修改
+如果RDB的时候有写怎么办，就直接copy-on-write，就是复制出来再修改
 
-连次RDB之间可能会丢失备份(如果宕机了) ,二进制文件,体积小,恢复快,可能丢数据
+两次RDB之间可能会丢失备份(如果宕机了) ，二进制文件，体积小，恢复快，可能丢数据
 
-### AOF
+### AOF (append only file)
 
-Append only file
+redis处理每一个write都记录在AOF，因此会比RDB大得多
 
-redis处理每一个write都记录在AOF
-
-```
+```shell
 appendonly yes
 appendfsync everysec #性能适中,最多丟1s数据
 ```
 
-cpu资源占用低,主要是磁盘的IO资源,但是AOF重写会占用大量的CPU和内存
+`bgrewriteaof`可以让AOF文件执行重写功能，只会留下最后一次操作
+
+cpu资源占用低，主要是磁盘的IO资源，但是AOF重写会占用大量的CPU和内存
 
 宕机恢复速度慢
 
@@ -689,27 +694,33 @@ cpu资源占用低,主要是磁盘的IO资源,但是AOF重写会占用大量的C
 
 Lazy Deletion 只有在**访问键**时，Redis 才会检查它是否过期
 
-Scheduled Deletion  每 **100ms** 扫描一批设置了**过期时间**的 key，随机选择一些进行检查和删除
+Scheduled Deletion  每 **100ms** 扫描**一批**设置了**过期时间**的 key（不是扫全部！），随机选择一些进行检查和删除，清理耗时不超过xxms，尽可能少占用主进程的操作
+
+一般都是lazy deletion和schedule deletion结合使用
 
 Eviction Policy 当 Redis **内存达到上限**时，Redis 需要**主动清理**数据
 
-> **`volatile-lru`**（默认）：从**设置了过期时间的 key** 中，**淘汰最久未使用的 key**。
+> `noeviction` 默认！
 >
-> **`volatile-ttl`**：从设置了过期时间的 key 中，优先淘汰**即将过期**的 key。
+> `volatile-lru`：从**设置了过期时间的 key** 中，**淘汰最久未使用的 key**
 >
-> **`allkeys-lru`**：对**所有 key**，淘汰最久未使用的 key（即使没有过期时间）。
+> `volatile-ttl`：从设置了过期时间的 key 中，优先淘汰**即将过期**的 key
 >
-> **`noeviction`**：内存满了后，直接返回错误，不删除任何 key。
+> `allkeys-lru`：对**所有 key**，淘汰最久未使用的 key（即使没有过期时间）
+>
+> `noeviction`：内存满了后，直接返回错误，不删除任何 key
+
+还有lfu least frequently used
+
+有置顶数据，就lru+不设置过期时间，热点数据就lru，高频访问数据就lfu，默认就no eviction报错
 
 **Lazy Expiration** 高并发热点 key，防止缓存击穿,Redis 不会删除数据
 
-### 分布式锁
+### 分布式锁 setnx, redisson
 
-setnx
+场景：集群定时任务，抢单，幂等性
 
-redisson
-
-场景:集群定时任务,抢单,幂等性
+#### 超卖问题！！
 
 ```java
 Integer num=(Integer) redisTemplate.opsForValue().get("num");
@@ -720,13 +731,22 @@ num=num-1;
 redisTemplate.opsForValue().set("num",num);
 ```
 
-超卖问题
+加锁 synchronized() **线程同步**，防止多个线程同时访问**同一个对象** 造成数据不一致的问题。这个单体是没问题的，但是集群就不行了
 
-加锁 synchronized() **线程同步**，防止多个线程同时访问 **同一个对象** 造成数据不一致的问题。这个单体是没问题的,但是集群就不行了
+`synchronized` 是JVM 层面的内建同步机制，通常与对象、类的方法或代码块关联，不提供显式的死锁检测和避免机制
+
+而普通加锁`ReentrantLock` 支持可重入锁、尝试锁定、定时锁定等，`tryLock()` 方法可以尝试获取锁并返回一个布尔值，从而避免死锁
 
 ```java
-synchronized(this){
+synchronized(this){}
+public synchronized void foo(){}
 
+Lock lock=new ReentrantLock();
+if(lock.tryLock()){
+  try{
+  }finally{
+    lock.unlock();
+  }
 }
 ```
 
@@ -735,7 +755,7 @@ synchronized(this){
 - 用于 **实例方法、构造方法** 里，指向 **当前对象**。
 - `this.name = name;` 避免变量冲突
 
-#### setnx
+#### setnx (set if not exist)
 
 ```
 SET lock value NX EX 10 #放在一起保证原子性,这里NX互斥,EX超时
@@ -756,7 +776,11 @@ DEL key #释放锁
 
 ![](./Java/redis4.png)
 
-2 **重试机制,尝试等待,高并发增加分布式锁的使用性能**
+2 **重试机制,尝试等待,高并发增加分布式锁的使用性能**（一般情况下），不然循环到一定次数就获取锁失败
+
+注意，这里Reddison有读写锁`RReadWriteLock`和普通分布式锁`RLock`
+
+`RLock`基于`SETNX`实现，可重入，watchday续期
 
 ```java
 RLock lock = redissonClint.getLock("a");
@@ -795,42 +819,73 @@ if(isLock){
 
 ### 锁的重入（Reentrant Locking）
 
-同一个线程在持有锁的情况下，可以再次获取该锁，而不会发生死锁
+**同一个线程**在持有锁的情况下，可以再次获取该锁，而不会发生死锁
 
-redisson实现的锁是可以重入的
+redisson实现的锁`RLock`是可以重入的，有hash结构记录,key=thread id,value=reentrant times
 
-hash结构记录,key=thread id,value=reentrant times
+### 主从一致性
 
-主从一致性
-Redis Master, Redis Slave,主从同步,为了防止Master加锁后down了,然后Slave变成Master后再加锁的情况:
+Redis Master, Redis Slave,主从同步,为了防止Master加锁后down了,sentinel会把Slave变成Master后再加锁的情况，然后新线程也来获取锁，出现两个线程持有同一把锁的情况
 
-RedLock:不止在一个redis实例上加锁,而是在多个redis实例上创建锁(n/2+1)  但是很少用,性能差 
+**RedLock**:不止在一个redis实例上加锁,而是在多个redis实例上创建锁(n/2+1)  但是很少用,性能差 
 
 为了保持数据强一致性,使用zookeeper实现的分布式锁 
 
+redis主要保证AP，也就是高可用性，说白了就是redis解决不了主从不一致的问题
+
+如果一定要强一致性，就采用zookeeper实现的分布式锁，可以CP
+
 ### 集群方案
 
-主从复制
+高并发读：主从集群，高可用：哨兵集群，高并发写：分片集群
 
-哨兵模式 (可以解决高可用,高并发读问题)
+#### 主从复制
+
+可以实现读写分离，master主要写，slave/replica主要读，变相增强了并发能力
+
+但是需要主从同步
+
+![](./Java/redis01.png)
+
+![](./Java/redis02.png)
+
+![](./Java/redis03.png)
+
+#### 哨兵模式 （监控，故障恢复，通知）
+
+可以解决高可用,高并发读问题
 
 监控Master Slave的正常工作,Master故障就Slave升Master,通知redis cli端
 
-heartbeat监控,主观下线,过半数Quorum就客观下线
+heartbeat监控,未响应主观下线,过Quorum sentinel认为主观下线就变成客观下线
 
-分片集群 (可以解决海量数据存储,高并发写问题)
+![](./Java/redis04.png)
 
-**多个master**,每个master存不同数据,有自己的slave,master之间互相监控ping
+分布式里脑裂问题，会导致数据丢失，比如两个master后其中一个降为slave，slave清空数据去同步master数据
 
-client可以访问任意master,都会被转发到正确节点
+#### 分片集群 
 
-通过hash来分流
+可以解决海量数据存储,**高并发写**问题
+
+**多个master**,每个master**存不同数据**,有自己的slave,master之间互相监控ping
+
+slave读，master写，主从多slave可以应对高并发读，分片多master可以应对高并发写
+
+client可以访问任意master,都会被转发到正确节点（router）
+
+通过hash来分流，hash槽有16384个
 
 ### 为什么Redis单线程怎么快
 
-内存,单线程不用上下文切换可竞争条件,多线程要线程安全
+主要原因是内存
 
-I/O多路复用,非阻塞IO 
+单线程不用上下文切换可竞争条件,多线程要线程安全
+
+**I/O多路复用,非阻塞IO** ！！
+
+一般IO都是瓶颈，disk读写是mysql瓶颈，IO网络读写是redis瓶颈
+
+一般都是用户拷贝到内核缓冲区，内核通过网卡发送，然后读入内核缓冲区，拷贝回用户缓存区
 
 Redis瓶颈是网络延迟, I/O多路服用高效网络请求
 
@@ -839,17 +894,57 @@ Redis瓶颈是网络延迟, I/O多路服用高效网络请求
 
 ![](./Java/redis5.png)
 
-select
+阻塞IO user在等内核数据时候，是阻塞的！
 
-poll
+非阻塞IO 就是阻塞等待，问了没回就过一会儿继续再问，忙等会导致cpu空转
+
+IO多路复用，单线程监听多个socket
+
+![](./Java/redis04.png)
+
+* select fd固定大小，fd_set bitset MAX 1024
+
+* poll fd数量动态`struct pollfd` 结构体数组，理论上无限制（受内存限制），和select一样都是tranverse的到可用fd
 
 好了就发signal,然后kernel论询查哪个fd好了
 
-epoll
+* epoll
 
-`epoll` **告诉用户进程具体哪个 socket（fd）变成可读/可写**
+`epoll` **告诉用户进程具体哪个 socket（fd）变成可读/可写**，然后写入kernel space的buffer
 
 性能影响IO diskIO,socketIO多线程
+
+### redis网络模型
+
+单线程影响性能是IO，socketIO
+
+下面这里多线程加快性能：redis 6.0之后，命令回复处理器多线程，命令请求处理里的接受数据多线程，连接应答处理器单线程
+
+![](./Java/redis05.png)
+
+# Zero-Copy零拷贝
+
+如何避免用户态和内核态拷贝？
+
+#### mmap
+
+将文件直接映射到用户空间的内存中，应用程序可以直接访问文件数据，而无需将数据拷贝到用户缓冲区
+
+#### sendfile
+
+内核空间中直接将数据从文件描述符传输到网络套接字，无需将数据拷贝到用户空间。
+
+#### splice
+
+在内核空间中直接将数据从一个文件描述符传输到另一个文件描述符，无需将数据拷贝到用户空间。
+
+#### DMA（直接内存访问）
+
+硬件直接访问内存
+
+#### 网络通信
+
+如高性能 Web 服务器（Nginx、Apache）和消息队列（Kafka）。
 
 # Mysql 2025.1.19
 
@@ -969,7 +1064,7 @@ Primary key
 ```sql
 select * from tb limit 900000,10;
 #查询900010个返回900000-900010的数据, sort代价高
-
+#limit a,b 是offset a，返回b个
 select * from tb t,
 (select id from tb order by id limit 900000,10) a
 where t.id=a.id

@@ -92,8 +92,6 @@ public class BloomFilterConfig {
 
 
 
-
-
 JD
 
 - 扎实的编程能力； 2、熟练掌握C/C++/Java/Go等其中一门开发语言； TCP/UDP网络协议及相关编程、进程间通讯编程； 专业软件知识，包括算法、操作系统、软件工程、设计模式、数据结构、数据库系统、网络安全等。 有一定了解的： 1、Python、Shell、Perl等脚本语言； 2、MySQL及SQL语言、编程； 3、NoSQL, Key-value存储原理。
