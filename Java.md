@@ -592,6 +592,14 @@ submit 提交一个task返回`Future`， `future.get()` 方法，可以阻塞当
 
 数组越大误判率越小，数组越小误判率越大，但是大数组会更多内存损耗
 
+bloom filter hash碰撞怎么办
+
+* 增加哈希函数数量
+
+* 增加数组，降低误判率
+
+* 双bloom filter，**没有什么是加一中间层没法解决的**
+
 ### 击穿Cache Miss Storm
 
 击穿就是本来redis有，但是热点key expire，需要到数据库查询，然后更新redis，但是会有**50ms的空档**，并发的request会把DB打崩
@@ -713,6 +721,10 @@ Eviction Policy 当 Redis **内存达到上限**时，Redis 需要**主动清理
 还有lfu least frequently used
 
 有置顶数据，就lru+不设置过期时间，热点数据就lru，高频访问数据就lfu，默认就no eviction报错
+
+lru linklist+hashmap
+
+lfu linklist+hashmap+freq_hashmap
 
 **Lazy Expiration** 高并发热点 key，防止缓存击穿,Redis 不会删除数据
 
@@ -944,7 +956,7 @@ IO多路复用，单线程监听多个socket
 
 #### 网络通信
 
-如高性能 Web 服务器（Nginx、Apache）和消息队列（Kafka）。
+如高性能 Web 服务器（Nginx、Apache）和消息队列（Kafka）
 
 # Mysql 2025.1.19
 
@@ -962,19 +974,31 @@ Master-Slave Replication
 
 ### 定位慢查询
 
-**多表查询** 这个有
+多表查询 
 
-聚合查询
+聚合查询 Aggregate Query
+
+> Count(), Avg(), Sum(), MIN(), MAX()都是聚合查询
+>
+> 聚合操作通常会依赖数据库的索引来加速数据访问
+>
+> 如果查询涉及的列没有索引，或者索引不合适，数据库需要扫描整个表的数据，进行大量的计算，这会导致查询变慢
 
 表数据过大查询
 
-深度分页查询
+深度分页查询 
+
+> LIMIT 10 OFFSET 1000
+>
+> 而使用游标，查询会从一个已知的“游标”开始，效率更高
 
 表象:页面加载慢,接口压测响应时间过长超过1s
 
-Arthas
+使用Arthas
 
-Prometheus, Skywalking 接口响应时间+追踪
+Prometheus, **Skywalking** 接口响应时间+追踪
+
+首先通过skywalking等检测工具确定瓶颈是mysql
 
 Mysql自带慢日志查询(我也没用过) `/etc/mysql/my.cnf`
 
@@ -986,26 +1010,30 @@ long_query_time=2
 
 首先回答场景:比如当时接口测试压测结果很慢5s,用MySQL慢日志查询,检测出sql里超过2s的日志(在调试阶段),dev时不用慢日志查询
 
-### 如何优化
+### 如何优化 EXPLAIN
 
-**多表查询**  : 优化sql语句
+多表查询  : 优化sql语句
 
 聚合查询  : 优化sql语句,临时表
 
-表数据过大查询: 添加index
+表数据过大查询: 添加index索引
 
-深度分页查询
+深度分页查询：覆盖索引
 
 分析sql的执行计划
 
 **EXPLAIN** DESC获取mysql查询信息
 
-key,key_len检查是否索引命中,也就是是否利用到了index
+key是命中的索引，key_len是索引占用大小
+
+EXPLAIN 里检查这两个可以知道是否命中索引
+
+Extra是优化建议
 
 ```shell
 #Extra建议
 Using where; Using Index #不需要回表,索引列都能找到
-Using index condition #查找使用了索引,需要table lookup
+Using index condition #查找使用了索引,需要table lookup，需要回表查询
 #type sql连接类新
 system #查询的内置表
 const #primary key查询
@@ -1020,11 +1048,19 @@ all #全盘扫
 
 查询数据时，先通过 **索引** 查找 **主键 ID**，然后再通过 **主键索引（Clustered Index）** 获取完整的数据行。这通常发生在 **非聚簇索引（Secondary Index）** 查询
 
-### Index
+### Index 什么是索引
 
-B+树利于扫库+区间查询
+帮助mysql高效获取数据的数据结构
 
-叶子节点天然形成双向链表，顺序扫描更高效
+提高数据检索效率，降低数据库的IO成本，不需要全表扫描
+
+降低数据排序成本，降低CPU消耗
+
+### Index原理
+
+B+树利于**扫库+区间查询**
+
+叶子节点天然形成**双向链表，顺序扫描更高效**
 
  **磁盘 I/O 访问次数少**,因为按照page存取16KB
 
@@ -1032,13 +1068,19 @@ Mysql底层的innoDB采用的B+树,路径短,disk读取代价低
 
 ### Cluster Index
 
-Primary key
+* Primary key
 
-没Primary key就用地一个Unique的Index
+* 没Primary key就用地一个Unique的Index
 
-没有Unique的index, innoDB就会生成一个rowid作为隐藏的cluster index
+* 没有Unique的index, innoDB就会生成一个rowid作为隐藏的cluster index
 
-### 覆盖索引
+Cluster Index必须要有并且只能有一个
+
+### Secondary Index=Non-Clustered Index
+
+就是二级索引的value只包含primary key！
+
+### 覆盖索引=不需要回表查询
 
 - 查询使用了索引，并需要返回的列，在该索引中已经全部能够找到（不需要回表查询）
 
@@ -1049,17 +1091,17 @@ Primary key
  select id, name from user where name = 'jack'; 
  #是覆盖索引，二级索引中包含id，且name是索引
  select id, name, gender from user where name = 'jack'; 
- #是覆盖索引，二级索引中包含id，且name是索引,但是没有gender,需要回表查询
+ #不是覆盖索引，二级索引中包含id，且name是索引,但是没有gender,需要回表查询
  ```
 
-如果返回列中没有创建索引,可能会触发table lookup,尽量避免select *
+如果返回列中没有创建索引,可能会触发table lookup,尽量避免`select *` !!
 
 用id查询直接cluster index查询,性能好
 
-### MySQL超大分页处理
+### MySQL超大分页处理（比如排序1000000，但只返回10）
 
 - 当数据量特别大，limit分页查询，需要进行排序，效率低
-- 解决：覆盖索引+子查询
+- 解决：**覆盖索引**+子查询
 
 ```sql
 select * from tb limit 900000,10;
@@ -1068,6 +1110,7 @@ select * from tb limit 900000,10;
 select * from tb t,
 (select id from tb order by id limit 900000,10) a
 where t.id=a.id
+#这种就借助索引，比上面加载整个表快！
 ```
 
 先找id,然后再从id查询过滤
@@ -1094,7 +1137,7 @@ WHERE t.id = a.id;
 
 - 表数据量大，查询频繁，可以给表创建索引（单表超过10万条）
 - 字段常被用于条件、排序、分组，创建索引
-- 使用联合索引（复合索引），避免回表
+- 使用**联合索引**（复合索引），避免回表
 - 控制索引数量
 
 ```sql
@@ -1964,6 +2007,8 @@ XA是CP模式，强一致性但是弱性能
 ![](./Java/cloud9.png)
 
 ### MQ分布式事务
+
+MQ消息删除本地缓存？
 
 它主要用于解决**跨服务的数据一致性**问题，避免因网络延迟、服务故障等问题导致数据不一致。
 
@@ -3353,6 +3398,52 @@ Animal animal = A.createAnimal();
 
 等二刷
 
+### JWT原理
+
+JWT 更符合设计 RESTful API 时的Stateless（无状态）原则 
+
+JWT 本质上就是一组字串，通过（`.`）切分成三个为 Base64 编码的部分：
+
+![JWT 组成](https://oss.javaguide.cn/javaguide/system-design/jwt/jwt-composition.png)
+
+Header,Payload,Signature
+
+JWT 通常是这样的：`xxxxx.yyyyy.zzzzz`
+
+JWT在POST login时返回，客户端（如浏览器）将JWT保存在`localStorage`或`sessionStorage`中，每次请求时将JWT放入`Authorization`头中发送给服务器。（联想postman里的Authrization的请求）
+
+#### 保证登录的是当前用户
+
+**JWT校验**
+
+- 服务器验证JWT的签名是否有效
+- 检查JWT中的用户ID和角色是否匹配
+
+**拦截器校验**
+
+- 在请求到达业务逻辑前，通过拦截器验证JWT的有效性。
+- 如果JWT无效或过期，返回401未授权错误。（联想postman里的Authrization的请求）
+
+#### 改进点：
+
+- 使用HTTPS防止Token被窃取。
+- 设置较短的Token过期时间，并使用Refresh Token机制续期。
+- 对敏感操作（如修改密码）进行二次验证。
+
+#### 如何防止 JWT 被篡改
+
+有了签名之后，即使 JWT 被泄露或者截获，黑客也没办法同时篡改 Signature、Header、Payload。
+
+因为服务端拿到 JWT 之后，会解析出其中包含的 Header、Payload 以及 Signature 。服务端会根据 Header、Payload、密钥再次生成一个 Signature。拿新生成的 Signature 和 JWT 中的 Signature 作对比，如果一样就说明 Header 和 Payload 没有被修改。
+
+如果服务端的秘钥也被泄露的话，黑客就可以同时篡改 Signature、Header、Payload 了。黑客直接修改了 Header 和 Payload 之后，再重新生成一个 Signature 就可以了。
+
+**密钥一定保管好，一定不要泄露出去。JWT 安全的核心在于签名，签名安全的核心在密钥。**
+
+payload里加入exp过期时间
+
+放在localstorgae里而不是Cookie，避免CSRF
+
 ### SSO 单点登录 JWT
 
 一处登陆，处处运行 
@@ -3367,13 +3458,56 @@ Animal animal = A.createAnimal();
 
 ### RBAC Role-Based Access Control
 
+- **认证 (Authentication)：** 你是谁。
+- **授权 (Authorization)：** 你有权限干什么。
+
+Authorization在Authentication后，RBAC是基于角色的鉴权机制
+
 ![](./Java/s2.png)
+
+### Cookie
+
+`Cookie` 和 `Session` 都是用来跟踪浏览器用户身份的会话方式
+
+**`Cookie` 存放在客户端，一般用来保存用户信息**
+
+**`Session` 的主要作用就是通过服务端记录用户的状态**
+
+下次访问网站的时候页面可以自动帮你登录的一些基本信息给填了。除此之外，`Cookie` 还能保存用户首选项，主题和其他设置信息
+
+使用 `Cookie` 保存 `SessionId` 或者 `Token` ，向后端发送请求的时候带上 `Cookie`，这样后端就能取到 `Session` 或者 `Token` 了。这样就能记录用户当前的状态了，因为 HTTP 和HTTPS协议是state less的，但是 HTTPS 连接是“有状态的”
+
+Keep-Alive: HTTPS 连接建立后，多个 HTTP 请求可以共享一个 TCP 连接（但每个请求仍然是独立的）。
+
+HTTP 80，HTTPS 443
+
+> HTTP每个请求都是独立的，服务器不会主动记住上一次请求的状态
+>
+> Token和Cookie就是提供信息，让server记住一些状态（如用户登录状态、购物车信息等）
 
 ### 对称加密/非对称加密
 
 对称加密：Encryption and decryption 采用相同的key密钥
 
 非对称加密：加密私钥private key，解密公钥public key
+
+RAS是非对称，3DES，AES都是对称加密
+
+### HTTPS是非对称结合对称加密
+
+SSL/TLS
+
+* client发起HTTPS请求
+
+* server给client一个CA证书
+
+* client验证CA有效
+
+* client生成一个private key，通过server的pub key加密后发送给server，server获取这个private key
+
+到这里是非对称加密（建立连接的过程）
+
+后面就是都是用这个密钥加密，就是对称加密
 
 ### 难点
 
@@ -3430,9 +3564,28 @@ LoadRunner，Apache Jmeter
 
 brackets，parentheses 括号
 
-recursive递归
+### 本地缓存
 
-traverse遍历
+本地缓存未删除干净怎么办？
+
+- RocketMQ消息可能丢失或延迟。
+- 本地缓存删除失败（如网络问题）
+
+1. **重试机制**：在删除失败时重试几次。
+2. **定时任务**：定期检查并清理无效缓存。
+3. **分布式锁**：确保删除操作的原子性。
+4. **本地缓存过期时间**：设置较短的过期时间，避免脏数据长期存在
+
+HashMap
+
+**链表法**
+
+**红黑树**
+
+**Rehash**
+
+- 使用`ConcurrentHashMap`支持高并发。
+- 使用`WeakHashMap`防止内存泄漏
 
 ### Reference
 

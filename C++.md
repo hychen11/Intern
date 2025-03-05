@@ -1,12 +1,8 @@
 # C++
 
-## Chapter 2
+## DataSize
 
-**Data size**
-
-**1 byte \*=\* 8 bits**
-
-int is 4 bytes.  (-2^31,2^31-1)
+int is 4 bytes.
 
 short is 2 bytes.
 
@@ -32,13 +28,13 @@ The **`-c`** option is a compiler flag that tells the compiler to **compile the 
 
 **separate compilation 分别编译，目录格式，分开定义，提升开发效率，但是会定义时名字重复了（比如namespace）**
 
-### Compound type
+## Const总结
 
-- reference
-  - Alias
-- point
-
-### Const
+* `const` 修饰普通变量
+* `const` 修饰指针
+  * `const int *p==int const *p`也就是`(*p)`是常量，说明 `p` 指向的内容（`int` 类型的值）是**常量**，不能修改，`p` 本身**不是常量**，可以指向不同的地址，但是不能改\*p值
+  * `int *const p` 也就是p是常量，p 本身是常量，不能指向别的地址
+  * `const int *const p = &a;`  也就是p是常量，p本身也是
 
 const int : **initialize**!!! and cannot change value
 
@@ -70,8 +66,6 @@ Top-level **`const`** means that the object itself is constant and its value can
 
 Low-level **`const`** means that the pointed-to or referred-to object is constant and cannot be modified through the pointer or reference that has low-level const. This means that you cannot modify the value of the pointed-to or referred-to object through the pointer or reference that has low-level const, but you can modify it through a non-const pointer or reference that points to the same object.
 
-## Chapter 3
-
 ### Namespace
 
 avoid naming conflict. `namespace a1{ void function1(){} }`
@@ -85,17 +79,6 @@ head file do not use `using`
 str.size() return size_t = size_type (unsign int type) `unsighed int`
 
 **str.empty()** equals to str.size()==0
-
-**str.pop_back()**
-
-### Iterator
-
-```
-vector<int>::iterator it
-(*it).size()`  = `it->size()
-```
-
-## Chapter 4
 
 ### Lvalues & Rvalues
 
@@ -129,8 +112,6 @@ int c=f();
 int d=b();
 ```
 
-## Chapter 5
-
 ### Exception
 
 ```cpp
@@ -143,8 +124,6 @@ catch(const std::invalid_argument &e){
 		std::cout << "A catch error occurred: " << e.what() << std::endl;
 }
 ```
-
-## Chapter 6
 
 ```
 static int a=1;
@@ -203,9 +182,7 @@ func_ptr=&func;
 func_ptr(int,int);
 ```
 
-## Chapter 7
-
-```python
+```c++
 class A{
 public:
     explicit A(int value):a_(value){}
@@ -343,8 +320,6 @@ int A::static_num=20;
 //if main() exists, its value always exists
 ```
 
-## Chapter 8
-
 check c++ reference is OK
 
 1. library like c++ log library
@@ -391,8 +366,6 @@ int main(int argc, char **argv) {
 
 }
 ```
-
-## Chapter 9
 
 ### sequential container
 
@@ -467,8 +440,6 @@ atoi(
 
 ### container adaptor
 
-## Chapter 10
-
 ### algorithm
 
 custom comparison function
@@ -501,10 +472,6 @@ cbegin= const begin
 for(auto it=vec.cbegin();it!=vec.cend();it++)
 for(auto it=vec.crbegin();it!=vec.crend();it++)
 ```
-
-![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/775e3f60-b839-4207-aaf8-7358771aaf49/Untitled.png)
-
-## Chapter 12
 
 ### Dynamic Memory
 
@@ -592,32 +559,6 @@ int main() {
 
     return 0;
 }
-```
-
-## Sort
-
-```cpp
-sort(nums.begin(),nums.end(),[](const pair<int,int> &a,const pair<int,int> &b){return a.second<b.second;)
-```
-
-### Priority_queue**
-
-```cpp
-//min Heap
-priority_queue<pair<int,int>,vector<pair<int,int>>,greater<pair<int,int>>> q;
-priority_queue<int,vector<int>,greater<int>> q;
-//max Heap (at most condition)
-priority_queue<pair<int,int>,vector<pair<int,int>>,less<pair<int,int>>> q;
-
-priority_queue<pair<string,int>,vector<pair<string,int>>,decltype(cmp)> q;
-```
-
-### Set**
-
-```cpp
-unordered_set<int> f;
-f.insert(num);
-f.erase(num);
 ```
 
 # OOP
@@ -736,7 +677,7 @@ const int temp = 10;  const int &var = temp;
 ### Class
 
 - **`protected`** 自己/派生类和友元函数访问
-- `**private`** 自己和友元函数可见
+- `private` 自己和友元函数可见
 - class 默认private， struct 默认 public
 
 ```cpp
@@ -1322,7 +1263,7 @@ int main() {
    int* ptr = reinterpret_cast<int*>(0x12345678); // 将整数转换为指针
    ```
 
-### Smart Pointer***
+### Smart Pointer
 
 智能指针使用了一种RAII(资源获取即初始化)技术对普通的指针进行了封装，使得智能指针实质上是一个对象，但是行为表现得像一个指针
 
@@ -1433,8 +1374,6 @@ int main() {
 - **`catch`**：**`catch`** 块用于捕获和处理异常。
 - `**noexcept`** 不抛出异常，如有异常则调用std::terminate终止
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/b5f16b06-b2d0-4fa3-873a-969e1869f44d/108eb3b2-91e3-449b-a437-50cb1465877a/Untitled.png)
-
 异常处理的执行过程
 
 - 程序按照正常的顺序执行，到达try语句，开始执行try内的保护段
@@ -1532,11 +1471,11 @@ g++ -shared -fPIC -o libmylib.so mylib.cpp
   - 部署相对复杂，需要确保目标系统上存在正确版本的库。
   - 运行时依赖外部库，可能导致版本问题。
 
-# \#pragma once
+# #pragma once
 
 用于防止头文件被多次包含
 
-```
+```c++
 #ifndef HEADER_FILE_NAME_H
 #define HEADER_FILE_NAME_H
 
@@ -1544,8 +1483,6 @@ g++ -shared -fPIC -o libmylib.so mylib.cpp
 
 #endif // HEADER_FILE_NAME_H
 ```
-
-
 
 ```
 #pragma once

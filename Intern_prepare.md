@@ -1,3 +1,201 @@
+# 并发的核心
+
+控制的是多线程or进程对于同一块**内存**空间的控制
+
+# TCP的Process
+
+当 TCP 连接建立后，服务器端会通过以下步骤准备接收客户端的连接
+
+**`socket()`**：**客户端和服务器**都需要先创建一个套接字fd。套接字是用来进行网络通信的基础。
+
+```c++
+int sockfd = socket(AF_INET, SOCK_STREAM, 0);  // 创建套接字
+```
+
+**`bind()`**：**服务器**将自己的套接字与一个具体的 IP 地址和端口绑定（例如 `8080`）。客户端通常不需要绑定，只需要连接到指定的服务器地址。
+
+```c++
+struct sockaddr_in server_addr;
+server_addr.sin_family = AF_INET;
+server_addr.sin_addr.s_addr = INADDR_ANY; // 绑定所有网络接口
+server_addr.sin_port = htons(8080); // 绑定端口 8080
+
+bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));  // 绑定地址和端口
+```
+
+**`listen()`**：服务器告知操作系统它已经准备好接受连接请求，进入监听状态。
+
+**服务器** 执行 `listen()` 之后，会在内核中维护一个 **等待连接队列**，客户端发起连接请求时，会被放入这个队列中，直到服务器接受连接
+
+```c++
+listen(sockfd, 5);  // 监听最大队列大小为 5
+```
+
+**`accept()`**：当客户端请求连接时，服务器接受连接，并返回一个新的套接字`new_sockfd`，用于后续的通信。
+
+`accept()` 只能由 **服务器** 执行。当服务器调用 `accept()` 时，它会阻塞直到有客户端连接。
+
+```c++
+int new_sockfd = accept(sockfd, (struct sockaddr*)&client_addr, &client_len);
+```
+
+**`accept()`** 被一个线程调用，用来接收客户端的连接请求
+
+一旦 `accept()` 返回 `new_sockfd`（新的套接字），可以将它交给线程池中的一个线程来处理，避免主线程直接处理所有的客户端连接。(Thread Pool)
+
+这里第一步就是`Pthread_detach(pthread_self())`，**分离线程**，即让线程在执行完后 **自动释放资源**，而不需要调用 `pthread_join()` 来回收它的资源。避免阻塞父线程等待子线程的结束，也就是父线程不用等着调用join了
+
+```c++
+// 伪代码：线程池中处理连接
+while (true) {
+    int new_sockfd = accept(sockfd, (struct sockaddr*)&client_addr, &client_len);
+    
+    // 将 new_sockfd 交给线程池中的一个线程来处理
+    thread_pool.submit(handle_client, new_sockfd);
+}
+```
+
+
+
+客户端和服务器就可以通过 **`send()`** 和 **`recv()`**（或者 `write()` 和 `read()`）来交换数据
+
+# IO 多路复用
+
+**IO 多路复用**（例如 `select()`、`poll()` 和 `epoll()`）是为了在 **单线程** 中同时处理多个客户端连接的一种技术
+
+**BIO**（Blocking I/O）：即 **阻塞 I/O**
+
+**NIO**（Non-blocking I/O）：即 **非阻塞 I/O**，在 NIO 中，操作（如 `accept()`、`recv()`、`send()`）不会阻塞。通常通过 **IO 多路复用**（如 `select()`、`poll()` 或 `epoll()`）来实现
+
+
+
+# RAII
+
+RAII 强调资源的管理应该由对象的生命周期自动控制，**自动控制**！
+
+智能指针（Smart Pointers）算
+
+scoped_lock算c++17的特性，自动管理互斥锁！！避免死锁和忘记释放锁
+
+`unique_lock`、`shared_lock` 等也符合 RAII 原则
+
+new和delete不算！
+
+malloc和free也不算，因为是手动管理的！
+
+# 读写锁的实现
+
+为了保证原子性，要用mutex保护cnt！
+
+```c++
+//WLOCK()
+P(&mutex)
+cnt++;
+if(cnt==1){
+	P(&W);
+}
+V(&mutex)
+
+//WUNLOCK()
+P(&mutex)
+cnt--;
+if(cnt==0){
+	V(&W);
+}
+V(&mutex)
+```
+
+# ThreadPool实现
+
+Manager分配Worker，首先创建出一堆Threads
+
+首先task来了先放在任务队列buffer里，然后Worker空了按照 FIFO的顺序去做task
+
+```c++
+while(1){
+	P(&item);
+	V(&item);
+}
+```
+
+![](./Java/threadpool.png)
+
+```c++
+//初始化一个buffer
+sbuf_init(&buf,SBUFSIZE);
+//create NTHREADS threads
+for(int i=0;i<NTHREADS;i++){
+  Pthread_create(&tud,NULL,thread,NULL);
+}
+while(1){
+  clientlen=sizeof(struct sockaddr_storage);
+  connfd=Accept(listenfd,(SA*)&clientaddr,&clientlen);
+  subf_insert(&buf,connfd);
+}
+```
+
+```c++
+Pthread_detach(pthread_self());
+//就是主进程不需要等待子进程
+```
+
+
+
+# Mutex原理
+
+mutex是pv操作实现的，pv操作底层原理是把task放至wait list
+
+P相当于获取锁，V相当于解锁
+
+**P（proberen，尝试）操作**：用于**获取资源**（减少信号量的值）。
+
+- 如果资源可用（信号量 > 0），则减少信号量并继续执行。
+- 如果资源不可用（信号量 ≤ 0），则将**当前任务（进程/线程）加入等待队列**，阻塞等待资源可用。
+
+**V（verhogen，增加）操作**：用于**释放资源**（增加信号量的值）。
+
+- 增加信号量，并**唤醒等待队列中的任务**（如果有）
+
+PV 操作通常通过**原子操作**（如 `test-and-set`、`compare-and-swap (CAS)`）和 **等待队列（wait list）** 来实现
+
+**信号量（Semaphore）或互斥量（Mutex）数据结构**
+
+- 包含一个**计数值（counter）**，表示当前资源的可用状态。
+- 包含一个**等待队列（wait list）**，存放等待获取锁的任务（线程/进程）。
+
+**P 操作（加锁 / wait）**
+
+- 使用 原子操作尝试减少 counter：
+  - 若 `counter > 0`，成功获取资源，继续执行。
+  - 若 `counter == 0`，将当前任务加入等待队列，并**阻塞**。
+
+**V 操作（解锁 / signal）**
+
+- 增加 counter，如果有任务在等待队列中：
+  - **唤醒一个等待的任务**，让其继续执行。
+
+### **上传大文件的协议**
+
+#### **分片上传（Chunked Upload）**：
+
+- 将大文件分割成多个小块（如每块5MB）。
+- 使用HTTP协议逐个上传分片。
+- 服务器接收分片后合并成完整文件。
+
+#### **改进点：**
+
+- 使用**断点续传**：记录已上传的分片，避免重复上传。
+- 使用**WebSocket**或**TCP**协议：适合实时性要求高的场景。
+- 使用**FTP**或**SFTP**：适合超大文件传输。
+
+# hash冲突
+
+* 遍历寻找下一个
+* 双hash
+* linkedlist保存
+
+# JWT
+
 Postman 调试jwt有Authorization可以添加
 
 如何拿到Jwt token 呢，跑post employee login拿到token，然后直接粗暴System.nanoTime()拿到时间差，然后redis benchmark
@@ -152,21 +350,57 @@ SELECT a, b, c FROM table WHERE a = z;  -- 再用 a 查完整数据
 
 `netstat -an | grep ESTABLISHED | wc -l`
 
- 	
+# Static 贯穿程序始终！！
 
-# 术语
+静态局部变量：第一次使用时初始化
 
-quotation quote
+```c++
+void foo() {
+    static int count = 0;  // 只会初始化一次
+    count++;
+    std::cout << "Count: " << count << std::endl;
+}
 
-traverse
+int main() {
+    foo();  // 输出 Count: 1
+    foo();  // 输出 Count: 2
+    foo();  // 输出 Count: 3
+}
+```
 
-recursive
+静态成员变量：第一次访问时初始化，且需要在类外定义。
 
-bracket
+```c++
+class MyClass {
+public:
+    static int count;  // 静态成员变量
+};
 
-brace
+int MyClass::count = 0;  // 类外初始化
 
-# Static
+int main() {
+    std::cout << MyClass::count << std::endl;  // 输出 0
+    MyClass::count = 10;
+    std::cout << MyClass::count << std::endl;  // 输出 10
+}
+```
+
+静态全局变量/函数：程序启动时初始化。
+
+```c++
+static int globalCount = 10;  // 静态全局变量
+
+static void myFunction() {  // 静态全局函数
+    std::cout << "Inside myFunction" << std::endl;
+}
+
+int main() {
+    std::cout << globalCount << std::endl;  // 输出 10
+    myFunction();  // 输出 "Inside myFunction"
+}
+```
+
+
 
 所有 `static` 变量和函数在全局/静态存储区分配，生命周期贯穿程序运行。
 
@@ -2124,6 +2358,18 @@ Insert 写锁，判断是否split
 Delete写锁，判断size是否改变，也需要对 sibling 加锁。并在完成 steal/merge 后马上释放
 
 ### RAII
+
+RAII 强调资源的管理应该由对象的生命周期自动控制，**自动控制**！
+
+智能指针（Smart Pointers）算
+
+scoped_lock算c++17的特性，自动管理互斥锁！！避免死锁和忘记释放锁
+
+`unique_lock`、`shared_lock` 等也符合 RAII 原则
+
+new和delete不算！
+
+malloc和free也不算，因为是手动管理的！
 
 ```cpp
 std::scoped_lock<std::mutex> lock(mutex_);
