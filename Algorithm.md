@@ -5371,6 +5371,81 @@ public:
 };
 ```
 
+# Quick Sort
+
+### Hoare Partition
+
+找第k大，这里注意pivot是nums[l]!!
+
+```c++
+class Solution {
+public:
+    int quickselect(vector<int> &nums, int l, int r, int k) {
+        if (l == r)
+            return nums[k];
+        int partition = nums[l], i = l - 1, j = r + 1;
+        while (i < j) {
+            do i++; while (nums[i] < partition);
+            do j--; while (nums[j] > partition);
+            if (i < j)
+                swap(nums[i], nums[j]);
+        }
+        if (k <= j)return quickselect(nums, l, j, k);
+        else return quickselect(nums, j + 1, r, k);
+    }
+
+    int findKthLargest(vector<int> &nums, int k) {
+        int n = nums.size();
+        return quickselect(nums, 0, n - 1, n - k);
+    }
+};
+```
+
+
+
+```c++
+class Solution {
+public:
+    void quickSort(vector<int>& nums, int l, int r) {
+        if (l >= r) return;
+
+        int pivot = nums[l];  // 选择左侧元素作为 pivot
+        int i = l - 1, j = r + 1;
+        while (i < j) {
+            do { i++; } while (nums[i] < pivot);
+            do { j--; } while (nums[j] > pivot);
+            if (i < j) swap(nums[i], nums[j]);
+        }
+
+        quickSort(nums, l, j);  // 递归排序左半部分
+        quickSort(nums, j + 1, r);  // 递归排序右半部分
+    }
+};
+```
+
+### Lomuto Partition
+
+```c++
+void quickSort(vector<int>& nums, int l, int r) {
+    if (l >= r) return;
+
+    int pivot = nums[r];  // 选最后一个元素作为 pivot
+    int i = l;  // `i` 记录比 pivot 小的区域
+
+    for (int j = l; j < r; j++) {
+        if (nums[j] < pivot) {
+            swap(nums[i], nums[j]);
+            i++;
+        }
+    }
+    swap(nums[i], nums[r]);  // 交换 pivot 到正确位置
+
+    quickSort(nums, l, i - 1);
+    quickSort(nums, i + 1, r);
+}
+
+```
+
 # LRU
 
 ```c++
