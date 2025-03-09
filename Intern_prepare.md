@@ -1,6 +1,119 @@
+# TCP 拥塞控制
+
+TCP Byte Stream没有明确的边界
+UDP message数据包作为独立的单元进行传输，有明确边界
+
+控制数据发送速率来避免网络出现过载，保证网络的可靠性和稳定性，避免因为过多的数据导致丢包或连接断开。
+
+- **慢启动**（Slow Start）：初始时发送的数据量非常少，随着网络状况好转逐步增加。
+- **拥塞避免**（Congestion Avoidance）：通过增加数据发送量，避免网络发生拥塞。
+- **快速重传与快速恢复**（Fast Retransmit & Fast Recovery）：当丢包被检测到时，快速重传数据并恢复连接。
+
+### chmod/ chown
+
+# Inode
+
+ inode 存储了文件的元数据（如文件权限、所有者、文件大小、数据块的位置等），而文件名只是一个指向 inode 的引用
+
+一个 inode 可以有多个文件名指向（即多个hardlink），这些文件名共享相同的 inode
+
+每次创建硬链接时，都会为该文件创建一个新的文件名，但这不会创建新的数据副本，只是增加了对该 inode 的引用计数
+
+# SoftLink & HardLink
+
+**硬链接（Hard Link）**：
+
+- 硬链接是文件系统中的一种机制，通过**不同的文件名指向相同的物理磁盘位置**（即相同的 inode）。
+
+  硬链接是对同一个文件的多个引用
+
+  ```shell
+  $ ln file.txt hardlink.txt
+  #hardlink.txt 和原文件file.txt连接起来
+  rm file.txt
+  #hardlink.txt还有效,删除文件磁盘上的 inode 不会立即被删除，当所有指向inode的link都删除后才会被删除！
+  ```
+
+  **硬链接和原文件是等效的**，没有原文件和硬链接的区别
+
+- 如果删除原文件，硬链接依然有效，因为它指向的是相同的 inode，数据不会丢失。
+
+- 硬链接不能跨越文件系统，也不能为目录创建硬链接（除非是超级用户）。
+
+**软连接（Symbolic Link 或 Soft Link）**：
+
+- 软连接是一个文件，它包含了另一个文件路径的引用。软连接实际上是一个指向文件的指针。
+
+  存储的是 **目标文件的路径**。软链接实际上就是一个指向原文件的指针
+
+  ```shell
+  $ ln -s file.txt softlink.txt
+  ```
+
+- 如果原文件删除，软链接会变成一个“悬挂”的链接，即失效。
+
+- 软连接可以跨越文件系统，也可以为目录创建。
+
+快捷方式类似于SoftLink
+
+# Linux查看文件
+
+```shell
+cat filename
+less filename
+head -n 20 filename  # 显示文件的前 20 行
+tail -n 20 filename
+```
+
+# Linux三大日志
+
+**`/var/log/syslog`**、**`/var/log/auth.log`** 和 **`/var/log/dmesg`**
+
+**`/var/log/syslog`**：
+
+- 记录系统的常规事件和信息，如服务启动、系统事件、程序运行等。
+- 是系统中最通用的日志文件之一。
+
+**`/var/log/auth.log`**：
+
+- 记录与用户身份验证相关的事件，如登录、登出、`sudo` 使用情况等。
+- 用于安全监控，防止非法登录和权限提升。
+
+**`/var/log/dmesg`**：
+
+- 记录内核环形缓冲区中的消息，如硬件检测、驱动程序加载等。
+- 主要用于诊断硬件问题和启动时的内核信息。
+
+# Linux中的swap怎么管理的
+
+**swap（交换分区）** 主要用于在物理内存（RAM）不足时提供额外的虚拟内存。它通过将不常用的数据从 **RAM** 交换到 **磁盘**（swap 分区或 swap 文件），从而释放内存空间，保证系统不会因为内存不足而崩溃。
+
+当物理内存不足时，**Linux 内核** 会将不常用的页面（Page）写入 **swap**，腾出 RAM 空间供活跃的进程使用。
+
+当某些进程需要这些被交换出去的页面时，内核会再将它们从 **swap** 读回内存。
+
+这个过程称为 **“分页换出（swap out）”** 和 **“分页换入（swap in）”**。
+
+# LRU-K
+
+- 介绍一下LRU, 介绍一下其他的置换算法, lru-k 比 lru 好在哪, 说一下这个LRU－k怎么实现的,k怎么选择？依据？ 
+- LRU策略的改进版，通过设置回头看的参数K，在淘汰时选择过去K次访问中间隔最大的元素
+- 在LRU-K中，系统跟踪每个数据项被访问的最后K次时间。只有当数据项的第K次访问发生时，才将其移到LRU列表的前端。这意味着数据项需要被访问K次才能被视为“热点数据”。
+- 相比于普通的LRU，能够更好地应对Sequential Flooding的情况，比如说全表Scan时，很多冷数据都会被充入Cache，这会导致LRU下很多热数据被误淘汰，而在LRU-2下，这些冷数据大概率不会被访问，所以会优先淘汰掉其本身，从而提高热数据的命中率。
+
 # 并发的核心
 
 控制的是多线程or进程对于同一块**内存**空间的控制
+
+# UDP
+
+不需要`connect()` 直接`sendto()`
+
+**实时通信**（如视频、语音）
+
+**不可靠**：数据可能丢失、乱序，**没有重传机制**
+
+**无状态**：每个 `sendto()` 是独立的，不需要维持连接状态。
 
 # TCP的Process
 
@@ -55,21 +168,52 @@ while (true) {
 }
 ```
 
-
-
 客户端和服务器就可以通过 **`send()`** 和 **`recv()`**（或者 `write()` 和 `read()`）来交换数据
 
 # IO 多路复用
 
-**IO 多路复用**（例如 `select()`、`poll()` 和 `epoll()`）是为了在 **单线程** 中同时处理多个客户端连接的一种技术
-
 **BIO**（Blocking I/O）：即 **阻塞 I/O**
 
-**NIO**（Non-blocking I/O）：即 **非阻塞 I/O**，在 NIO 中，操作（如 `accept()`、`recv()`、`send()`）不会阻塞。通常通过 **IO 多路复用**（如 `select()`、`poll()` 或 `epoll()`）来实现
+**NIO**（Non-blocking I/O）：即 **非阻塞 I/O**，在 NIO 中，操作（如 `accept()`、`recv()`、`send()`）不会阻塞。通常通过 **IO 多路复用**（如 `select()`、`poll()` 或 `epoll()`）来实现，主线程监听分发，子线程执行
+
+**IO 多路复用**（例如 `select()`、`poll()` 和 `epoll()`）是为了在 **单线程** 中同时处理多个客户端连接的一种技术
+
+NIO如果没有数据可读就返回，但是在读数据的时候子线程还是阻塞的
 
 
 
-# RAII
+epoll里ET和LT，默认LT
+
+LT只要**缓冲区中有数据可读**，每次 `epoll_wait()` 调用时都会通知用户程序，即使应用程序没有立即处理数据，下次调用 `epoll_wait()` 时仍然会继续返回事件
+
+有数据未读完，下次调用也会提示，HTTP 服务器
+
+100读了50，下一次调用`epoll_wait()`仍然会继续返回事件
+
+这里`epoll_wait()`返回的是int, `EPOLLIN` 读，`EPOLLOUT`写
+
+**>0**：返回的是就绪事件的数量，表示 `events` 数组中有多少个 `epoll_event` 结构体填充了数据。
+
+**=0**：超时，没有任何事件发生。
+
+**-1**：错误，通常 `errno` 会设置相应错误代码
+
+```java
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+
+struct epoll_event {
+    uint32_t events;  // 事件类型，例如 EPOLLIN、EPOLLOUT
+    epoll_data_t data;  // 关联的数据，通常是 fd
+};
+```
+
+ET当**状态发生变化时才会触发事件**，也就是说，**只在数据到达（或状态改变）时触发一次**，**必须**立即读完数据，否则下次不会再触发事件
+
+必须使用**非阻塞 I/O**，否则可能导致程序阻塞
+
+`ulimit -n ` 表示一个线程最多能打开的文件描述符（fd）数量，简洁明了影响连接
+
+# RAII 也就是不用手动管理内存
 
 RAII 强调资源的管理应该由对象的生命周期自动控制，**自动控制**！
 
@@ -82,6 +226,56 @@ scoped_lock算c++17的特性，自动管理互斥锁！！避免死锁和忘记�
 new和delete不算！
 
 malloc和free也不算，因为是手动管理的！
+
+# Mutex
+
+普通
+
+ ```c++
+ mutex mtx;
+ mtx.lock();
+ mtx.unlock();
+ ```
+
+`lock_guard`
+
+`lock_guard<mutex> lock(mtx)`是RAII，自动加锁解锁
+
+```c++
+mutex mtx;
+lock_gurad<mutex> lock(mtx);
+```
+
+`unique_lock`
+
+允许手动解锁
+
+```c++
+mutex mtx;
+unique_lock<mutex> lock(mtx);
+lock.unlock();
+```
+
+`scoped_lock`
+
+解决多个mutex死锁问题
+
+```c++
+mutex mtx1,mtx2;
+//thread1
+lock_gurad<mutex> lock(mtx1);
+this_thread::sleep_for(chrono::seconds(2));
+lock_gurad<mutex> lock(mtx2);
+
+//thread2
+lock_gurad<mutex> lock(mtx2);
+this_thread::sleep_for(chrono::seconds(2));
+lock_gurad<mutex> lock(mtx1);
+```
+
+```c++
+scoped_lock<mutex> lock(mtx1,mtx2);
+```
 
 # 读写锁的实现
 
@@ -188,11 +382,11 @@ PV 操作通常通过**原子操作**（如 `test-and-set`、`compare-and-swap (
 - 使用**WebSocket**或**TCP**协议：适合实时性要求高的场景。
 - 使用**FTP**或**SFTP**：适合超大文件传输。
 
-# hash冲突
+# Websocket
 
-* 遍历寻找下一个
-* 双hash
-* linkedlist保存
+WebSocket 最大连接数 `ulimit -n` 256 每个 WebSocket 连接都会占用一个文件描述符，操作系统会为**每个进程或线程**设置最大可用的文件描述符数量
+
+**一个端口可以建立多个 WebSocket 连接**。WebSocket 协议本质上是基于 TCP 连接的
 
 # JWT
 
@@ -295,36 +489,7 @@ JD
 - 扎实的编程能力； 2、熟练掌握C/C++/Java/Go等其中一门开发语言； TCP/UDP网络协议及相关编程、进程间通讯编程； 专业软件知识，包括算法、操作系统、软件工程、设计模式、数据结构、数据库系统、网络安全等。 有一定了解的： 1、Python、Shell、Perl等脚本语言； 2、MySQL及SQL语言、编程； 3、NoSQL, Key-value存储原理。
 - 分布式系统设计与开发、负载均衡技术，系统容灾设计，高可用系统等知识； 2、对云原生相关技术有所了解。
 
-
-
-请你讲讲aop,你具体是怎么在项目实现的(代码实现) 
-
-如果不用java提供的切点表达式和通知，你该怎么实现aop 
-
-给你一个sql语句(主键a，联合索引b,c，select a,b,c from table where b = x and c = y and a = z），请问他的索引有没有使用，请你说说他具体是怎么查找的，在不改变mysql字段的情况下你该怎么进行代码层面的优化
-
-这里bc查询出来后需要回表查询a=z，效率低
-
-`EXPLAIN SELECT a, b, c FROM table WHERE b = x AND c = y AND a = z;`
-
-**如果 `key = PRIMARY`**，说明 MySQL 直接走了主键索引 `(a)`
-
-**如果 `key = idx_bc`**（即 `(b, c)` 索引），说明 MySQL 先查 `b, c` 再回表查 `a`
-
-用更好的索引：
-
-`SELECT a, b, c FROM table FORCE INDEX (idx_bc) WHERE b = x AND c = y AND a = z;`
-
-```sql
-SELECT a FROM table WHERE b = x AND c = y;  -- 先获取 a
-SELECT a, b, c FROM table WHERE a = z;  -- 再用 a 查完整数据
-```
-
-避免回表
-
-或者直接代码里筛选 `a = z`
-
-或者把这个结果存入ES或者Redis
+# TCP
 
 ### **(A) TCP 连接建立（3 次握手）**
 

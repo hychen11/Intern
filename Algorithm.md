@@ -3,6 +3,15 @@ https://oi-wiki.org/
 # OJ
 
 ```c++
+stringstream ss(word);
+while(ss>>tmp){
+  	cout<<tmp<<endl;
+}
+```
+
+
+
+```c++
 while(std::getline(cin,line)){
   cout<<line<<endl;
 }
