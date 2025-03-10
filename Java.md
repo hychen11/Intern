@@ -710,11 +710,12 @@ submit 提交一个task返回`Future`， `future.get()` 方法，可以阻塞当
 >
 >```java
 >bloomfilter.tryInit(size,0.05);//误判率
+>//bloomFilter.tryInit(100000, 0.01);
 >//init的时候就要加入数据了
 >bloomfilter.add(x); 
 >```
 
-缓存预热时，预热bloom filter
+**缓存预热时，预热bloom filter**
 
 数组越大误判率越小，数组越小误判率越大，但是大数组会更多内存损耗
 
@@ -750,6 +751,8 @@ bloom filter hash碰撞怎么办
 >  没有什么问题是加一层解决不了的
 
 ### 双写一致
+
+为了解决分布式系统中多个存储之间的数据一致性问题，比如数据库和缓存，数据库和消息队列
 
 写入缓存的数据都是读多写少的！不然不如直接读数据库，因此读多写少，可以用读写锁
 
@@ -869,7 +872,7 @@ num=num-1;
 redisTemplate.opsForValue().set("num",num);
 ```
 
-加锁 synchronized() **线程同步**，防止多个线程同时访问**同一个对象** 造成数据不一致的问题。这个单体是没问题的，但是集群就不行了
+加锁 synchronized() **线程同步**，防止多个线程同时访问**同一个对象** 造成数据不一致的问题。这个单体是没问题的，但是集群就不行了，因为synchronized是本地锁！！
 
 `synchronized` 是JVM 层面的内建同步机制，通常与对象、类的方法或代码块关联，不提供显式的死锁检测和避免机制
 
@@ -918,7 +921,9 @@ DEL key #释放锁
 
 注意，这里Reddison有读写锁`RReadWriteLock`和普通分布式锁`RLock`
 
-`RLock`基于`SETNX`实现，可重入，watchday续期
+`RLock`基于`SETNX`实现，可重入，watchdog续期
+
+`tryLock`尝试获取锁，`10` 秒是获取锁的最大等待时间。如果在 10 秒内成功获得锁
 
 ```java
 RLock lock = redissonClint.getLock("a");
@@ -953,13 +958,25 @@ if(isLock){
 > - 如果 **在 `SETNX` 和 `EXPIRE` 之间** 发生 **线程崩溃** 或 **服务器宕机**，锁 **可能永远不会过期**（**死锁问题**）。
 > - **多个客户端可能同时加锁**，导致多个实例误认为自己持有锁。
 >
-> **✅ 解决方案：使用 Lua 脚本，一次性完成加锁 + 过期时间，保证原子性！**
+> **✅ 解决方案：使用 Lua 脚本，一次性完成加锁 + 过期时间，保证原子性！
+
+### Lua脚本
+
+为什么是原子性的？
+
+单线程执行模型
+
+没有显式的线程或中断
 
 ### 锁的重入（Reentrant Locking）
 
 **同一个线程**在持有锁的情况下，可以再次获取该锁，而不会发生死锁
 
-redisson实现的锁`RLock`是可以重入的，有hash结构记录,key=thread id,value=reentrant times
+Redisson 是一个 Redis 客户端，它提供了许多高级的分布式数据结构和功能，其中之一就是分布式锁 (`RLock`)。这个锁的实现依赖于 Redis
+
+redisson实现的锁`RLock`是可以重入的，redis里有hash结构记录，Key=LockName，Value={field:thread_id,value:reentrant times}
+
+锁的重入信息并不是记录在 Java 线程本身，而是记录在 Redis 服务器中，使用 Redis 的 **Hash 结构** 来维护
 
 ### 主从一致性
 
@@ -989,6 +1006,10 @@ redis主要保证AP，也就是高可用性，说白了就是redis解决不了�
 
 ![](./Java/redis03.png)
 
+> - 全量同步是第一次建立连接：从节点请求主节点同步数据，其中从节点会携带自己的**replication id和offset**偏移量。主节点判断是否是第一次请求，主要判断的依据就是，主节点与从节点是否是同一个replication id，如果不是，就说明是第一次同步，那主节点就会把自己的replication id和offset发送给从节点，让从节点与主节点的信息保持一致。在同时主节点会执行bgsave，生成rdb文件后，发送给从节点去执行，从节点先把自己的数据清空，然后执行主节点发送过来的rdb文件，这样就保持了一致。
+> - 当然，如果在rdb生成执行期间，依然有请求到了主节点，而主节点会以命令的方式记录到缓冲区，缓冲区是一个日志文件，最后把这个日志文件发送给从节点，这样就能保证主节点与从节点完全一致了，后期再同步数据的时候，都是依赖于这个日志文件，这个就是全量同步
+> - 增量同步指的是，当从节点服务重启之后，数据就不一致了，所以这个时候，从节点会请求主节点同步数据，主节点还是判断不是第一次请求，不是第一次就获取从节点的offset值，然后主节点从命令日志中获取offset值之后的数据，发送给从节点进行数据同步
+
 #### 哨兵模式 （监控，故障恢复，通知）
 
 可以解决高可用,高并发读问题
@@ -1015,11 +1036,11 @@ client可以访问任意master,都会被转发到正确节点（router）
 
 ### 为什么Redis单线程怎么快
 
-主要原因是内存
+* 主要原因是内存
 
-单线程不用上下文切换可竞争条件,多线程要线程安全
+* 单线程不用上下文切换可竞争条件,多线程要线程安全
 
-**I/O多路复用,非阻塞IO** ！！
+* **I/O多路复用,非阻塞IO** ！！
 
 一般IO都是瓶颈，disk读写是mysql瓶颈，IO网络读写是redis瓶颈
 
@@ -1042,11 +1063,11 @@ IO多路复用，单线程监听多个socket
 
 * select fd固定大小，fd_set bitset MAX 1024
 
-* poll fd数量动态`struct pollfd` 结构体数组，理论上无限制（受内存限制），和select一样都是tranverse的到可用fd
+* poll fd数量动态`struct pollfd` **结构体数组**，理论上无限制（受内存限制），和select一样都是tranverse的到可用fd
 
 好了就发signal,然后kernel论询查哪个fd好了
 
-* epoll
+* epoll 用的红黑树用于存储和管理注册的文件描述符，**就绪队列Ready Queue**用于存储那些已经准备好进行 I/O 操作的文件描述符，是一个链表
 
 `epoll` **告诉用户进程具体哪个 socket（fd）变成可读/可写**，然后写入kernel space的buffer
 
@@ -1056,9 +1077,32 @@ IO多路复用，单线程监听多个socket
 
 单线程影响性能是IO，socketIO
 
-下面这里多线程加快性能：redis 6.0之后，命令回复处理器多线程，命令请求处理里的接受数据多线程，连接应答处理器单线程
+下面这里多线程加快性能：redis 6.0之后，**命令回复处理器多线程**，命令请求处理里的接受数据多线程，连接应答处理器单线程
 
 ![](./Java/redis05.png)
+
+### 数据结构
+
+ZSET skiplist实现的？按照分数权重进行排序（有序的）
+
+SET 无序唯一
+
+Hash
+
+List **双向链表**
+
+String
+
+### Redis如何测试
+
+`redis-benchmark -h localhost -p 6379 -c [concurrent_connections] -n [number_of_requests]`
+
+- `redis-cli --latency -h [hostname] -p [port]`：监视Redis服务器的延迟。
+- `redis-cli --stat`：提供Redis服务器的统计信息，包括每秒处理的命令数
+
+### 项目里的Redis
+
+查询商品、营业状态，高频的查询
 
 # Zero-Copy零拷贝
 
@@ -1084,7 +1128,7 @@ IO多路复用，单线程监听多个socket
 
 如高性能 Web 服务器（Nginx、Apache）和消息队列（Kafka）
 
-# Mysql 2025.1.19
+# Mysql 2025.1.19 3.10二刷
 
 Master-Slave Replication
 
@@ -1193,11 +1237,11 @@ WHERE o.amount > 100;
 
 ### Index 什么是索引
 
-帮助mysql高效获取数据的数据结构
+**帮助mysql高效获取数据的数据结构**
 
-提高数据检索效率，降低数据库的IO成本，不需要全表扫描
+**提高数据检索效率，降低数据库的IO成本，不需要全表扫描**
 
-降低数据排序成本，降低CPU消耗
+**降低数据排序成本，降低CPU消耗**
 
 ### Index原理
 
@@ -1389,7 +1433,7 @@ SELECT * FROM users WHERE name LIKE 'John%';
 
 - 联合索引，违反**最左前缀原则**
 
-- 范围查询右边的列，不能使用索引
+- **范围查询**右边的列，不能使用索引
 
   - ```sql
     select * from tb where name='a' and status>'1' and address = 'b';
@@ -1419,13 +1463,23 @@ SELECT * FROM users WHERE name LIKE 'John%';
 
 表设计优化->阿里开发手册
 
+索引的优化
+
+sql语句的优化
+
 - 避免使用select *
 - 避免索引失效写法
-- 用union all代替union，union会多一次过滤，效率低 (union去掉重复)
-- 避免在where字句中对字段进行表达式操作（可能索引失效
-- join优化,能inner join就不要left join和right join,如必须就要小表为驱动, inner join会把小表放外面,大表放里
+- 用union all代替union，union会多一次过滤，效率低 (union去掉重复) union all会包含重复的
+- 避免在where字句中对字段进行表达式操作（可能索引失效 （比如substr)
+- join优化,能inner join就不要left join和right join,如必须就要小表为驱动, inner join会把小表放外面,大表放里（自动的！）
+
+主从复制，读写分离
+
+分库分表（数据量>5M)
 
 ### 事务特性（ACID）
+
+事务就是**一系列的数据库(SQL)操作，要么全部执行成功，要么一个都不执行（回滚）**
 
 原子性（Atomicity）：事务是不可分割的最小操作单元，要么全部完成，要么全部失败
 
