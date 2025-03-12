@@ -1477,9 +1477,9 @@ sql语句的优化
 
 分库分表（数据量>5M)
 
-### 事务特性（ACID）
+### ACID
 
-事务就是**一系列的数据库(SQL)操作，要么全部执行成功，要么一个都不执行（回滚）**
+事务就是一组的SQL操作，不可以分割，要么全部执行成功，要么一个都不执行（回滚）
 
 原子性（Atomicity）：事务是不可分割的最小操作单元，要么全部完成，要么全部失败
 
@@ -1487,17 +1487,49 @@ sql语句的优化
 
 隔离性（Isolation）：允许并发事务同时对其数据进行读写和修改的能力， 隔离性可以防止多个事务并发执行时由于交叉执行而导致数据的不一致。
 
-持久性（Durability）：事务处理结束后，对数据的修改就是永久的
+持久性（Durability）：事务处理结束后（提交或者回滚后），对数据的修改就是永久的，保存在disk里
+
+A->B 1000
+
+### 并发事务问题
+
+脏读 一个事务读了未提交的数据，然后修改回滚
+
+不可重复读 一个事务多次读数据不一样
+
+幻读 T1读了n行数据，T2插入了，T1在读数据变多了
 
 ### Isolation level
 
-读未提交（Read uncommitted）
+读未提交（Read uncommitted）最差
 
 读提交（read committed） Oracle默认的隔离级别,解决脏读：读到事务没提交的数据
 
-可重复读（repeatable read） MySQL默认的隔离级别,解决不可重复读：事务读取同一条数据，读取数据不同
+**可重复读（repeatable read） MySQL**默认的隔离级别,解决不可重复读：事务读取同一条数据，读取数据不同 （主要依赖row lock行锁）
 
-串行化（Serializable）表级锁，读写都加锁，效率低下,安全性高,不能并发。解决幻读：查询时没有数据，插入时发现已经存在，好像出现幻觉
+**使用行锁（Record Lock）** 确保在事务 `Commit` 之前，其他事务无法修改该行数据。
+
+串行化（Serializable）**表级锁**，读写都加锁，效率低下,安全性高,不能并发。解决幻读：查询时没有数据，插入时发现已经存在，好像出现幻觉
+
+幻读其实就是先后两次读的记录个数不一样
+
+### undo log 和 redo log
+
+回滚的时候用的
+
+buffer pool
+
+page16kb，磁盘管理的最小单元
+
+首先commit上后先在buffer pool里查找，没有load from disk，在buffer pool里操作，然后被eject或者别的操作后再写回disk 
+
+没被写回disk的page就是dirty page
+
+但是宕机就丢失修改的内容了
+
+redo log记录事务提交时的物理修改，来实现事务持久性
+
+redo log buffer, redo log file, 事务改完后buffer写到disk里，因为是追加，是顺序磁盘io
 
 ### WAL write ahead log
 
@@ -1507,13 +1539,13 @@ undo log记录修改前数据 (logistic log),就是 insert时,undo log就delete,
 
 ### MySQL主从同步
 
-Binlog日志,DDL和DML都记录,不包含查询操作
+**Binlog**日志,DDL和DML都记录,不包含查询SELECT，SHOW操作
 
-Master 写binlog ->被Slave的IOthread读到,更新Relay log,再SQL thread去执行
-
-
+Master 写binlog ->被Slave的IOthread读到，更新Relay log，再SQL thread去执行
 
 binlog是MySql的日志，redolog和undolog是InnoDB的日志
+
+![](./Java/mysql.png)
 
 ### 分库分表 Sharding & Partitioning
 
@@ -1532,9 +1564,18 @@ binlog是MySql的日志，redolog和undolog是InnoDB的日志
 
 避免宽表导致的性能问题（单行数据过大）
 
-#### Sharding 水平 
+#### horizon partitioning
 
-分表
+一个库拆成多个库，提高稳定性可用性，解决单库大数据高并发的性能瓶颈问题
+
+路由规则
+
+* id取模
+* id范围路由
+
+#### Sharding 分表
+
+一个表分开，防止IO争抢锁表？
 
 ```
 user_0 (id: 1-99999)
@@ -1549,23 +1590,35 @@ db1.user_0, db1.user_1
 db2.user_2, db2.user_3
 ```
 
-分布式事务一致性,跨节点关联查询,跨节点分页,排序,主键啥的,加一层中间件Middleware,比如sharding,没有什么是加一层middleware不能解决的哈哈哈哈
+#### 分库分表问题
+
+分布式事务一致性
+
+跨节点关联查询
+
+跨节点分页，排序
+
+主键啥的
+
+加一层中间件Middleware，比如sharding-sphere，mycat
+
+**没有什么是加一层middleware不能解决的哈哈哈哈**
 
 ### MVCC
 
-事务隔离性->lock锁 or MVCC
+事务隔离性->lock锁 or **MVCC多版本并发控制**
 
 隐藏字段，undo log日志，readView读视图
 
-- 隐藏字段是指：在mysql中给每个表都设置了隐藏字段，有一个是trx_id(事务id)，记录每一次操作的事务id，是自增的；另一个字段是roll_pointer(回滚指针)，指向上一个版本的事务版本记录地址
-- undo log主要的作用是记录回滚日志，存储老版本数据，在内部会形成一个版本链，在多个事务并行操作某一行记录，记录不同事务修改数据的版本，通过roll_pointer指针形成一个链表 (事务提交后可被立即删除)
-- readView解决的是一个事务查询选择版本的问题，在内部定义了一些匹配规则和当前的一些事务id判断该访问那个版本的数据，不同的隔离级别**快照读** Snapshot Read是不一样的，最终的访问的结果不一样。如果是rc隔离级别，每一次执行快照读时生成ReadView，如果是rr隔离级别仅在事务中第一次执行快照读时生成ReadView，后续复用. Current Read当前读就是加锁的到最新版本
+- 隐藏字段是指：在mysql中给每个表都设置了隐藏字段，有一个是**trx_id**(事务id)，记录每一次操作的事务id，是自增的；另一个字段是**roll_pointer**(回滚指针)，指向上一个版本的事务版本记录地址 
+- undo log主要的作用是记录回滚日志，存储老版本数据，在内部会形成一个**版本链**，在多个事务并行操作某一行记录，记录不同事务修改数据的版本，通过roll_pointer指针形成一个链表 (事务提交后可被立即删除)， 头部新，尾部老
+- readView解决的是一个事务查询选择版本的问题，在内部定义了一些匹配规则和当前的一些事务id判断该访问那个版本的数据，不同的隔离级别**快照读** Snapshot Read是不一样的，最终的访问的结果不一样。如果是**rc隔离级别，每一次执行快照读时生成ReadView**，如果是**rr隔离级别仅在事务中第一次执行快照读时生成ReadView，后续复用**. Current Read当前读就是加锁的到最新版本
 
 ReadView访问规则
 
 ![](./Java/mysql1.png)
 
-# frame 2025.1.20
+# frame 2025.1.20 3.10二刷
 
 MVC= model+view+controller
 
