@@ -398,7 +398,7 @@ login:
 
 `applicationContext.getBean(y)` 从Bean里得到实例
 
-singleton 范围的 Bean **会被存储在 ApplicationContext/BeanFactory 的内存中*
+singleton 范围的 Bean 会被存储在 ApplicationContext/BeanFactory 的内存中
 
 ```java
 private static Map<String,UserGranter> granterPool=new ConcurrentHashMap<>();
@@ -780,7 +780,7 @@ public class CglibProxyDemo {
 
 工厂设计模式 : Spring 使用工厂模式通过 **BeanFactory 、 ApplicationContext** 创建 bean 对象。
 
-代理设计模式 : Spring AOP 功能的实现。
+**代理设计模式 : Spring AOP 功能的实现。**
 
 单例设计模式 : Spring 中的 Bean 默认都是单例的。
 

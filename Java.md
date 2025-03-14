@@ -1,12 +1,24 @@
 # Java basic
 
+### instanceof
+
+```java
+if (!(handler instanceof HandlerMethod)) {
+    return true;
+}
+```
+
+`handler` 代表拦截到的资源，如果它不是 `HandlerMethod`（也就是 Controller 里的方法），说明拦截到的是静态资源（比如 CSS、JS、图片等），那就直接放行
+
+这个就是判断拦截到的对象是不是HandlerMethod
+
+### 多态
+
 重载（Overload）是方法签名不同
 
 重写（Override）是子类修改父类的方法实现。
 
 面向对象：继承，封装，多态
-
-### 多态
 
 用统一的接口调用不同的对象，从而产生不同的行为
 
@@ -21,7 +33,7 @@
 
 **StringBuffer**：
 
-- `StringBuffer` 是可变类，允许修改字符串内容，且线程安全（同步）。
+- `StringBuffer` 是可变类，允许修改字符串内容，且线程安全（同步）。基于synchronized
 - 适用于多线程环境下对字符串进行修改的场合，但由于其线程同步的机制，性能较低。
 
 **StringBuilder**：
@@ -224,108 +236,6 @@ x -> 2 * x
 // 5. 接受一个 String 对象并在控制台打印，不返回任何值（看起来像是返回 void）
 (String s) -> System.out.print(s)
 ```
-
-### Data Structures & Collection
-
-`HashMap` 是非线程安全的，`Hashtable` 是线程安全的,因为 `Hashtable` 内部的方法基本都经过`synchronized` 修饰
-
-不要用`Hashtable`，保证线程安全就`ConcurrentHashMap`
-
-`ConcurrentHashMap` jdk 1.7 **每个 `Segment` 维护一个 `ReentrantLock`**，插入时 **只锁住一个 `Segment`，而不是整个 `ConcurrentHashMap`**，提高并发性能
-
-jdk 1.8+ CAS+synchronized **使用 `synchronized` 保护单个桶的并发修改**。**使用 CAS（Compare-And-Swap）进行无锁并发操作**，比如 `putIfAbsent()` 方法
-
-```cpp
-ConcurrentHashMap
- ├── Bucket 1 (CAS + synchronized)
- ├── Bucket 2 (CAS + synchronized)
-```
-
-#### List
-
-* **ArrayList** 动态数组，默认容量 `10`，超过后 1.5 倍扩容，Array静态数组
-
-* Vector, 线程安全的 `ArrayList`, 所有方法加 `synchronized`，vector不用了！
-
-* ```java
-  List<String> list = new ArrayList<>();
-  list.add(1, "X"); // 在索引 1 插入 X
-  list.get(1);
-  list.remove("B");  // 按值删除
-  list.remove(1);     // 按索引删除
-  ```
-
-#### Set
-
-* HashSet: HashMap实现的
-
-* LinkedHashSet: HashSet 的子类，并且其内部是通过 LinkedHashMap
-
-* TreeSet: RBT 不能get(index)来索引查
-
-* ```java
-  Set<String> set = new HashSet<>();
-  set.add("A");
-  set.remove("B");
-  
-  Set<Integer> set = new TreeSet<>();
-  set.add(3);
-  Iterator<Integer> iterator = set.iterator();
-  while (iterator.hasNext()) {
-      iterator.next();
-  }
-  ```
-
-#### Queue
-
-java里Queue是一个接口，LinkedList作为Queue的实现，Queue这个interface里实现了`offer`,`poll`,`peek`
-
-```java
-Queue<Integer> q=new LinkedList<>();
-q.offer(1);
-q.peek();
-q.poll();
-```
-
-- `PriorityQueue`: `Object[]` 数组来实现小顶堆
-
-- ```java
-  PriorityQueue<Integer> maxHeap = new PriorityQueue<>(Collections.reverseOrder());//max heap
-  ```
-
-- `DelayQueue`:`PriorityQueue` 延迟队列，其中的元素只有到了其指定的延迟时间，才能够从队列中出队
-
-- `ArrayDeque`: 可扩容动态双向数组
-
-- ```java
-  PriorityQueue<Integer> pq=new PriotityQueue<>();
-  pq.add();
-  pq.poll();
-  
-  Deque<String> deque = new ArrayDeque<>();
-  deque.addFirst("A"); // 栈操作
-  deque.addLast("B");  // 队列操作
-  System.out.println(deque.pollFirst()); // 输出 A
-  ```
-
-* `BlockingQueue`
-
-#### Map
-
-- `HashMap`：JDK1.8 之前 `HashMap` 由数组+链表组成的，数组是 `HashMap` 的主体，链表则是主要为了解决哈希冲突而存在的（“拉链法”解决冲突）。JDK1.8 以后在解决哈希冲突时有了较大的变化，当链表长度大于阈值（默认为 8）（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）时，将链表转化为红黑树，以减少搜索时间。
-
-- `LinkedHashMap`：`LinkedHashMap` 继承自 `HashMap`，所以它的底层仍然是基于拉链式散列结构即由数组和链表或红黑树组成。另外，`LinkedHashMap` 在上面结构的基础上，增加了一条双向链表，使得上面的结构可以保持键值对的插入顺序。同时通过对链表进行相应的操作，实现了访问顺序相关逻辑。
-
-- `Hashtable`：数组+链表组成的，数组是 `Hashtable` 的主体，链表则是主要为了解决哈希冲突而存在的。
-
-- `TreeMap`：红黑树
-
-- ```java
-  Map<String, Integer> map = new HashMap<>();
-  map.put("A", 1);
-  System.out.println(map.get("A")); // 输出 1
-  map.remove("B");
-  ```
 
 ### Oops Concepts
 
@@ -650,9 +560,42 @@ public class JDBCDemo {
 
 #### 什么时候初始化？
 
-当 JVM **加载类**时，**静态变量**和**静态方法**会初始化。
+下面三个整个成为class load
+
+- **加载**：将类的字节码加载到内存中，并生成对应的 `Class` 对象。这个阶段主要是将 `.class` 文件中的二进制数据读取到内存中，并创建一个 `Class` 对象来表示这个类。
+
+- **链接阶段=验证、准备和解析** 其中准备阶段就是：为静态变量分配内存并设置默认值（`0`、`null` 等），带有初始值的 `final` 静态变量会在这个阶段直接赋值。
+- **初始化阶段**：执行静态变量的赋值操作和静态初始化块中的代码，按照代码中的顺序执行。
+
+通过这两个阶段，Java 确保静态变量在类被首次使用之前已经被正确初始化。
 
 具体的初始化时机是：当类的某个静态成员被访问时，JVM 会确保该类已经被加载并进行初始化
+
+解析就是把符号引用变成直接引用
+
+**符号引用**：一种逻辑描述，存储在 `.class` 文件的常量池中，与内存布局无关
+
+**直接引用**：具体的内存地址或偏移量，JVM 可以直接使用
+
+将符号引用转换为直接引用的过程，确保 JVM 能够正确找到并调用类、方法或字段
+
+#### 比如
+
+```java
+private static final int VM_COUNT = 10; 
+```
+
+**编译期确定**，`final` + `static` 的基本类型和字符串常量在**编译期**就被优化到**常量池**里了，直接作为常量用，不走赋值流程。
+
+```java
+static ExecutorService executor;
+```
+
+**先分配内存，默认是 null**，后面得手动初始化 `executor = Executors.newFixedThreadPool(10)` 这种。
+
+```java
+private static final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+```
 
 ### 单继承限制
 
@@ -1104,6 +1047,8 @@ String
 
 查询商品、营业状态，高频的查询
 
+都是懒删除
+
 # Zero-Copy零拷贝
 
 如何避免用户态和内核态拷贝？
@@ -1423,7 +1368,7 @@ SELECT * FROM users WHERE name LIKE 'John%';
 
 可以使用分布式ID，比如UUID（但是也不推荐，因为非有序，并且占空间）
 
-知道雪花算法，但是没细看过
+知道雪花算法，但是没细看过，是分布式唯一 ID 生成算法，用于分布式系统
 
 ### 索引什么时候失效
 
@@ -1513,25 +1458,48 @@ A->B 1000
 
 幻读其实就是先后两次读的记录个数不一样
 
-### undo log 和 redo log
+### undo log 和 redo log 回滚的时候用的
 
-回滚的时候用的
+**Undo Log**（未提交事务）：回滚到原始状态。
 
-buffer pool
+**Redo Log**（已提交事务）：重做确保数据一致。
 
-page16kb，磁盘管理的最小单元
+redo log保证了事务的持久性，undo log保证了事务的原子性和一致性
 
-首先commit上后先在buffer pool里查找，没有load from disk，在buffer pool里操作，然后被eject或者别的操作后再写回disk 
+redo log是记录物理修改，undo log记录逻辑修改，通过逆操作恢复原来的数据
 
-没被写回disk的page就是dirty page
+都存放在disk里
 
-但是宕机就丢失修改的内容了
+**查询 Buffer Pool**：
 
-redo log记录事务提交时的物理修改，来实现事务持久性
+- 事务提交后，数据先在 **Buffer Pool**（内存缓存）中修改，而不是直接写入磁盘。
+- 如果数据页（Page）已经在 Buffer Pool 里，就直接修改；如果不在，则从磁盘加载进 Buffer Pool，再修改。
+
+**数据页标记为 Dirty Page**：
+
+- **Dirty Page**：指 **被修改但未写回磁盘** 的数据页。
+- 事务提交 **不会立即刷盘**，数据可能仍在 Buffer Pool 里。
+
+**日志记录 (WAL)**：
+
+- **事务修改的数据** 会先写入 **Redo Log**（持久化到磁盘），确保即使宕机，也能恢复数据。
+- **WAL 规则**：日志必须先写入磁盘，再修改 Buffer Pool 里的数据。
+
+**Buffer Pool Page 逐步刷盘**：
+
+- 刷盘策略
+
+  （Flush Policy）：
+
+  - **CheckPoint 触发**（定期/日志过多时）。
+  - **LRU 置换**（Buffer Pool 空间不足时）。
+  - **事务的特殊要求**（如 `COMMIT AND FORCE`）。
+
+- 刷盘后，Dirty Page 变为 **Clean Page**。
 
 redo log buffer, redo log file, 事务改完后buffer写到disk里，因为是追加，是顺序磁盘io
 
-### WAL write ahead log
+### WAL write ahead log 先写日志再修改数据
 
 flush dirty page 的时候,发生错误宕机,redo log数据恢复,保证持久性
 
@@ -1548,6 +1516,8 @@ binlog是MySql的日志，redolog和undolog是InnoDB的日志
 ![](./Java/mysql.png)
 
 ### 分库分表 Sharding & Partitioning
+
+价格使用decimal 名称使用varchar id用的是bigint
 
 没用过,但是有了解过20G,100W以上
 
@@ -1600,7 +1570,7 @@ db2.user_2, db2.user_3
 
 主键啥的
 
-加一层中间件Middleware，比如sharding-sphere，mycat
+加一层中间件Middleware，比如**sharding-sphere**，mycat
 
 **没有什么是加一层middleware不能解决的哈哈哈哈**
 
@@ -1612,15 +1582,42 @@ db2.user_2, db2.user_3
 
 - 隐藏字段是指：在mysql中给每个表都设置了隐藏字段，有一个是**trx_id**(事务id)，记录每一次操作的事务id，是自增的；另一个字段是**roll_pointer**(回滚指针)，指向上一个版本的事务版本记录地址 
 - undo log主要的作用是记录回滚日志，存储老版本数据，在内部会形成一个**版本链**，在多个事务并行操作某一行记录，记录不同事务修改数据的版本，通过roll_pointer指针形成一个链表 (事务提交后可被立即删除)， 头部新，尾部老
-- readView解决的是一个事务查询选择版本的问题，在内部定义了一些匹配规则和当前的一些事务id判断该访问那个版本的数据，不同的隔离级别**快照读** Snapshot Read是不一样的，最终的访问的结果不一样。如果是**rc隔离级别，每一次执行快照读时生成ReadView**，如果是**rr隔离级别仅在事务中第一次执行快照读时生成ReadView，后续复用**. Current Read当前读就是加锁的到最新版本
+- readView解决的是一个事务查询选择版本的问题，在内部定义了一些匹配规则和当前的一些事务id判断该访问那个版本的数据，不同的隔离级别**快照读** Snapshot Read是不一样的，最终的访问的结果不一样。如果是**rc隔离级别，每一次执行快照读时生成ReadView**，如果是**rr隔离级别仅在事务中第一次执行快照读时生成ReadView，后续复用**. Current Read当前读就是加锁的到最新版本，**读取的是最新数据**（不走 MVCC 快照）
 
 ReadView访问规则
 
+`m_ids`活跃事务id合集
+
+`min_trx_id`
+
+`max_trx_id` 最大事务id+1
+
+`creator_trx_id`
+
+Read Committed的情况
+
 ![](./Java/mysql1.png)
 
-# frame 2025.1.20 3.10二刷
+Read Repeated的情况
 
-MVC= model+view+controller
+### SQL Injection
+
+恶意用户通过输入特殊字符，破坏原本的 SQL 逻辑
+
+```sql
+<select id="selectUserByName" resultType="User">
+    SELECT * FROM user WHERE name = '${name}'
+</select>
+session.selectOne("selectUserByName", "admin' OR '1'='1");
+```
+
+查出了所有用户
+
+如何防止？ 使用`#{}`预编译，SQL 先编译，再传入参数
+
+# frame 2025.1.20 3.12二刷
+
+**MVC= model+view+controller**
 
 controller 处理请求，调用model进行业务逻辑处理，Model 处理数据后，将数据返回给 Controller
 
@@ -1649,11 +1646,15 @@ VO是视图对象，用于前端数据的展示，所以一般是controller层�
 
 ### Spring的bean是Singleton
 
-bean是否为单例，主要看其作用域。Spring的bean默认情况下是单例的。
+**单例 Bean 并不是线程安全的！** 因为多个线程可能会同时访问 `@Controller` 中的**可变成员变量**，导致数据竞争（Race Condition）
 
-prototype:一个bean的定义里可以有多个实例
+bean是否为单例，主要看其作用域
 
-单例bean是线程安全的吗? 不是thread safe的!
+Spring的bean默认情况下是单例的。
+
+@scope注解默认singleton
+
+`@Scope("prototype")`:一个bean的定义里可以有多个实例
 
 > 无状态（Stateless）Bean 是指不存储实例变量（成员变量）或持久化数据的 Bean, Bean则是线程安全的
 >
@@ -1661,22 +1662,33 @@ prototype:一个bean的定义里可以有多个实例
 >
 > 一个bean就是一个对象,在个对象类里不应该有成员变量(无状态)
 
-UserController 类默认是由 Spring 容器管理的单例 Bean（由于 @Controller 注解）因此，多个请求可能会同时访问 getById 方法。
+UserController 类默认是由 Spring 容器管理的单例 Bean（由于 @Controller 注解）因此，多个请求可能会同时访问 getById 方法
+
+### Bean咋来的
+
+singleton的Bean会存在ApplicationContext/BeanFactory的内存中
+
+可以通过applicationContext.getBean(y)拿到bean
 
 ### AOP
 
-
-
-### AOP (我用过操作日志,比如对一个数据库操作添加时间,注册时间)
-
 **增强（Advice）** 指的是在 **不修改原始代码的情况下，为方法增加额外的功能**
+
+面向切面编程，将与业务无关，可重用的模块抽取出来，做统一处理，这个模块叫做(Aspect切面) 
+
+降低重复代码，降低耦合性，提高项目可维护性
+
+* 缓存处理
+* 记录日志
+* spring中内置事务处理
+
+### 我用过公共字段填充
 
 **AOP 的底层使用了动态代理(jdk default,cglib)，而动态代理本质上依赖于反射**
 
 **在特定位置切入自己的逻辑**，从而**简化代码、增强功能、减少重复**
 
-- 面向切面编程，将与业务无关，可重用的模块抽取出来，做统一处理
-- 使用场景：记录操作日志、缓存处理、spring中内置事务处理
+
 
 在**所有方法执行前后**自动记录日志
 
@@ -1687,8 +1699,8 @@ UserController 类默认是由 Spring 容器管理的单例 Bean（由于 @Contr
 `/aop/SysAspect`
 
 ```java
-@Component
-@Aspect //切面类
+@Component // 将切面类加入 Spring 容器
+@Aspect //加在class前，表示这是一个切面类
 
 //切点找的这个注解,如果有在个注解com.hychen.annotation.Log,就进入下面的around
 @Pointcut("@annotation(com.hychen.annotation.Log)")
@@ -1696,36 +1708,71 @@ private void pointCut(){
     
 }
 
+@Around("pointcut()")
 public Object around(ProceedingJoinPoint joinPoint){
     //获取被增强的类和方法的信息
     Signature signature = joinPoint.getSignature();
-    MethodSignature methodSignature.getMethod();
+    MethodSignature methodSignature = (MethodSignature) signature;
     //获取被增强的类的function
     Method method=methodSignature.getMethod();
+  
+  	//让目标方法继续执行，并返回它的结果,不调用就停住了，相当于拦截了
+    Object result = joinPoint.proceed();
+    return result;
 }
 ```
 
+最终拿到 **`Method`** 对象，这是真正的 Java 反射 `Method`，可以用来：
+
+- **获取方法注解**
+- **执行方法**
+- **获取方法参数、返回类型等**
+
+**`Pointcut`**（切点）  只是**定义了拦截规则**，决定**哪些方法要增强**
+
+**`JoinPoint`**  **在方法真正被拦截时**，提供了**具体的运行时信息**
+
 我在controller里的`public User getById`加了一个 `@Log("11")`
+
+注意我需要先定义一个`@Pointcut("@Annotation(com.xxx.xx.xx)")`来表明在哪些方法上触发增强
+
+```java
+@Pointcut("@Annotation(com.xxx.xx.xx)")//表明切点
+private void pointCut() {}//本质上就是个占位符，不需要写逻辑代码。
+```
+
+`@annotation(com.example.MyAnnotation)`匹配带有 `@MyAnnotation` 注解的方法
+
+`execution(* com.example..*(..))`匹配 `com.example` 包及子包所有方法
+
+`@Before` 不能阻止执行
+
+`@After` 不能阻止执行
+
+`@Around`  能阻止执行，包裹在整个方法前后
 
 ### transaction实现本质是AOP
 
 方法前开启trx,执行后关闭提交or回滚trx
 
-声明式
+声明式事务，不入侵业务代码
 
 ```java
+@Transactional
 @Around("pointcut()")
 public Object around(Proceeding.JoinPoint joinPoint) throws Throwable{
     try{
-        //init a transaction
-    	System.out.println("方法执行前...");
+        //init a transaction，开启事务
+    	  System.out.println("方法执行前...");
+      	//执行业务代码
         Object proceed=joinPoint.proceed(); //继续执行被AOP切面拦截的方法
+      	//结束事务
         System.out.println("方法执行后...");
         //commit transaction
         return proceed;
     }catch(Exception e){
         e.printStackTrace();
-        // roll back
+        // roll back回滚
         return null;
     }
 }
@@ -1774,7 +1821,7 @@ public class UserService {
 
 #### throw exception
 
-roll back只捕获抛出的`RuntimeException` 异常
+roll back只捕获抛出的`RuntimeException` 异常！！！
 
 **检查异常（`Checked Exception`，如 `IOException`, `SQLException`）不会触发回滚**，除非手动指定 `rollbackFor`
 
@@ -1787,15 +1834,235 @@ roll back只捕获抛出的`RuntimeException` 异常
 
 本质上都是通过反射，什么情况下会让反射失效就会让这个事务失效
 
-Spring为方法创建代理、添加事务通知，前提是public的 
+**Spring为方法创建代理、添加事务通知，前提是public的** 
 
 解决：改为public方法
 
+### 什么叫创建代理？
+
+**"为方法创建代理"** 这一说法主要指的是通过 AOP (面向切面编程) 技术，**在目标方法执行之前、之后或中间插入额外的逻辑**
+
 ### Bean 生命周期
+
+#### BeanDefinition
+
+xml里的<bean>封装成BeanDefinition
+
+里面有类名，初始化方法名，属性值，scope，延迟初始化
+
+构造函数，如果 Bean 是通过无参构造函数（或默认构造函数）创建的，Spring 会**先创建一个空的对象**，然后DI依赖注入，然后初始化，最后返回Bean Instance
+
+#### 什么是依赖注入？
+
+依赖注入指的是给bean的成员变量赋值
+
+然后Aware 接口就是赋值Name，Factory，ApplicationContext 
+
+接下来是postProcessBefore执行，初始化，postProcessAfter执行
 
 ![](./Java/frame1.png)
 
-### `@Component & @ComponentScan` 
+### enhance 增强是什么
+
+在原有对象的行为基础上，通过某种方式（如代理、字节码修改等）**添加或修改功能**，而不直接修改原始代码
+
+通常是通过一些技术（比如代理模式、字节码操作等）动态地改变对象的行为。
+
+```java
+public class UserServiceProxy extends UserService {
+    @Override
+    public void addUser(String username) {
+        System.out.println("Logging: Adding user " + username);  // 增强：添加日志记录
+        super.addUser(username);  // 调用原始的 addUser 方法
+    }
+}
+```
+
+
+
+```java
+Enhancer enhancer=new Enhancer();
+enhancer.setSuperclass(bean.getClass());//设置需要增强的类
+//这个回调会在代理对象的方法被调用时执行
+enhancer.setCallback(new InvocationHandler() {
+    @Override
+    public Object invoke(Object o, Method method, Object[] objects) throws Throwable {
+        return method.invoke(method,objects);
+    }
+});
+return enhanser.create();
+```
+
+代理对象上的方法 `method`，而 `o` 是代理对象本身，`objects` 是方法的参数
+
+这个代码作用就是把bean增强一下返回
+
+enhance是CGLIB的
+
+### 什么是代理？
+
+代理就是通过某种机制（比如字节码操作或反射）在运行时**创建一个新的对象**，这个对象的行为与原始对象相似，但可以对其方法进行**拦截和修改**
+
+原始对象
+
+代理对象：`method.invoke(proxy, args)` 的目标，`method.invoke(o, objects)` 调用的是原始对象的方法，这样代理对象就会表现得和目标对象一样
+
+### invoke是什么？
+
+`invoke` 是代理对象的方法调用的拦截器。你可以在这里执行**增强行为**，然后再让原始方法继续执行。它不是“复制”原始值，而是“调用”原始方法，并可能在调用前或后进行一些处理
+
+如果将原始对象类比为父类，代理对象类比为子类，那么`invoke`方法就像是子类中重写了父类的方法。
+
+当你调用代理对象的方法时，实际上调用的是子类（代理对象）中的方法，而子类方法中会调用`invoke`方法来决定如何处理这个调用
+
+### Reflection
+
+反射可以绕过编译时的限制，动态地操作类、方法、字段等，而不需要在编写代码时就确定它们
+
+`method.invoke()`是反射的核心
+
+```java
+UserService userService = new UserService();
+userService.getUser();  // 直接调用方法
+```
+
+但如果方法名在运行时才确定（比如**AOP、动态代理、框架**等场景），我们可以用 **反射**：
+
+```java
+Method method = UserService.class.getMethod("getUser");
+method.invoke(userService); // 运行时调用 getUser() 方法
+```
+
+**`Method.invoke()` 允许我们动态调用方法，而不需要在编译时写死方法名！**
+
+![](./Java/frame2.png)
+
+#### 一般反射步骤
+
+获取class
+
+```java
+// 方式1：通过类名.class
+Class<?> clazz = UserService.class;
+
+// 方式2：通过对象的 getClass() 方法
+UserService userService = new UserService();
+Class<?> clazz = userService.getClass();
+
+// 方式3：通过 Class.forName() 方法
+Class<?> clazz = Class.forName("com.example.UserService");
+```
+
+获取method
+
+```java
+Method method = clazz.getMethod("methodName", parameterTypes);  // 获取公共方法
+Method privateMethod = clazz.getDeclaredMethod("privateMethod", parameterTypes);  // 获取私有方法
+privateMethod.setAccessible(true);  // 如果方法是私有的，可以使用 setAccessible() 来访问
+```
+
+invoke
+
+```java
+public Object invoke(Object obj, Object... args) throws IllegalAccessException, InvocationTargetException
+  
+method.invoke(userService, "Alice");
+```
+
+private
+
+```java
+privateMethod.setAccessible(true);
+```
+
+### 循环引用 Circular Dependency 太难了不会，就知道三级缓存
+
+A init成半成品,需要B对象,去IOC里找对象,没有B就initB,B要A,但是没有A就循环了
+
+![](./Java/frame3.png)
+
+![](./Java/frame4.png)
+
+### 代理对象->三级缓存 解决set方法的注入依赖 (三级还不了解)
+
+set是初始化好了后依赖注入(这之后都能解决)
+
+构造函数的循环依赖，这里缓存没法解决 (延迟加载 @Lazy), 什么时候需要对象再进行bean对象的创建
+
+```java
+public A(B b){}
+public B(A a){}
+
+public A(@Lazy B b){}
+public B(@Lazy A a){}
+```
+
+### MVC流程 DispatcherServlet！
+
+springmvc的核心：dispatcherServlet
+
+![](./Java/frame5.png)
+
+![](./Java/frame6.png)
+
+![](./Java/frame7.png)
+
+后端JSON数据发回前端通过HTTP
+
+### SpringBoot自动配置原理!!!!!核心EnableAutoConfiguration
+
+#### `@SpringBootApplication` =`@SpringBootConfiguration`+`@EnableAutoConfiguration`+`@ComponentScan`
+
+@SpringBootConfiguration目的和@Configration一样，说明这是配置类
+
+@EnableAutoConfiguration
+
+@ComponentScan扫描当前和子包
+
+里面通过`@Import`注解导入相关配置选择器, 里面有`@ConditionalOnClass` 查看是否有对应的class文件,有就加载,把config的所有Bean加入Spring容器里
+
+![](./Java/frame8.png)
+
+### Annotation
+
+#### Spring
+
+![](./Java/frame9.png)
+
+![](./Java/frame10.png)
+
+`@RequestMapping` 可以用于任何 HTTP 方法，允许你指定请求的 URL、方法类型、参数等
+
+包括`@PostMapping` 和`@GetMapping`
+
+```java
+@RequestMapping(value = "/example", method = RequestMethod.POST)
+@RequestMapping(value = "/example", method = RequestMethod.GET)
+```
+
+**`@Controller`**：标注在类上，表示这个类是一个控制器，Spring MVC 会解析它。
+
+**`@RequestBody`**：JSON转java对象
+
+**`@ResponseBody`**：标注在方法上，表示**方法返回的对象会被自动转换为 JSON 或 XML
+
+**`@RestController`**： `@Controller` + `@ResponseBody` ，作用于整个类，使所有方法默认都返回 JSON（无需额外加 `@ResponseBody`）。
+
+`@Controller` 的核心作用
+
+**用于处理 HTTP 请求**（如 GET/POST 请求）
+
+**返回 HTML 视图（如 `thymeleaf`、`JSP`、`freemarker`）**
+
+**通常用于 MVC 模式的 Web 应用**
+
+**配合 `ModelAndView` 或 `Model` 传递数据到视图层**
+
+`@Controller` 默认解析的是**视图名**，所以如果返回字符串 `"hello"`，Spring 会认为要跳转到 `hello.html` 页面，而不是返回 JSON。
+
+![](./Java/frame11.png)
+
+#### @Component & @ComponentScan 
 
 **标记一个类为 Spring 组件（Bean）**
 
@@ -1825,7 +2092,7 @@ public class AppConfig {
 
 而@Component自动扫描
 
-### `@Configuration`
+#### @Configuration
 
 **用于定义 Spring Bean**（结合 `@Bean`）
 
@@ -1833,7 +2100,7 @@ public class AppConfig {
 
 **Spring Boot 允许自动扫描和加载配置**
 
-### @Controller
+#### @Controller
 
 处理 Web 请求（MVC）
 
@@ -1850,14 +2117,6 @@ public class UserController {
 }
 ```
 
-@Controller public class UserController {    @GetMapping("/hello")    @ResponseBody  // 需要手动加，否则返回的是视图    public String hello() {        return "Hello, Spring!";    } }
-
-### @RestController
-
-`@Controller + @ResponseBody`
-
-✅ 默认返回 JSON
-
 `@Component`**通用组件**标记为 Spring 组件，默认被扫描（如果需要 `@Bean`）
 
 `@Service`  **Service 层**  业务逻辑类，语义清晰
@@ -1868,62 +2127,6 @@ public class UserController {
 
 **Web 层用 `@RestController`**（如果是 JSON API）
 
-### Reflection
-
-`method.invoke()`是反射的核心
-
-```java
-UserService userService = new UserService();
-userService.getUser();  // 直接调用方法
-```
-
-但如果方法名在运行时才确定（比如**AOP、动态代理、框架**等场景），我们可以用 **反射**：
-
-```java
-Method method = UserService.class.getMethod("getUser");
-method.invoke(userService); // 运行时调用 getUser() 方法
-```
-
-**`Method.invoke()` 允许我们动态调用方法，而不需要在编译时写死方法名！**
-
-![](./Java/frame2.png)
-
-### 循环引用 Circular Dependency
-
-A init成半成品,需要B对象,去IOC里找对象,没有B就initB,B要A,但是没有A就循环了
-
-![](./Java/frame3.png)
-
-![](./Java/frame4.png)
-
-### 代理对象->三级缓存 解决set方法的注入依赖 (三级还不了解)
-
-set是初始化好了后依赖注入(这之后都能解决)
-
-构造函数的循环依赖,这里缓存没法解决 (延迟加载 @Lazy), 什么时候需要对象再进行bean对象的创建
-
-```java
-public A(B b){}
-public B(A a){}
-
-public A(@Lazy B b){}
-public B(@Lazy A a){}
-```
-
-### MVC流程
-
-springmvc的核心：dispatcherServlet
-
-![](./Java/frame5.png)
-
-![](./Java/frame6.png)
-
-![](./Java/frame7.png)
-
-用@RestController 可以不用加 @ResponseBody
-
-### SpringBoot自动配置原理
-
 `@Component` 只是一个**普通组件（Bean）**，被 `@ComponentScan` 发现并注册到 Spring 容器中。
 
 `@Configuration` 是一个**特殊的 `@Component`，用于定义 Bean**，并且可以确保 `@Bean` 方法的**单例性**。
@@ -1932,51 +2135,19 @@ springmvc的核心：dispatcherServlet
 
 Spring 通过 **CGLIB 代理**增强 `@Configuration`，保证 `@Bean` 方法只会执行一次，并返回同一个 Bean 实例。
 
-`@SpringBootApplication`中有一个`@EnableAutoConfiguration`注解,里面通过`@Import`注解导入相关配置选择器, 里面有`@ConditionalOnClass` 查看是否有对应的class文件,有就加载,把config的所有Bean加入Spring容器里
-
-![](./Java/frame8.png)
-
-### Annotation
-
-#### Spring
-
-![](./Java/frame9.png)
-
-![](./Java/frame10.png)
-
-**`@Controller`**：标注在类上，表示这个类是一个控制器，Spring MVC 会解析它。
-
-**`@ResponseBody`**：标注在方法上，表示**方法返回的对象会被自动转换为 JSON 或 XML，而不是返回视图页面**。
-
-**`@RestController`**：是 `@Controller` 和 `@ResponseBody` 的组合，作用于整个类，使所有方法默认都返回 JSON（无需额外加 `@ResponseBody`）。
-
-`@Controller` 的核心作用
-
-**用于处理 HTTP 请求**（如 GET/POST 请求）
-
-**返回 HTML 视图（如 `thymeleaf`、`JSP`、`freemarker`）**
-
-**通常用于 MVC 模式的 Web 应用**
-
-**配合 `ModelAndView` 或 `Model` 传递数据到视图层**
-
-`@Controller` 默认解析的是**视图名**，所以如果返回字符串 `"hello"`，Spring 会认为要跳转到 `hello.html` 页面，而不是返回 JSON。
-
-![](./Java/frame11.png)
-
 #### Lombok
 
 **Java 编译时注解处理库**，它可以帮助开发者 **自动生成样板代码**（如 `getter`、`setter`、`toString()`、`equals()`、`hashCode()` 等）
 
 `@Data` 可以一键生成 **getter、setter、toString()、equals() 和 hashCode()**
 
-
-
 ### MyBatis
 
-这块还不是很懂,等二刷
-
 ![](./Java/frame12.png)
+
+首先配置文件，确定可以连接哪些数据库
+
+然后创建会话工厂，用于创建会话session
 
 创建完Session后执行SQL查询
 
@@ -2021,6 +2192,51 @@ MyBatis 在执行前会把 `#{}` 替换为 `?` 并绑定参数。
 User user = mapper.selectUserById(1);
 
 SELECT * FROM users WHERE id = ? 
+```
+
+### Mybatis支持延迟加载？
+
+查询用户先不查询订单，如果需要再查询->这是延迟加载
+
+```xml
+<collection property = "orderlist" ofType="order" select="xx.x.xx.xxx" column="id" fetchType="lazy">
+</collection>
+```
+
+希望**所有关联对象**默认延迟加载，可以在 `mybatis-config.xml` 里全局配置
+
+```xml
+<settings>
+    <setting name="lazyLoadingEnabled" value="true"/>
+    <setting name="aggressiveLazyLoading" value="false"/>
+</settings>
+```
+
+![](./Java/frame13.png)
+
+
+
+### Mybatis的缓存
+
+Mybatis支持一级二级缓存，本质是一个HashMap
+
+一级缓存是session作用域
+
+二级缓存是namespace 和 mapper的作用域，意味着多个 `SqlSession` 可以共享一个缓存
+
+`mybatis-config.xml`
+
+```xml
+<settings>
+    <setting name="cacheEnabled" value="true"/>
+</settings>
+```
+
+```xml
+<mapper namespace="com.example.mapper.UserMapper">
+    <cache/>
+    <!-- 其他SQL语句和映射-->
+</mapper>
 ```
 
 ### Interceptor
@@ -2120,7 +2336,44 @@ void addInterceptors         //重写方法，可添加排除拦截的路径
 
 Spring MVC 的拦截器（Interceptor）通常是先创建一个拦截器类（实现 `HandlerInterceptor` 接口），然后再通过 `WebMvcConfigurer` 进行注册，使其生效
 
-# SpringCloud 2025.1.21
+### 项目里的JWT拦截器
+
+这里@Component注册到 Spring 容器 IOC里
+
+```java
+public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+    System.out.println("当前线程"+Thread.currentThread().getId());
+
+    //判断当前拦截到的是Controller的方法还是其他资源
+    if (!(handler instanceof HandlerMethod)) {
+        //当前拦截到的不是动态方法，直接放行
+        return true;
+    }
+  
+ 		//jwtProperties.getAdminTokenName()获取的是 JWT 令牌在请求头中的名称（比如 "Authorization" 或其他自定义的令牌名称）
+  	//1、从请求头中获取令牌
+    String token = request.getHeader(jwtProperties.getAdminTokenName());
+
+    //2、校验令牌
+    try {
+        log.info("jwt校验:{}", token);
+        Claims claims = JwtUtil.parseJWT(jwtProperties.getAdminSecretKey(), token);
+        Long empId = Long.valueOf(claims.get(JwtClaimsConstant.EMP_ID).toString());
+        log.info("当前员工id：", empId);
+
+
+        BaseContext.setCurrentId(empId);
+        //3、通过，放行
+        return true;
+    } catch (Exception ex) {
+        //4、不通过，响应401状态码
+        response.setStatus(401);
+        return false;
+    }
+}
+```
+
+# SpringCloud 2025.1.21 3.12二刷
 
 - 注册中心/配置中心 Nacos
 - 服务网关 Gateway
@@ -2387,19 +2640,25 @@ cron表达式
 
 round轮询，fallover 故障转移，第一个heartbeat检测成功的，sharding_broadcast分片广播
 
-# MQ 2025.1.22
+# MQ 2025.1.22 3.12二刷 
 
-### RabbitMQ 消息不丢失
+### 解耦，异步，削峰
+
+系统中不同模块之间的依赖关系降低，使得各个模块之间的通信不需要直接耦合，而是通过中间件（如消息队列）进行交互
+
+
+
+### RabbitMQ 消息丢失
 
 Publisher -> exchange -> {queue1,queue2} -> {consumer1,consumer2}
 
-#### publisher confirm  生产者确保msg到达queue
+#### publisher confirm  生产者确保msg到达queue 确认机制，类似ack
 
 msg到MQ后返回一个结果ack给发送者publisher
 
-Publisher -> exchange (failed send nack publish-confirm)
+Publisher -> exchange (failed send **nack** publish-confirm)
 
-Exchange->queue(failed send publish-return ack)
+Exchange->queue(failed send **publish-return** ack)
 
 消息失败过后：回调方法即时重发，记录日志，保存到数据库定时重发，重发后删除表中数据
 
@@ -2428,6 +2687,8 @@ none
 
 ### 死信交换机
 
+场景：订单超时被丢弃了，限时优惠，定时发布
+
 Dead letter 死信，也就是不被执行直接丢弃
 
 * 消息被拒绝（**basic.nack **或**basic.reject**），且**requeue=False**
@@ -2440,7 +2701,7 @@ Dead letter 死信，也就是不被执行直接丢弃
 
 ### 延迟队列(TTL+DLX)
 
-TTL结束还没消费，变成DL，（TTL可能是queue设置的，也可能是本身设置的）
+TTL结束还没消费，变成DL，（TTL可能是**queue设置的，也可能是本身设置的**）
 
 msg ttl=5000，x-message=10000，哪个短以哪个为准
 
@@ -2502,7 +2763,9 @@ queue3有queue1的metadata，会传递queue1里
 QueueBuilder.quorum();//仲裁队列
 ```
 
-### Kafka 
+### Kafka
+
+
 
 等二刷
 
@@ -2516,27 +2779,106 @@ QueueBuilder.quorum();//仲裁队列
 
 consumer会维护多个分区，每个partition会有offset
 
-# Data Structure 2025.1.24
+# Data Structure 2025.1.24 3.13二刷
 
-String 是 **不可变（immutable）** 的，这意味着 **一旦创建，**String **对象的值就不能被改变**。如果你尝试修改 String，实际上是创建了一个新的 String 对象，而不是在原对象上修改
+### FileReader & BufferedReader
+
+普通IO：每次读取一个字符或少量字符。频繁的磁盘 I/O 操作，性能较低。适合读取小文件或不需要高性能的场景。
+
+BufferedReader 内部维护一个缓冲区（默认大小为 8KB），一次性从磁盘读取大量数据到缓冲区。后续读取操作直接从缓冲区中获取数据，减少磁盘 I/O 操作。提供 `readLine()` 方法，方便逐行读取文本文件。
+
+
+
+#### Map
+
+- `HashMap`：JDK1.8 之前 `HashMap` 由数组+链表组成的，数组是 `HashMap` 的主体，链表则是主要为了解决哈希冲突而存在的（“拉链法”解决冲突）。JDK1.8 以后在解决哈希冲突时有了较大的变化，当链表长度大于阈值（默认为 8）（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）时，将链表转化为红黑树，以减少搜索时间。
+
+- `LinkedHashMap`：`LinkedHashMap` 继承自 `HashMap`，所以它的底层仍然是基于拉链式散列结构即由数组和链表或红黑树组成。另外，`LinkedHashMap` 在上面结构的基础上，增加了一条双向链表，使得上面的结构可以保持键值对的插入顺序。同时通过对链表进行相应的操作，实现了访问顺序相关逻辑。
+
+- `Hashtable`：数组+链表组成的，数组是 `Hashtable` 的主体，链表则是主要为了解决哈希冲突而存在的。
+
+- `TreeMap`：红黑树
+
+- ```java
+  Map<String, Integer> map = new HashMap<>();
+  map.put("A", 1);
+  System.out.println(map.get("A")); // 输出 1
+  map.remove("B");
+  ```
+
+
+
+### Queue
+
+java里Queue是一个接口，LinkedList作为Queue的实现，Queue这个interface里实现了`offer`,`poll`,`peek`
+
+```java
+Queue<Integer> q=new LinkedList<>();
+q.offer(1);
+q.peek();
+q.poll();
+```
+
+- `PriorityQueue`: `Object[]` 数组来实现小顶堆
+
+- ```java
+  PriorityQueue<Integer> maxHeap = new PriorityQueue<>(Collections.reverseOrder());//max heap
+  ```
+
+- `DelayQueue`:`PriorityQueue` 延迟队列，其中的元素只有到了其指定的延迟时间，才能够从队列中出队
+
+- `ArrayDeque`: 可扩容动态双向数组
+
+- ```java
+  PriorityQueue<Integer> pq=new PriotityQueue<>();
+  pq.add();
+  pq.poll();
+  
+  Deque<String> deque = new ArrayDeque<>();
+  deque.addFirst("A"); // 栈操作
+  deque.addLast("B");  // 队列操作
+  System.out.println(deque.pollFirst()); // 输出 A
+  ```
+
+* `BlockingQueue`
+
+### ConcurrentLinkedQueue/ConcurrentLinkedDeque
+
+线程安全的双端队列
+
+- 单端队列：`LinkedList` 或 `ConcurrentLinkedQueue`。
+- 双端队列：`LinkedList` 或 `ConcurrentLinkedDeque`。
+
+它基于**非阻塞**的链表实现，支持**高并发**场景，非常适合生产者-消费者模型或者多线程任务队列
+
+#### 单端队列
+
+```java
+Queue<Integer> queue= new LinkedList<>(); 
+queue.offer(1);
+queue.offer(2);
+queue.poll();
+```
+
+#### 双端队列 
+
+```java
+Deque<Integer> deque = new LinkedList<>();
+```
+
+`addFirst`+`addLast`+`pollLast`+`pollFirst`
 
 ### List
 
-vector
+vector 线程安全的 `ArrayList`, 所有方法加 `synchronized`，vector不用了！
 
-**ArrayList**
+ArrayList 动态数组，默认容量 `10`，超过后 1.5 倍扩容，Array静态数组
 
-数组，可扩容
-
-**LinkedList**
-
-链表
+**LinkedList** 链表 
 
 Array连续内存的插入删除效率很低
 
 Array大小固定，如果不够只能新建数组手动复制
-
-ArrayList可扩展，初始大小10，声明大小，扩展1.5倍
 
 lazy load 不会立即分配空间，首次 add() 时 **容量变 10**
 
@@ -2559,19 +2901,74 @@ ArrayList & LinkedList are not thread safe
 
   > `synchronized` 关键字 **手动指定同步的代码块**，可以只锁定某些关键操作，提高并发效率 (fine grained)
 
+```java
+List<String> list = new ArrayList<>();
+list.add(1, "X"); // 在索引 1 插入 X
+list.get(1);
+list.remove("B");  // 按值删除
+list.remove(1);     // 按索引删除
+```
+
 ### Set
 
-HashSet LinkedHashSet
+* HashSet: HashMap实现的
 
-TreeSet
+* LinkedHashSet: HashSet 的子类，并且其内部是通过 LinkedHashMap
+
+* TreeSet: RBT 不能get(index)来索引查
+
+* ```java
+  Set<String> set = new HashSet<>();
+  set.add("A");
+  set.remove("B");
+  
+  Set<Integer> set = new TreeSet<>();
+  set.add(3);
+  Iterator<Integer> iterator = set.iterator();
+  while (iterator.hasNext()) {
+      iterator.next();
+  }
+  ```
 
 ### Map
 
-HashTable thread safe, but slow（not use)
+`HashMap` 是非线程安全的，`Hashtable` 是线程安全的,因为 `Hashtable` 内部的方法基本都经过`synchronized` 修饰，不要用`Hashtable`，保证线程安全就`ConcurrentHashMap`
 
-**HashMap** thread unsafe, fast.    LinkedHashMap
+`ConcurrentHashMap` jdk 1.7 **每个 `Segment` 维护一个 `ReentrantLock`**，插入时 **只锁住一个 `Segment`，而不是整个 `ConcurrentHashMap`**，提高并发性能
 
-**ConcurrentHashMap** thread safe
+jdk 1.8+ CAS+synchronized **使用 `synchronized` 保护单个桶的并发修改**。**使用 CAS（Compare-And-Swap）进行无锁并发操作**，比如 `putIfAbsent()` 方法
+
+**`synchronized` 用于锁住单个桶（Bucket）**，而 **CAS 用于无锁地修改某些特定的操作**。这种设计是为了在保证线程安全的同时，最大限度地提高并发性能。
+
+```cpp
+ConcurrentHashMap
+ ├── Bucket 1 (CAS + synchronized)
+ ├── Bucket 2 (CAS + synchronized)
+```
+
+**LinkedHashMap**继承HashMap，但是有额外的线程记录先后顺序，多用于LRU，线程不安全
+
+```java
+class LRUCache extends LinkedHashMap<Integer,Integer>{
+    private static final float DEFAULT_LOAD_FACTOR = 0.75f;
+    private final int capacity;
+
+    public LRUCache(int capacity) {
+        super(capacity, DEFAULT_LOAD_FACTOR, true);//这里的true开启LRU
+        this.capacity = capacity;
+    }
+    
+    public int get(int key) {
+        return super.getOrDefault(key, -1);
+    }
+    
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<Integer, Integer> eldest) 		{
+        return size() > capacity;
+    }
+
+}
+```
 
 **TreeMap** RBT （近似平衡，最多需要 1~2 次旋转，允许高度最多 `2*log(n)`，适合插入/删除频繁）
 
@@ -2823,6 +3220,8 @@ Sleep if in synchronized code block, it will not release lock
 ## Safety
 
 ### Synchronized
+
+有点类似于悲观锁，而CAS类似于乐观锁，`ConcurrentHashMap`中，`CAS` 和 `synchronized` 经常结合使用
 
 **synchronized** 是 Java 提供的**关键字（锁机制）**，用于 **保证多线程访问共享资源时的**：互斥，同一时刻只有一个线程持有对象锁
 
@@ -3150,13 +3549,28 @@ synchronized只锁当前链表或RBT对首节点，fine grained粒度更细性�
 
 volatile开销较低，会影响 CPU 缓存一致性
 
-## Thread Pool
+## Thread Pool!!!
+
+### 这里咋用
+
+```java
+for(int currVm = 1; currVm < VM_COUNT + 1; currVm++) {
+    Callable r = new StartNodeTask(currVm);
+    tasks.add(r);
+}
+
+List<Future<Object>> futures = executor.invokeAll(tasks);
+Future<?> future=executor.submit(task1);//run one task
+for(Future f : futures) f.get();//wait for all tasks to finish
+```
 
 ### ThreadPoolExecutor
 
 `Executors`是 **Java 提供的线程池工厂类**
 
-`newCachedThreadPool()` 无界线程池，最大线程数 = ` Integer.MAX_VALUE`
+#### newCachedThreadPool
+
+`newCachedThreadPool()` 无界线程池，最大线程数 = ` Integer.MAX_VALUE` ，60s空闲就回收
 
 **如果有空闲线程，则复用**，否则创建新线程
 
@@ -3170,9 +3584,9 @@ cachedThreadPool.execute(() -> {
 cachedThreadPool.shutdown();
 ```
 
+#### newFixedThreadPool
 
-
-`newFixedThreadPool()` **线程数固定（nThreads）**，不会回收
+`newFixedThreadPool()` **线程数固定（nThreads）**，不会回收，池子满了就**排队等待**
 
 ```java
 ExecutorService fixedThreadPool = Executors.newFixedThreadPool(3);
@@ -3182,9 +3596,7 @@ fixedThreadPool.execute(() -> {
 fixedThreadPool.shutdown();
 ```
 
-
-
-`newScheduledThreadPool()`
+#### newScheduledThreadPool
 
 **可以执行定时任务和周期任务**。
 
@@ -3204,9 +3616,7 @@ scheduledPool.scheduleAtFixedRate(() -> {
 }, 1, 2, TimeUnit.SECONDS);
 ```
 
-
-
-`newSingleThreadExecutor()`
+#### newSingleThreadExecutor
 
 **只有一个线程**，保证任务**按顺序执行**。
 
@@ -3324,7 +3734,22 @@ try{
 }
 ```
 
-### ThreadLocal
+### 项目里的ThreadLocal
+
+jwt前端登录请求，得到jwt令牌，然后通过jwt解析出员工id
+
+interceptor会解析出id存入threadlocal，BaseContext.save....然后在这次请求里，可以通过threadlocal可以访问用户信息，而不用通过数据库去查询，JWT是无状态的，不像session在server是有状态的
+
+ThreadLocal 数据在请求结束时会释放，但有坑——如果线程池重用线程，ThreadLocal 可能残留旧数据。
+
+```java
+@Override
+public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+    BaseContext.removeCurrentId();
+}
+```
+
+### ThreadLocal!!!!!
 
 每个 `Thread` 内部都有一个 **`ThreadLocalMap`**
 
@@ -3350,6 +3775,8 @@ private static ThreadLocal<Integer> threadLocalValue = ThreadLocal.withInitial((
 ```
 
 `threadLocal`用static修饰是为了让所有thread可见，在**所有线程中共享同一个 `ThreadLocal` 实例**，但每个线程仍然**存储自己的独立副本**
+
+但是会有内存泄漏风险
 
 ### reference
 
@@ -3432,15 +3859,44 @@ MetaSpace默认没有上限
 
 ### Constant Pool
 
+编译期的 Class 文件常量池
+
+运行时常量池Runtime Constant Pool
+
+`static final` 是基本类型（`int`、`float`、`boolean` 等）或**字符串**，**且编译期能确定值**，就会放进常量池
+
+但是拼接字符串这种编译器确定不了的不行
+
+如果 `static final` 是**引用类型**（除了字符串），就**不会进常量池**，因为对象创建是在**运行期**完成的
+
+```java
+private static final Integer NUMBER = 1000;  // ❌ 不进常量池，Integer 是对象
+private static final int[] NUMBERS = {1, 2, 3};  // ❌ 数组是引用类型
+```
+
+
+
 存储各种**编译期生成的常量**，如字符串常量、基本数据类型常量、类、方法信息等
 
 为了提高**内存利用率**和**执行效率**
 
 可以看作一张表，jvm指令根据这个表找到执行的class name， method name，parameter type，字面量等信息
 
-当类被加载时，constant pool信息会放入runtime constant pool，里面符号地址变为真实地址`#20 -> 0x1020`
+**当类被加载时，constant pool信息会放入runtime constant pool**，里面符号地址变为真实地址`#20 -> 0x1020`
 
 **JDK 8+**运行时**常量池**存放在 **元空间（Metaspace）**
+
+### 如何查看Constant Pool
+
+```shell
+javap -v ConstantPoolTest.class
+Constant pool:
+   #1 = String    #2 // Hello, World!
+   #2 = Utf8      Hello, World!
+   #3 = Integer    10
+```
+
+
 
 ### Direct Memory & NIO(New IO) & BIO(Blocking IO)
 
@@ -3725,9 +4181,13 @@ JWT 本质上就是一组字串，通过（`.`）切分成三个为 Base64 编�
 
 Header,Payload,Signature
 
+Payload不加密，base64URL编码，Signature加密HS256非对称加密
+
 JWT 通常是这样的：`xxxxx.yyyyy.zzzzz`
 
 JWT在POST login时返回，客户端（如浏览器）将JWT保存在`localStorage`或`sessionStorage`中，每次请求时将JWT放入`Authorization`头中发送给服务器。（联想postman里的Authrization的请求）
+
+也可以放在Cookie里
 
 #### 保证登录的是当前用户
 
@@ -3747,7 +4207,7 @@ JWT在POST login时返回，客户端（如浏览器）将JWT保存在`localStor
 - 设置较短的Token过期时间，并使用Refresh Token机制续期。
 - 对敏感操作（如修改密码）进行二次验证。
 
-#### 如何防止 JWT 被篡改
+#### 如何防止 JWT 被篡改!!!!!得背
 
 有了签名之后，即使 JWT 被泄露或者截获，黑客也没办法同时篡改 Signature、Header、Payload。
 
@@ -3765,6 +4225,80 @@ payload里加入exp过期时间
 - **Local Storage**：不推荐，因为容易被XSS攻击窃取。
 
 JWE（JSON Web Encryption）加密
+
+```java
+public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        System.out.println("当前线程"+Thread.currentThread().getId());
+
+        //判断当前拦截到的是Controller的方法还是其他资源
+        if (!(handler instanceof HandlerMethod)) {
+            //当前拦截到的不是动态方法，直接放行
+            return true;
+        }
+
+        //1、从请求头中获取令牌
+        String token = request.getHeader(jwtProperties.getAdminTokenName());
+
+        //2、校验令牌
+        try {
+            log.info("jwt校验:{}", token);
+            Claims claims = JwtUtil.parseJWT(jwtProperties.getAdminSecretKey(), token);
+            Long empId = Long.valueOf(claims.get(JwtClaimsConstant.EMP_ID).toString());
+            log.info("当前员工id：", empId);
+
+
+            BaseContext.setCurrentId(empId);
+            //3、通过，放行
+            return true;
+        } catch (Exception ex) {
+            //4、不通过，响应401状态码
+            response.setStatus(401);
+            return false;
+        }
+    }
+```
+
+### BaseContext
+
+通常用于存储与当前线程相关的上下文信息，在多线程环境中传递数据（例如用户信息、请求上下文等），而无需显式地传递这些信息
+
+`BaseContext.setCurrentId(empId)` 看起来是将当前员工的 ID 存储在当前线程的 `ThreadLocal` 变量中
+
+然后是开启JWT拦截器，在WebMvcConfig里开启
+
+```java
+@Autowired
+private JwtTokenAdminInterceptor jwtTokenAdminInterceptor;
+
+protected void addInterceptors(InterceptorRegistry registry) {
+    log.info("开始注册自定义拦截器...");
+    registry.addInterceptor(jwtTokenAdminInterceptor)
+            .addPathPatterns("/admin/**")
+            .excludePathPatterns("/admin/employee/login");
+}
+```
+
+`addPathPatterns("/api/**")` 是指定哪些请求需要被拦截。
+
+`excludePathPatterns("/login", "/register")` 是排除哪些请求不被拦截
+
+当你将拦截器添加到 `InterceptorRegistry` 后，它会自动被 Spring 的 IOC 容器管理并在适当的时间被调用。
+
+### 拦截器原理
+
+拦截器的配置通过 `WebMvcConfigurer` 进行注册
+
+当请求到达时，Spring 会根据配置自动调用注册的拦截器，并执行 `preHandle`、`postHandle` 和 `afterCompletion` 等方法
+
+DispatcherServlet后进入springMVC里，拦截器会在请求被处理之前、之后或在视图渲染之前进行调用
+
+**前置拦截器**：在请求到达控制器之前执行。如果 `preHandle()` 返回 `true`，请求会继续执行。如果返回 `false`，请求会被阻止，后续的处理（如控制器方法执行）将不会发生。
+
+**控制器方法**：拦截器的 `preHandle()` 方法执行完毕后，Spring 会调用控制器方法来处理请求。
+
+**后置拦截器**：控制器方法执行完毕后，后置拦截器的 `postHandle()` 方法会被调用，允许你对控制器返回的结果进行处理（例如修改模型）。
+
+**最终处理**：视图渲染完成后，拦截器的 `afterCompletion()` 方法会被调用，可以在这里做一些清理工作，比如记录日志等。
 
 ### SSO 单点登录 JWT
 
@@ -3787,7 +4321,7 @@ Authorization在Authentication后，RBAC是基于角色的鉴权机制
 
 ![](./Java/s2.png)
 
-### Cookie
+### Cookie!!!!!得背
 
 `Cookie` 和 `Session` 都是用来跟踪浏览器用户身份的会话方式
 
@@ -3884,8 +4418,6 @@ LoadRunner，Apache Jmeter
 
 # 二刷
 
-brackets，parentheses 括号
-
 ### 本地缓存
 
 本地缓存未删除干净怎么办？
@@ -3927,6 +4459,8 @@ p1=null;//就不引用
 
 ### Static
 
+**`static` 变量** 是所有实例共享的 **字段**，但 **类本身可以多次实例化**。
+
 **属于类（Class），而不是实例（Object）**。所有实例共享
 
 Java 默认所有的非 `static` 方法都是**虚方法（virtual methods）**，不需要加 `virtual` 关键字
@@ -3937,6 +4471,8 @@ Polymorphism 多态
 
 ### final
 
+`final` 表示**最终的、不可改变的**
+
 **对基本数据类型（int, double, boolean）**：
 
 - `final` **保证值不会改变**
@@ -3946,11 +4482,38 @@ Polymorphism 多态
 
 - `final` 只保证 **引用不可变（不能指向新对象），但对象的内容可以修改**
 
-在编译期就能确定的值，会存入常量池
+**修饰方法**
+
+子类**不能重写**这个方法
+
+修饰类
+
+不能被继承
+
+**在编译期就能确定的值，会存入常量池**
 
 **运行时才能确定的值，不会存入常量池**
 
+### abstract
+
+```java
+abstract class A{
+  abstract void B();//子类必须实现
+  void C(){}//子类可以直接用
+}
+```
+
+子类必须实现所有**抽象方法**，**普通方法**可以继承
+
+单继承
+
 ### interface
+
+**只能定义常量** (`public static final`)，不能有别的成员变量
+
+**方法默认是抽象的** (`public abstract`)，只是声明不能实现！
+
+Java 8 引入了 `default` 和 `static` 方法可以有实现。
 
 ```java
 interface Animal{
@@ -3970,7 +4533,13 @@ public interface Animal{}
 //不加 public，这个接口默认是 package-private（包级可见），意味着只能在当前包内访问
 ```
 
-# Servlet
+支持多实现
+
+# Servlet & Websocket & Session & Cookie
+
+### Servlet 是Java Web的组件
+
+Servlet可以通过`HttpSession`对象来存储会话数据，使得服务器能够跨请求跟踪用户会话状态
 
 - **处理客户端（浏览器）的 HTTP 请求**
 - **生成动态 Web 内容（HTML、JSON、XML 等）**
@@ -3982,6 +4551,81 @@ public interface Animal{}
 3. **Servlet 解析请求参数，执行业务逻辑**
 4. **Servlet 生成响应（HTML、JSON 等）并返回给客户端**
 5. **客户端渲染响应内容**
+
+### Session
+
+**Session** 是服务器端存储用户状态的方式，通常在第一次请求时创建，并返回一个 `sessionid` 给客户端
+
+Web应用通过`HTTP`请求的Cookie来管理Session
+
+切换了网络，IP port变了，原本的Session失效，特别是基于tcp的session
+
+如果用cookie存SessionID，这个ID还是保存的，只要Cookie没有丢失，Session应该还是有效的，尽管在极少数情况下，网络变化可能会使Web服务器认为它是新的请求（例如负载均衡等情况）
+
+### Cookie
+
+**Cookie** 则是客户端存储数据的机制，服务器通过 `Set-Cookie` 响应头把 `sessionid` 保存在客户端的 Cookie 里
+
+可以增加签名防止伪造sha256
+
+### WebSocket
+
+HTTP1.0是短连接，是单向的，基于请求响应模式；
+
+HTTP/1.1中使用持久连接，允许复用同一个TCP连接来传输多个请求
+
+WebSocket是长连接（有点像打电话，双向消息），支持双向通信。HTTP和WebSocket底层都是TCP连接。
+
+当切换网络时，WebSocket连接会丢失，需要重新建立连接
+
+WebSocket与Servlet可以结合使用，在Servlet中可以通过`@WebSocket`等注解来实现WebSocket的支持
+
+业务里的代码，这里定时任务用cron `@Scheduled(cron = "0/5 * * * * ?")`
+
+```java
+@ServerEndpoint("/ws/{sid}")
+private static Map<String, Session> sessionMap = new HashMap();
+//key sid,value sessionid
+
+public void sendToAllClient(String message) {
+    Collection<Session> sessions = sessionMap.values();
+    for (Session session : sessions) {
+        try {
+            //服务器向客户端发送消息
+            session.getBasicRemote().sendText(message);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+应用
+
+聊天应用（微信网页版）
+
+实时推送（股票行情、游戏状态同步）
+
+实时协作（Google Docs的多人编辑）
+
+### HttpClient
+
+后端服务调用第三方 API或者支付
+
+有点类似于我llm里调用api来实现问答
+
+# JUNIT
+
+**`@BeforeAll`**
+ 在 **所有测试方法** 运行前执行，通常用来做全局初始化操作（比如启动服务、准备资源）。
+ **必须是 `static` 方法**，因为它在类加载时就会执行。
+
+**`@AfterAll`**
+ 在 **所有测试方法** 执行完毕后运行，负责清理资源（比如恢复输出流、关闭连接等）。
+ **也必须是 `static` 方法**。
+
+**`@AfterEach`**
+ 在 **每个测试方法** **运行后** 执行，适合做单次用例的收尾工作，比如重置状态、清理缓存。
 
 # Mysql
 

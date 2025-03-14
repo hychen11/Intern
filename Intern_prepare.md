@@ -227,6 +227,10 @@ tail -n 20 filename
 
 控制的是多线程or进程对于同一块**内存**空间的控制
 
+# HTTP和UDP区别
+
+传统的 HTTP 使用 **无状态连接**（Stateless）。每一次 HTTP 请求都会**重新建立一个连接**，并在响应完成后立即关闭这个连接
+
 # UDP
 
 不需要`connect()` 直接`sendto()`
