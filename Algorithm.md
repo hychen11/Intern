@@ -964,6 +964,26 @@ while(l+1<r){
 return l;
 ```
 
+开区间二分时线lower_bound 和upper_bound，带重复元素
+
+注意这里`l=-1,r=len(nums)` !! 千万注意！这里l+(r-l)>>1是错误的！要l+((r-l)>>1) 有运算符优先级！
+
+```c++
+int target;
+l=-1,r=len(nums)
+while(l+1<r){
+    int m=(l+r)/2;
+    if(target<=nums[m]){
+        r=m;
+    }ekse{
+        l=m;
+    }
+}
+return r;
+```
+
+
+
 **左闭右开**
 
 ```c++
@@ -990,8 +1010,6 @@ while(l<r){
 	}
 }
 ```
-
-
 
 [0,n)
 

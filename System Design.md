@@ -790,4 +790,4 @@ public class CglibProxyDemo {
 
 观察者模式**:** Spring 事件驱动模型就是观察者模式很经典的一个应用。 
 
-适配器模式 :Spring AOP 的增强或通知(Advice)使用到了适配器模式、 spring MVC 中也是用到了适配器模式适配 **Controller** 
+适配器模式 :Spring AOP 的增强或通知(Advice)使用到了**适配器**模式、 spring MVC 中也是用到了适配器模式适配 **Controller** 

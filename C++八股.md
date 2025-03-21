@@ -2,7 +2,7 @@
 
 # #pragma once
 
-
+防止重复include？
 
 # static
 
@@ -93,7 +93,7 @@ public:
 
 int main() {
     Base* ptr = new Derived();
-    delete ptr;  // 只会调用 Base 的析构函数，而不会调用 Derived 的
+    delete ptr;  // 只会调用 Base 的析构函数，而不会调用 Derived 的，因此Derived的部分会内存泄漏！
     return 0;
 }
 ```
@@ -101,6 +101,10 @@ int main() {
 如果基类的析构函数不是 virtual 的，可能会导致 **内存泄漏**：
 
 `Base Destructor`
+
+
+
+**加 `virtual`**   -> `outB` + `B Destructor` + `A Destructor`
 
 **修正方法：**
 

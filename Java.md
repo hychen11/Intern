@@ -795,7 +795,7 @@ appendfsync everysec #性能适中,最多丟1s数据
 
 `bgrewriteaof`可以让AOF文件执行重写功能，只会留下最后一次操作
 
-cpu资源占用低，主要是磁盘的IO资源，但是AOF重写会占用大量的CPU和内存
+cpu资源占用低，主要是**磁盘的IO资源**，但是**AOF重写会占用大量的CPU和内存**
 
 宕机恢复速度慢
 
@@ -936,7 +936,7 @@ if(isLock){
 
 为什么是原子性的？
 
-单线程执行模型
+**单线程执行模型**
 
 没有显式的线程或中断
 
@@ -960,7 +960,7 @@ Redis Master, Redis Slave,主从同步,为了防止Master加锁后down了,sentin
 
 redis主要保证AP，也就是高可用性，说白了就是redis解决不了主从不一致的问题
 
-如果一定要强一致性，就采用zookeeper实现的分布式锁，可以CP
+如果一定要强一致性，就采用**zookeeper**实现的分布式锁，可以CP
 
 ### 集群方案
 
@@ -1030,8 +1030,6 @@ Redis瓶颈是网络延迟, I/O多路服用高效网络请求
 非阻塞IO 就是阻塞等待，问了没回就过一会儿继续再问，忙等会导致cpu空转
 
 IO多路复用，单线程监听多个socket
-
-![](./Java/redis04.png)
 
 * select fd固定大小，fd_set bitset MAX 1024
 
@@ -2748,7 +2746,7 @@ publisher >> consumer, queue full ->Dead Letter (discard)
 * consumer use thread pool to handle (utilize cpu)
 * increase capacity of queue, increase the accumulation limit
 
-提高堆积上限，惰性队列（Lazy queue）
+提高堆积上限，**惰性队列（Lazy queue）**
 
 旨在优化 **消息堆积** 和 **内存使用**，适用于 **大规模消息存储** 的场景
 
@@ -3145,7 +3143,28 @@ start()=create a new thread + run() 只能调用一次
 
 run()=on local thread+run() 可以多次调用
 
-### FutureTask&Future
+```java
+t1.run();
+t2.run();
+t3.run();
+//主线程顺序执行
+```
+
+### FutureTask&Future&CompletableFuture
+
+##### Future.get()
+
+futureTask.get(2, TimeUnit.SECONDS);
+
+##### Future.cancel()
+
+```java
+boolean cancelled = futureTask.cancel(true);
+```
+
+`mayInterruptIfRunning=true`：尝试中断正在运行的任务
+
+`mayInterruptIfRunning=false`：如果任务未开始就取消，已开始就不管
 
 ##### Future
 
@@ -3166,6 +3185,91 @@ run()=on local thread+run() 可以多次调用
 独立线程执行任务
 
 可以直接用 `Thread` 启动
+
+```java
+import java.util.concurrent.Callable;
+import java.util.concurrent.FutureTask;
+
+public class FutureTaskExample {
+    public static void main(String[] args) throws Exception {
+        // 创建一个 Callable 任务
+        Callable<Integer> callable = () -> {
+            System.out.println("任务执行中...");
+            Thread.sleep(2000);
+            return 42;
+        };
+
+        // 包装成 FutureTask
+        FutureTask<Integer> futureTask = new FutureTask<>(callable);
+
+        // 启动线程执行任务
+        Thread thread = new Thread(futureTask);
+        thread.start();
+
+        System.out.println("主线程继续执行...");
+
+        // 获取任务结果（阻塞）
+        Integer result = futureTask.get();
+        System.out.println("任务完成，结果：" + result);
+    }
+}
+```
+
+##### CompletableFuture
+
+异步!!!!
+
+支持异步回调、组合、等待和取消操作
+
+**`supplyAsync`**：异步执行一个带返回值的任务（`Supplier`）。
+
+**`thenApply`**：在计算完成后继续进行处理。
+
+**`thenAccept`**：在计算完成后仅对结果进行处理，不返回新的结果。
+
+**`allOf`**：等待多个 `CompletableFuture` 完成，并执行后续的处理。
+
+**`anyOf`**：等待任意一个 `CompletableFuture` 完成。
+
+```java
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
+public class CompletableFutureExample {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        // 创建一个异步任务
+        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> {
+            // 模拟一个耗时的任务
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return 123;
+        });
+
+        // 在任务完成后处理结果
+        future.thenAccept(result -> {
+            System.out.println("Task completed with result: " + result);
+        });
+
+        // 阻塞并获取结果
+        Integer result = future.get();  // 等待异步任务完成
+        System.out.println("Result from future: " + result);
+    }
+}
+
+```
+
+避免回调地狱！因为CompletableFuture有链式写法
+
+```java
+CompletableFuture.supplyAsync(() -> fetchData())
+    .thenApply(data -> process(data))
+    .thenAccept(result -> System.out.println("最终完成"));
+```
+
+
 
 ### thread State
 
@@ -3203,7 +3307,9 @@ synchronized(LOCK){
 }
 ```
 
-### T1,T2,T3 join
+### T1,T2,T3 顺序执行？
+
+方法一，T2里join T1，然后T3里join等T2
 
 `t.join()` **会让当前线程等待 `t` 线程执行完成**，然后才继续执行当前线程后面的代码。
 
@@ -3230,11 +3336,108 @@ t2.start();
 t3.start();
 ```
 
+方法二 CompletableFuture
+
+```java
+// 创建三个CompletableFuture对象
+CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+    // 执行T1任务
+    System.out.println("T1: " + Thread.currentThread().getName());
+}).thenRunAsync(() -> {
+    // 执行T2任务
+    System.out.println("T2: " + Thread.currentThread().getName());
+}).thenRunAsync(() -> {
+    // 执行T3任务
+    System.out.println("T3: " + Thread.currentThread().getName());
+});
+// 等待所有任务完成，并获取结果
+future.join();
+```
+
+### 信号量Semaphore
+
+semaphore.acquire()
+
+semaphore.release()
+
+```java
+import java.util.concurrent.Semaphore;
+
+class SharedResource {
+    private Semaphore semaphore;
+
+    public SharedResource(int maxConcurrentThreads) {
+        // 创建信号量，最大允许 maxConcurrentThreads 个线程同时访问
+        this.semaphore = new Semaphore(maxConcurrentThreads);
+    }
+
+    public void accessResource(int threadId) {
+        try {
+            // 获取信号量许可，若没有许可，则当前线程会被阻塞
+            semaphore.acquire();
+            System.out.println("Thread " + threadId + " is accessing the resource.");
+            // 模拟访问共享资源
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            // 释放信号量许可
+            System.out.println("Thread " + threadId + " has finished using the resource.");
+            semaphore.release();
+        }
+    }
+}
+
+public class SemaphoreExample {
+    public static void main(String[] args) {
+        SharedResource resource = new SharedResource(3); // 最多允许 3 个线程同时访问资源
+
+        // 创建 5 个线程，模拟访问资源
+        for (int i = 1; i <= 5; i++) {
+            final int threadId = i;
+            new Thread(() -> resource.accessResource(threadId)).start();
+        }
+    }
+}
+```
+
 ### notify() & notifyAll()
 
 notify()随机唤醒等待队列中的一个线程的一个线程wait()
 
 notifyAll()唤醒所有
+
+### notify() vs signal()!!
+
+**`notifyAll()`** 是基于 **对象锁**（`synchronized`）的，而 **`signalAll()`** 是基于 **条件变量（`Condition`）**
+
+notify必须要在synchronized块里用
+
+```java
+Object lock = new Object();
+
+new Thread(() -> {
+    synchronized (lock) {
+        try {
+            lock.wait(); // 等待
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+}).start();
+
+new Thread(() -> {
+    synchronized (lock) {
+        lock.notifyAll();  // 唤醒所有等待线程
+    }
+}).start();
+```
+
+同一对象的等待队列里唤醒
+
+signal 是 **`Condition`** 类的方法，它们与 **`ReentrantLock`** 一起使用
+
+**`signal()`**：唤醒 **一个** 在当前 `Condition` 上等待的线程
 
 ### wait() & sleep()
 
@@ -3390,7 +3593,7 @@ CAS 乐观锁，synchronize悲观锁
 private static volatile boolean flag = true;
 ```
 
-当 **Thread B** 修改 `flag = false` 时，**JVM 会确保所有 CPU 核心中的缓存失效**，并强制所有线程都从**主存**读取 `flag` 的最新值
+当 **Thread B** 修改 `flag = false` 时，**JVM 会确保所有 CPU 核心中的缓存失效**，并强制所有线程都从**主存**读取 `flag` 的最新值->可见性！！！！！非常重要
 
 读屏障是阻止下方越过
 
@@ -3481,6 +3684,10 @@ lock.tryLock(2, TimeUnit.SECONDS);//2s里不断尝试获取锁
 ```
 
 ```java
+Lock lock = new ReentrantLock();
+Condition c1 = lock.newCondition();
+Condition c2 = lock.newCondition();
+
 new Thread(()->{
 	lock.lock();
 	try{
@@ -3524,6 +3731,16 @@ new Thread(()->{
 
 这里先lock.lock()然后再c1.wait()，会释放锁waiting，然后signal唤醒
 
+T3 c2.waiting
+
+T2 c1.waiting
+
+​     c2.signale()
+
+T1 c1.signal()
+
+Condition c1 = lock.newCondition(); 条件变量？
+
 ### DeadLock
 
 jps得到<threadid>
@@ -3565,7 +3782,7 @@ synchronized只锁当前链表或RBT对首节点，fine grained粒度更细性�
 * juc的lock
 
 * synchronized
-* AtomicInteger (底层CAS)
+* **AtomicInteger** (底层CAS)
 
 #### 可见性Visibility
 
@@ -3588,6 +3805,23 @@ synchronized只锁当前链表或RBT对首节点，fine grained粒度更细性�
 volatile开销较低，会影响 CPU 缓存一致性
 
 ## Thread Pool!!!
+
+```java
+executor.shutdown();  // 停止接受新任务，但会继续执行已提交的任务
+List<Runnable> notExecutedTasks = executor.shutdownNow();  // 停止所有任务并返回未执行的任务
+```
+
+### Execute VS Submit
+
+**`execute()`**：
+
+- 用于提交没有返回值的 **`Runnable`** 任务
+- 不会返回任何 `Future` 对象，因此无法获取任务执行的结果或控制任务的取消
+
+**`submit()`**：
+
+- 用于提交 **`Callable`** 或 **`Runnable`** 任务，且会返回一个 `Future` 对象
+- `submit()` 允许我们获取任务的结果或对任务进行取消
 
 ### 这里咋用
 
@@ -3744,15 +3978,17 @@ CachedThreadPool允许创建thread最大`Integer.MAX_VALUE`，创建大量thread
 
 ## Senario
 
-### CountDownLatch 
+### CountDownLatch !!!!!如何使用
+
+这里只能不断减少，而不能回复！也就是CountDownLatch(2); latch.countDown()；只能不断减少，来控制内存的访问顺序？
 
 ```java
 CountDownLatch latch = new CountDownLatch(2);	//参数2
 new Thread(()->{
-	latch.countDown;	//调用一次减1
+	latch.countDown();	//调用一次减1
 }).start();
 new Thread(()->{
-	latch.countDown;
+	latch.countDown();
 }).start();
 latch.await();			//为0时唤醒，继续执行
 ```
@@ -4634,7 +4870,7 @@ Web应用通过`HTTP`请求的Cookie来管理Session
 
 可以增加签名防止伪造sha256
 
-### WebSocket
+### WebSocket 用@ServerEndpoint注解
 
 HTTP1.0是短连接，是单向的，基于请求响应模式；
 
@@ -4647,6 +4883,8 @@ WebSocket是长连接（有点像打电话，双向消息），支持双向通�
 WebSocket与Servlet可以结合使用，在Servlet中可以通过`@WebSocket`等注解来实现WebSocket的支持
 
 业务里的代码，这里定时任务用cron `@Scheduled(cron = "0/5 * * * * ?")`
+
+`onOpen`、`onMessage`、`onClose`
 
 ```java
 @ServerEndpoint("/ws/{sid}")
@@ -4665,6 +4903,29 @@ public void sendToAllClient(String message) {
     }
 }
 ```
+
+```java
+@ServerEndpoint("/websocket")
+public class MyWebSocket {
+    @OnOpen
+    public void onOpen(Session session) {
+        System.out.println("Connected: " + session.getId());
+    }
+
+    @OnMessage
+    public void onMessage(String message, Session session) {
+        System.out.println("Received: " + message);
+        session.getAsyncRemote().sendText("Echo: " + message);
+    }
+
+    @OnClose
+    public void onClose(Session session) {
+        System.out.println("Disconnected: " + session.getId());
+    }
+}
+```
+
+
 
 应用
 
