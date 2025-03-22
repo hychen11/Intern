@@ -701,6 +701,8 @@ bloom filter hash碰撞怎么办
 
 ### 击穿Cache Miss Storm
 
+注意看这里加锁的时机，是先**cache未命中加互斥锁**！
+
 击穿就是本来redis有，但是热点key expire，需要到数据库查询，然后更新redis，但是会有**50ms的空档**，并发的request会把DB打崩
 
 ![](./Java/redis1.png)
@@ -1338,6 +1340,12 @@ SELECT * FROM users WHERE name = 'Tom' city = 'New York';  -- ❌ 只查name,cit
 **`IGNORE INDEX (索引名)`**：避免使用某个索引
 
 MySQL **无法强制使用一个不存在的索引**
+
+### 联合索引咋存的？
+
+就是其中一个key就是a=?,b=?也是联合的！
+
+整体还是和b+树一样
 
 ### 多个索引如何存储
 
