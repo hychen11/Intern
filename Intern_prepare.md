@@ -1,3 +1,102 @@
+# Redis
+
+如果你希望缓存一个完整的对象（如查询结果集），那么使用 `ValueOperations` 操作 Redis 的 **String 类型** 就足够了
+
+如果你需要对某个对象的部分属性进行频繁操作（如更新某些字段），那么使用 `HashOperations` 操作 Redis 的 **Hash 类型** 更为合适
+
+```java
+// 操作 String 类型的接口
+ValueOperations<String, Object> valueOps = redisTemplate.opsForValue();
+
+// 操作 Hash 类型的接口
+HashOperations<String, String, Object> hashOps = redisTemplate.opsForHash();
+```
+
+![](./assert/redis1.png)
+
+商品是咋存的？string？然后value就是序列化的信息，JSON
+
+经营状态也是string吧？
+```java
+// 存储 Hash 类型
+redisTemplate.opsForHash().put("dish_1", "name", "iPhone");
+redisTemplate.opsForHash().put("dish_1", "price", "799");
+
+// 获取某个字段
+String name = (String) redisTemplate.opsForHash().get("dish_1", "name");
+```
+
+这里存dish_1表的key是price，value是799
+
+# Zookeeper
+
+`ZooKeeper`的读请求直接发送给一个随机的副本处理, 不需要在真个集群内进行同步, 因此其运行速度更快, 缺点是**除了`Leader`以外的任何一个副本节点的数据是不一定是最新的**
+
+> 因此, `Zookeeper`的读操作放弃了线性一致性
+
+就是比raft更高一层的封装，只需要知道调用API就行
+
+# Guava
+
+**ListeningExecutorService** 支持异步回调，**RateLimiter** 实现限流
+
+支持组件之间的 **发布-订阅模式**
+
+提供 **Predicate**、**Function**（早期Java 8前就有了类似Lambda的能力）
+
+提供 **ImmutableList**、**Multimap**、**BiMap**（双向map）、**Table**（二维Map）等增强集合操作
+
+支持 **超时失效**、**基于引用回收**、**容量限制**、**手动刷新**、**异步加载**
+
+`Splitter`（字符串切割）、`Joiner`（拼接）、`CharMatcher`（字符过滤）等方便的字符串工具
+
+# Spring Cache 缓存机制
+
+本地缓存
+
+ConcurrentMapCache
+
+Caffeine
+
+Guava Cache
+
+分布式缓存
+
+- **Redis**（常用）：Spring Cache 支持 Redis 作为缓存存储，适合分布式架构，支持 **缓存淘汰策略**（LRU、LFU）。
+- **EhCache** / **Hazelcast**：可选的内存缓存框架，支持 **磁盘持久化**、**集群同步**。
+
+# LSM树和B+树的区别？
+
+**数据库底层存储引擎** 的两个典型数据结构
+
+### Log-Structured Merge Tree
+
+**写入优化**：写入先追加到内存结构 (MemTable)，满了再批量合并到磁盘
+
+写**非常快**，写操作大多是内存追加操作
+
+读**慢一些**，需要合并多个层次的数据文件
+
+**延迟删除**（标记删除，后续合并清理）
+
+**写多读少**场景，如 **日志系统**、**NoSQL**（如 **LevelDB、RocksDB**）
+
+### B+ Tree
+
+**读写平衡**：数据以有序平衡树存储，支持高效查询和范围查找
+
+**较慢**，需要多次磁盘随机写
+
+**快**，B+树是按层次有序存储，支持二分查找
+
+**直接删除**，实时更新
+
+**读写均衡**场景，如 **MySQL InnoDB**、**PostgreSQL**
+
+空间利用率高
+
+
+
 ### **适配器模式 (Adapter Pattern)**
 
 **适配器模式**用于将一个类的接口转换成客户端期望的另一个接口。它通常用于 **使不兼容的接口变得兼容**，即适配器为一个类提供了一个适应其他类接口的中介。
