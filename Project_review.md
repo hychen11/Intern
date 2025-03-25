@@ -34,6 +34,8 @@ LRU-K算法
 
 # 6.5840
 
+# Split Brain
+
 mapreduce
 
 这里rpc调用是

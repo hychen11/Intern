@@ -5404,6 +5404,10 @@ public:
 
 找第k大，这里注意pivot是nums[l]!!
 
+这里第k大的O(n)做法！就是类似于快排！
+
+#### 215
+
 ```c++
 class Solution {
 public:
@@ -5582,7 +5586,7 @@ cat words.txt | tr -s ' ' '\n' | sort | uniq -c | sort -r | awk '{print $2, $1}'
 
 `+`匹配前面字符 1 次或多次
 
-`?` 匹配前面字符 0 次或 1 次
+`?` 匹配前面字符 **0 次或 1 次**
 
 `{n}` 匹配前面字符正好 n 次
 
@@ -5607,4 +5611,108 @@ cat words.txt | tr -s ' ' '\n' | sort | uniq -c | sort -r | awk '{print $2, $1}'
 #结合
 ^([0-9]{3}-|\([0-9]{3}\) )[0-9]{3}-[0-9]{4}$
 ```
+
+# 树遍历，迭代方法
+
+### preorder
+
+```c++
+class Solution {
+public:
+    vector<int> preorderTraversal(TreeNode* root) {
+        vector<int> ans;
+        stack<TreeNode *> st;
+        TreeNode *prev=nullptr;
+        while(!st.empty()||root!=nullptr){
+            while(root){
+                ans.push_back(root->val);
+                st.push(root);
+                root=root->left;
+            }
+            root=st.top();
+            st.pop();
+            root=root->right;
+        }
+        return ans;
+
+    }
+};
+```
+
+### inorder
+
+```c++
+class Solution {
+public:
+    vector<int> inorderTraversal(TreeNode* root) {
+        if(root==nullptr) return {};
+        vector<int> ans;
+        stack<TreeNode *> st;
+        while(!st.empty()||root!=nullptr){
+            while(root){
+                st.push(root);
+                root=root->left;
+            }
+            auto node=st.top();
+            st.pop();
+            ans.push_back(node->val);
+            root=node->right;
+        }
+        return ans;
+    }
+};
+```
+
+### postorder
+
+与中序的不同之处在于：
+
+- 中序遍历中，从栈中弹出的节点，其左子树是访问完了，可以直接访问该节点，然后接下来访问右子树。
+- 后序遍历中，从栈中弹出的节点，我们只能确定其左子树肯定访问完了，但是无法确定右子树是否访问过。
+
+因此，我们在后序遍历中，引入了一个prev来记录历史访问记录。
+
+- 当访问完一棵子树的时候，我们用prev指向该节点。
+- 这样，在回溯到父节点的时候，我们可以依据prev是指向左子节点，还是右子节点，来判断父节点的访问情况。
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode() : val(0), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+ * };
+ */
+class Solution {
+public:
+    vector<int> postorderTraversal(TreeNode* root) {
+        vector<int> ans;
+        stack<TreeNode *> st;
+        TreeNode *prev=nullptr;
+        while(!st.empty()||root!=nullptr){
+            while(root){
+                st.push(root);
+                root=root->left;
+            }
+            root=st.top();
+            st.pop();
+            if(root->right==nullptr||root->right==prev){
+                ans.push_back(root->val);
+                prev=root;
+                root=nullptr;
+            }else{
+                st.push(root);
+                root=root->right;
+            }   
+        }
+        return ans;
+    }
+};
+```
+
+
 
