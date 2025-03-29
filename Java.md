@@ -19,19 +19,7 @@ SET lock:user123 "locked" NX EX 5
 SET key value NX EX 10
 ```
 
-# JMM和JVM内存空间！！！
-
-内存->新生代，老年代
-
-元空间，堆栈
-
-
-
-静态变量属于类的元数据，存在方法区里，不会被回收
-
-
-
-# Filter和Interceptor！！！
+# Filter和Interceptor!!!!!!!
 
 Interceptor **Spring**层面（基于AOP思想，拦截的是Controller）
 
@@ -675,6 +663,49 @@ submit 提交一个task返回`Future`， `future.get()` 方法，可以阻塞当
 
 # Redis 2025.01.12 3.1二刷
 
+### innodb如何实现事务隔离级别的？不同隔离级别下锁隔离机制有什么不同？
+
+InnoDB 使用多种机制来实现事务的 **隔离级别**，包括 **锁机制**、**MVCC**
+
+MVCC 允许数据库在 **没有锁的情况下** 实现并发读操作，提高了事务的并发性和性能
+
+- **共享锁(S锁)**：允许并发读，阻止其他事务获取排他锁
+- **排他锁(X锁)**：阻止其他事务获取任何锁
+- **意向锁(IS/IX)**：表级锁，表明事务将在行上获取S或X锁
+- **间隙锁(Gap Lock)**：锁定索引记录间的间隙
+- **临键锁(Next-Key Lock)**：记录锁+间隙锁的组合
+
+#### READ UNCOMMITTED
+
+- 不加任何读锁
+- 写操作仍需要X锁
+- 可能脏读，性能最高但一致性最差
+
+#### READ COMMITTED
+
+- **SELECT**：使用MVCC，不加锁(快照读)
+- **UPDATE/DELETE**：
+  - 对扫描到的记录加X锁
+  - 不持有间隙锁(可能导致幻读)
+- **current read**(SELECT...FOR UPDATE)：
+  - 只锁定符合条件的现有记录(无间隙锁)
+
+#### REPEATABLE READ (MySQL默认)
+
+- **SELECT**：使用MVCC，首次读取建立一致性视图
+- **UPDATE/DELETE**：
+  - 使用Next-Key Lock锁定扫描范围内的记录和间隙
+  - 防止幻读(在索引上)
+- **锁定读**：
+  - 使用Next-Key Lock锁定记录和间隙
+  - 唯一索引等值查询退化为记录锁
+
+#### SERIALIZABLE
+
+- 所有普通SELECT自动转为SELECT...FOR SHARE
+- 使用Next-Key Lock范围锁定
+- 并发度最低，完全串行化
+
 SpringCache是一种集成多种缓存方案的接口，是一层抽象层
 
 启动类加上`@EnableCaching`
@@ -829,16 +860,24 @@ save 900 1 #900s里1key修改就bgsave
 
 如果RDB的时候有写怎么办，就直接copy-on-write，就是复制出来再修改
 
-两次RDB之间可能会丢失备份(如果宕机了) ，二进制文件，体积小，恢复快，可能丢数据
+两次RDB之间可能会丢失备份(如果宕机了) ，**二进制文件，体积小，恢复快，可能丢数据** 适用于一致性要求不高的场景
 
-### AOF (append only file)
+### AOF (append only file) 在磁盘里
 
-redis处理每一个write都记录在AOF，因此会比RDB大得多
+？？？先写redis，再写AOF的吗？为了避免命令的写入过程中对Redis的性能造成过多影响。执行命令后，AOF文件会追加操作日志，保证命令能被存在磁盘上。
+
+redis处理每一个write都记录在AOF，因此会比RDB大得多！注意这里是写操作！（如`SET`、`LPUSH`、`HSET`等）
 
 ```shell
 appendonly yes
 appendfsync everysec #性能适中,最多丟1s数据
 ```
+
+写回策略
+
+* **每次写操作都写入AOF**：每次命令执行后立即写入AOF文件，保证数据的持久化，但性能相对较低。
+* **每秒写入（`appendfsync everysec`）**：默认策略，每秒写入一次。性能和持久化之间取得平衡
+* **从不写入（`appendfsync no`）**：完全依赖操作系统来刷新数据到磁盘，性能最优，但丢失的数据最多
 
 `bgrewriteaof`可以让AOF文件执行重写功能，只会留下最后一次操作
 
@@ -876,7 +915,33 @@ lfu linklist+hashmap+freq_hashmap
 
 **Lazy Expiration** 高并发热点 key，防止缓存击穿,Redis 不会删除数据
 
+### DCL（Distributed Cache Lock）
+
+**加锁时，最重要的是\保证分布式系统中的锁的唯一性和可用性**。核心问题包括：
+
+- **锁的公平性**：确保多个请求能公平地获取锁，而不至于某些请求饿死。
+- **死锁避免**：加锁时需要避免死锁，通常通过锁超时、锁竞争机制等来防止。
+- **锁的可见性**：在分布式系统中，要保证锁的状态能在所有节点间同步。
+- **性能**：加锁和解锁的性能需要权衡，避免由于加锁带来的性能瓶颈。
+
 ### 分布式锁 setnx, redisson
+
+可以用setnx实现一个分布式锁
+
+redis.set()加锁
+
+Redis.get()解锁
+
+```java
+boolen lock=redis.setnx("lock_key","locked");
+if (lock) {
+    try {
+        // 执行任务
+    } finally {
+        redis.del("lock_key");
+    }
+}
+```
 
 场景：集群定时任务，抢单，幂等性
 
@@ -917,7 +982,11 @@ if(lock.tryLock()){
 
 #### setnx (set if not exist)
 
-```
+这里key就是锁的名称，表示加锁的资源，key要唯一
+
+value是锁的唯一表示，通常设置为当前线程的唯一ID，UUID或者thread id
+
+```shell
 SET lock value NX EX 10 #放在一起保证原子性,这里NX互斥,EX超时
 DEL key #释放锁 
 ```
@@ -967,8 +1036,8 @@ if(isLock){
 >
 > 如果我们**直接用普通命令实现加锁**：
 >
-> ```
-> bashCopyEditSETNX myLock "thread-1"  # 尝试加锁
+> ```bash
+> SETNX myLock "thread-1"  # 尝试加锁
 > EXPIRE myLock 10          # 设置超时时间
 > ```
 >
@@ -977,7 +1046,7 @@ if(isLock){
 > - 如果 **在 `SETNX` 和 `EXPIRE` 之间** 发生 **线程崩溃** 或 **服务器宕机**，锁 **可能永远不会过期**（**死锁问题**）。
 > - **多个客户端可能同时加锁**，导致多个实例误认为自己持有锁。
 >
-> **✅ 解决方案：使用 Lua 脚本，一次性完成加锁 + 过期时间，保证原子性！
+> **解决方案：使用 Lua 脚本，一次性完成加锁 + 过期时间，保证原子性！**
 
 ### Lua脚本
 
@@ -1098,15 +1167,23 @@ IO多路复用，单线程监听多个socket
 
 ![](./Java/redis05.png)
 
-### 数据结构
+### 数据结构!!!!!!!!!!!!!!
 
-ZSET skiplist实现的？按照分数权重进行排序（有序的）,skiplist+hashmap(key:name,value:score)
+ZSET skiplist实现的？按照分数权重进行排序（有序的）,skiplist+hashmap(k:key,v:score，value)
 
-SET 无序唯一
+默认是skiplist+hashmap
 
-Hash
+当Zset的元素较少（小于一定阈值）时，使用压缩列表来节省内存 ziplist
 
-List **双向链表** 压缩链表？quicklist？
+SET 无序唯一，底层使用**哈希表**
+
+Hash，底层使用**哈希表**，通过字段和值的映射来存储
+
+**List** 是一个双向链表，它可以用来存储多个元素，支持在两端进行高效的插入和删除操作
+
+底层实现是Quicklist
+
+**压缩列表**：为了优化内存，`quicklist` 会将链表中的部分节点通过 **压缩列表**（ziplist）来存储。压缩列表是一个内存节省的结构，通过将多个小元素紧密存储在一起，提高空间利用率
 
 Redis 的列表有两个版本：
 
@@ -1117,17 +1194,27 @@ Redis 的列表有两个版本：
      - 折中了 **链表** 和 **压缩列表**。
      - 每段数据是压缩列表，中间用 **双向链表** 串起来，既支持快速插入删除，也省空间。
 
-String int raw？
+String 一个简单的键值对，其中键是字符串，值也可以是字符串、整数或浮点数
 
-string是key的值，value可以是string，int和float
-
-**普通字符串（Text）**：使用 **SDS**（Simple Dynamic String）格式存储。
+`String` 类型底层实现使用的是 **SDS（Simple Dynamic String）**SDS 是动态字符串，它的大小会根据需要自动增长或缩小
 
 Redis 会自动将数字类型的字符串（例如 `"100"`）存储为 **整数** 类型，节省内存
 
 如果字符串很长，Redis 就用 **`char[]`** 形式存储，也就是 **传统 C 字符串**。
 
 它是堆上的连续内存块，数据结构类似
+
+### Quicklist对于双向链表的改进（每个链表节点存了一个压缩列表）
+
+**Quicklist**是Redis对传统双向链表的优化
+
+每个双向链表节点都可以存储一个**压缩列表**（ziplist），而不是单纯的指针。
+
+压缩列表是一种紧凑的内存结构，用于节省空间，特别是在元素较少时。
+
+通过这种方式，Quicklist在双向链表的同时保持了**内存的高效性**和**速度**，并且对于频繁的增删操作具有较高的性能。
+
+ziplist就是三部分，len，type，content
 
 ### Redis如何测试
 
@@ -1138,7 +1225,9 @@ Redis 会自动将数字类型的字符串（例如 `"100"`）存储为 **整数
 
 ### 项目里的Redis
 
-查询商品、营业状态，高频的查询
+查询商品、营业状态，高频的查询，根据类别查询商品list
+
+这里opsForValue()就是string类型，然后这里返回List<DishVO>的存储格式会依据 `redisTemplate` 的序列化策略进行处理
 
 都是懒删除
 
@@ -1649,15 +1738,13 @@ A->B 1000
 
 串行化（Serializable）效率低下,安全性高,不能并发。解决幻读：查询时没有数据，插入时发现已经存在，好像出现幻觉
 
-行锁，间隙锁，范围锁，防止幻读
-
-幻读其实就是先后两次读的记录个数不一样
+行锁，间隙锁，范围锁，防止幻读（幻读其实就是先后两次读的记录个数不一样）
 
 ### undo log 和 redo log 回滚的时候用的
 
-**Undo Log**（未提交事务）：回滚到原始状态。
+**Undo Log**（未提交事务）：回滚到原始状态。一致性和原子性
 
-**Redo Log**（已提交事务）：重做确保数据一致。
+**Redo Log**（已提交事务）：重做确保数据一致。内存里没写disk的时候宕机要重新跑，持久性
 
 redo log保证了事务**的持久性**，undo log保证了事务的**原子性和一致性**
 
@@ -1693,6 +1780,35 @@ redo log是记录物理修改，undo log记录逻辑修改，通过逆操作恢�
 - 刷盘后，Dirty Page 变为 **Clean Page**。
 
 redo log buffer, redo log file, 事务改完后buffer写到disk里，因为是追加，是顺序磁盘io
+
+### Binlog 二进制的日志
+
+**Binlog** 是存储在磁盘上的
+
+数据格式
+
+**Statement-based replication (SBR)**
+
+- 记录SQL语句本身，表示对数据库的操作。优点是日志文件小，缺点是某些SQL语句在主从复制中可能无法正确执行。
+
+**Row-based replication (RBR)**
+
+- 记录每一行数据的变更，确保数据一致性。虽然比SBR更占空间，但更适合主从复制和容错。
+
+mixed就是两者结合起来
+
+### **Binlog和Redo Log的两阶段提交**
+
+**Binlog** 和 **Redo Log** 的两阶段提交主要用于确保数据库的一致性和恢复能力，特别是在事务处理时。
+
+1. **Binlog的两阶段提交**：
+   - **阶段1：写入Binlog**：事务在提交之前，首先会把操作写入Binlog，确保数据变动已经被记录。
+   - **阶段2：提交事务**：事务正式提交，在这个阶段，数据操作才会在数据库中生效，并且事务日志 **redo log**也被刷新到磁盘。
+2. **Redo Log的两阶段提交**：
+   - **阶段1：日志写入磁盘**：事务的操作首先写入Redo Log，确保在系统崩溃时可以恢复。
+   - **阶段2：数据更新**：真正的数据库操作会通过Undo Log（回滚日志）和Redo Log进行持久化。
+
+这种机制确保在事务提交过程中，日志先行写入，数据更新后才提交，这样即便发生崩溃，也能确保数据的一致性。
 
 ### WAL write ahead log 先写日志再修改数据
 
@@ -1771,6 +1887,10 @@ db2.user_2, db2.user_3
 
 ### MVCC
 
+快照读： 读取的是**历史版本的数据**，不加锁。依赖 MVCC（多版本并发控制），可以实现**非阻塞读**。普通的sql
+
+当前读：读最新版本，会加锁，防止其他事务修改，`select ... for update`、`update`、`delete`, 或者`SET`之类的
+
 事务隔离性->lock锁 or **MVCC多版本并发控制**
 
 隐藏字段，undo log日志，readView读视图
@@ -1778,6 +1898,8 @@ db2.user_2, db2.user_3
 - 隐藏字段是指：在mysql中给每个表都设置了隐藏字段，有一个是**trx_id**(事务id)，记录每一次操作的事务id，是自增的；另一个字段是**roll_pointer**(回滚指针)，指向上一个版本的事务版本记录地址 
 - undo log主要的作用是记录回滚日志，存储老版本数据，在内部会形成一个**版本链**，在多个事务并行操作某一行记录，记录不同事务修改数据的版本，通过roll_pointer指针形成一个链表 (事务提交后可被立即删除)， 头部新，尾部老
 - readView解决的是一个事务查询选择版本的问题，在内部定义了一些匹配规则和当前的一些事务id判断该访问那个版本的数据，不同的隔离级别**快照读** Snapshot Read是不一样的，最终的访问的结果不一样。如果是**rc隔离级别，每一次执行快照读时生成ReadView**，如果是**rr隔离级别仅在事务中第一次执行快照读时生成ReadView，后续复用**. Current Read当前读就是加锁的到最新版本，**读取的是最新数据**（不走 MVCC 快照）
+
+### Undo Log 里有什么
 
 ReadView访问规则
 
@@ -1876,6 +1998,14 @@ singleton的Bean会存在ApplicationContext/BeanFactory的内存中
 * 缓存处理
 * 记录日志
 * spring中内置事务处理
+
+### **动态代理的特点：**
+
+- 代理类在编译时并没有被明确创建，而是在运行时由 JVM 动态生成。
+- 代理对象和目标对象都实现相同的接口，代理对象通过反射调用目标对象的方法，执行增强操作。
+- Java 中有两种常见的动态代理方式：**JDK 动态代理** 和 **CGLIB 动态代理**。
+
+
 
 ### 我用过公共字段填充
 
@@ -3183,11 +3313,29 @@ class LRUCache extends LinkedHashMap<Integer,Integer>{
 
 bucket or slot，一般用linkedlist，或者改成RBT，可以防止DDoS攻击？
 
+### Hashcode() & equals()
+
+如果两个对象通过`equals()`方法认为是相等的，那么它们的`hashCode()`值也必须相等
+
+但**反过来不成立**：即两个对象的`hashCode()`相等，不一定意味着它们通过`equals()`比较相等
+
+在哈希表中查找时，先通过`hashCode()`找到可能的存储位置，再通过`equals()`判断对象是否相等。
+
+**存储时的位置不同：** `HashMap` 会根据对象的 `hashCode` 来确定存储位置。如果 `a.hashCode()` 和 `b.hashCode()` 不相同，`HashMap` 会认为它们是不同的对象，即使它们通过 `equals` 方法判断为相等。这会导致 `a` 和 `b` 被存储在不同的桶（bucket）中，甚至可能导致哈希冲突。
+
+**查找时的问题：** 当你尝试使用 `a` 或 `b` 作为键来查找值时，`HashMap` 会首先通过 `hashCode` 来定位位置。如果两个对象的 `hashCode` 不一致，`HashMap` 可能无法正确找到相等的对象，从而导致查找失败。
+
+`(h=key.hashCode())^(h>>>16);`
+
+`>>`算术位移，负数的右移操作会用符号位（`1`）填充空出来的位置，保持负数的符号不变
+
+`>>>`逻辑位移，即无论操作数的符号如何，都会用 `0` 填充空出来的位置，而不保留符号位
+
 ### HashMap
 
 hashmap same key （cover value）
 
-different key->put into 链表 or RBT (数组长度>64，链表长度>8转换成RBT) （RBT node<6 转成单链表）
+**different key->put into 链表** or **RBT** (数组长度>64，链表长度>8转换成RBT) （RBT node<6 转成单链表）
 
 jdk 1.7 or 1.8 HashMap区别，1.7数组+单链表, 1.8 单数组+链表+RBT
 
@@ -3513,7 +3661,7 @@ synchronized(LOCK){
 
 ### T1,T2,T3 顺序执行？
 
-方法一，T2里join T1，然后T3里join等T2
+#### 方法一，T2里join T1，然后T3里join等T2
 
 `t.join()` **会让当前线程等待 `t` 线程执行完成**，然后才继续执行当前线程后面的代码。
 
@@ -3540,7 +3688,7 @@ t2.start();
 t3.start();
 ```
 
-方法二 CompletableFuture
+#### 方法二 **CompletableFuture**
 
 ```java
 // 创建三个CompletableFuture对象
@@ -3558,51 +3706,47 @@ CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
 future.join();
 ```
 
-### 信号量Semaphore
+#### 信号量Semaphore!!!最好
 
-semaphore.acquire()
+如果300个thread顺序执行，就直接创建300个semaphore=new Semaphore(300);
 
-semaphore.release()
+semaphore[i].acquire()
+
+semaphore[i+1].release()
 
 ```java
 import java.util.concurrent.Semaphore;
 
-class SharedResource {
-    private Semaphore semaphore;
+public class SequentialThreads {
+    private static final int THREAD_COUNT = 300;
+    private static final Semaphore[] semaphores = new Semaphore[THREAD_COUNT];
 
-    public SharedResource(int maxConcurrentThreads) {
-        // 创建信号量，最大允许 maxConcurrentThreads 个线程同时访问
-        this.semaphore = new Semaphore(maxConcurrentThreads);
-    }
-
-    public void accessResource(int threadId) {
-        try {
-            // 获取信号量许可，若没有许可，则当前线程会被阻塞
-            semaphore.acquire();
-            System.out.println("Thread " + threadId + " is accessing the resource.");
-            // 模拟访问共享资源
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } finally {
-            // 释放信号量许可
-            System.out.println("Thread " + threadId + " has finished using the resource.");
-            semaphore.release();
-        }
-    }
-}
-
-public class SemaphoreExample {
     public static void main(String[] args) {
-        SharedResource resource = new SharedResource(3); // 最多允许 3 个线程同时访问资源
+        // 初始化信号量数组，第一个线程的信号量默认可用
+        for (int i = 0; i < THREAD_COUNT; i++) {
+            semaphores[i] = new Semaphore(i == 0 ? 1 : 0); // 只有第一个信号量可用
+        }
 
-        // 创建 5 个线程，模拟访问资源
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 0; i < THREAD_COUNT; i++) {
             final int threadId = i;
-            new Thread(() -> resource.accessResource(threadId)).start();
+            new Thread(() -> {
+                try {
+                    semaphores[threadId].acquire(); // 获取当前信号量
+                    System.out.println("Thread " + (threadId + 1) + " is executing...");
+                    Thread.sleep(100);  // 模拟任务
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } finally {
+                    // 释放下一个线程的信号量
+                    if (threadId + 1 < THREAD_COUNT) {
+                        semaphores[threadId + 1].release();
+                    }
+                }
+            }).start();
         }
     }
 }
+
 ```
 
 ### notify() & notifyAll()
@@ -3617,13 +3761,18 @@ notifyAll()唤醒所有
 
 notify必须要在synchronized块里用
 
+wait是需要持有对象锁，如果没有锁，直接用wait会
+
+- 如果线程不持有锁，调用 `wait()` 就没有锁可释放，逻辑上会矛盾，因此 Java 直接禁止这种行为。
+- 程序会抛出 `IllegalMonitorStateException` 运行时异常
+
 ```java
 Object lock = new Object();
 
 new Thread(() -> {
     synchronized (lock) {
         try {
-            lock.cwait(); // 等待
+            lock.wait(); // 等待
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -3795,6 +3944,16 @@ CAS 乐观锁，synchronize悲观锁
 本地方法 系统提供，c/c++实现的
 
 ### volatile
+
+`volatile`变量可以是堆上的对象字段，也可以是栈上的局部变量。关键是**共享性**，而不是位置。
+
+当一个变量声明为`volatile`时，JVM会通过**内存屏障**（memory barriers）来确保其修改对其他线程立即可见。
+
+对`volatile`变量的写操作不会被**缓存**，并且**强制刷新**到主内存。
+
+读操作直接从主内存读取，而不是从线程本地缓存（如CPU缓存、寄存器等）读取
+
+
 
 `@JCStressTest`
 
@@ -4170,6 +4329,10 @@ ThreadPoolExecutor executor = new ThreadPoolExecutor(
 
 ArrayBlockingQueue 线程安全，ReentrantLock
 
+在 `put` 和 `take` 等方法中，`ArrayBlockingQueue` 会在需要时自动获取 `ReentrantLock`。
+
+锁的加持是由 `ReentrantLock` 和 `Condition` 内部管理的，你无需显式地调用 `lock()` 或 `unlock()`，这些都会在队列操作中自动管理。
+
 LinkedBlockingQueue 两个锁，head，tail
 
 ### corePoolSize
@@ -4189,13 +4352,13 @@ Runtime.getRuntime().availableProcessors();
 
 低并发执行时间长->IO密集 (N*2+1), CPU密集就(N+1)
 
-高并发执行时间长 首先考虑缓存cache，增加server 然后再threadpool
+**高并发执行时间长 首先考虑缓存cache，增加server 然后再threadpool**
 
 java里IO比较多
 
 ### 不允许Executors，用ThreadPoolExecutor
 
-FixedThreadPool and SingleThreadPool blockingQueue最大`Integer.MAX_VALUE`，堆积request导致OOM
+FixedThreadPool and SingleThreadPool blockingQueue最大`Integer.MAX_VALUE`，堆积request导致OOM!!!!!
 
 CachedThreadPool允许创建thread最大`Integer.MAX_VALUE`，创建大量thread导致OOM
 
@@ -4299,13 +4462,13 @@ thread private register
 
 **存储当前线程正在执行的字节码指令地址**，**控制代码执行顺序**
 
-### Memory Structure
+### Memory Structure!!!!!! very Important
 
 **shared**: Heap, Method Area(Metaspace), Runtime Constant Pool
 
 !!Heap is shared, stores **object instance** and **array**, can throw `OutOfMemoryError`, can GC
 
-Stack is private, store local variable and method reference, can throw `StackOverFlowError`, cannot GC
+**Stack is private**, store **local variable and method reference**, can throw `StackOverFlowError`, cannot GC
 
 **虚拟机栈（JVM Stack）**：
 
@@ -4313,7 +4476,7 @@ Stack is private, store local variable and method reference, can throw `StackOve
 
 **本地方法栈（Native Stack）**：
 
-- 本地方法栈是专门为 **JVM 调用本地方法（native methods）** 时使用的栈。这个栈存储本地方法调用中的数据（例如 C/C++ 函数的调用）
+- 本地方法栈是专门为 **JVM 调用本地方法（native methods）** 时使用的栈。这个栈存储本地方法调用中的数据（例如 C/C++ **函数的调用**）
 
 **对象存放在堆中，虚拟机占存放着对象的地址**
 
@@ -4331,9 +4494,39 @@ Metaspace store class or constant, java7的方法区/永久代放在java8的Meta
 
 JDK 8 之后，JVM 使用 **Metaspace** 取代了 **永久代（PermGen）**
 
+### 堆heap结构
+
+young generation=eden+2*survivor
+
+old generation
+
+优化垃圾回收效率GC
+
+对象刚被创建时，通常分配在 **Eden** 区
+
+在 **Minor GC**（年轻代回收）时，**存活的对象**会被复制到 **Survivor** 区，然后根据年龄判断是否晋升到 **Old Generation**。
+
+对象经历多次回收后，如果仍然存活，就会从 Survivor 区晋升到 **Old Generation**
+
+### 分代回收策略
+
+新生代回收更频繁，年轻代的垃圾大部分是短生命周期的对象，回收频繁 （minor GC，快）
+
+而老年代的对象生命周期长，回收不频繁 （Full GC，就是young+old，慢）
+
+避免了长时间的停顿影响
+
+### 为什么要两个survivor
+
+存活的对象会被从 Eden 区复制到 Survivor 区。Survivor 区轮流使用，称为 S0 和 S1，确保每次 GC 都有一个空的 Survivor 区来接收幸存对象。
+
+**避免直接晋升到老年代**：如果只有一个 Survivor 区，频繁的 GC 会导致存活对象过早晋升到老年代，造成老年代过早的压力，从而增加 Full GC 的频率。
+
+**减少内存碎片**：每次 GC 都可以将对象从一个 Survivor 区复制到另一个 Survivor 区，并通过 Survivor 区之间的交换减少内存碎片。
+
 ### stack
 
-FILO, 每个线程有自己的独立的虚拟机stack，是线程安全的，由stack frame组成
+FILO, **每个线程有自己的独立的虚拟机stack，是线程安全的，由stack frame组成**
 
 stack里只能有一个活动stack frame，对应当前正在执行的那个方法
 
@@ -4351,8 +4544,8 @@ Stack memory size is **1024K**, so if total memory is 512m, it has 512 stack, if
 
 * class Metadata
 
-* runtime constant pool
-* 静态变量（`static` 修饰的变量）
+* **runtime constant pool**
+* **静态变量**（`static` 修饰的变量）
 
 jvm启动时创建，关闭释放
 
@@ -4396,8 +4589,6 @@ Constant pool:
    #2 = Utf8      Hello, World!
    #3 = Integer    10
 ```
-
-
 
 ### Direct Memory & NIO(New IO) & BIO(Blocking IO)
 
@@ -4445,7 +4636,31 @@ NIO **基于 Buffer 和 Channel** 的 IO 方式
 
 ### Parent Delegation Model 双亲委派机制
 
+解决类加载器之间的冲突问题，保证类加载的顺序和安全性
+
+**子类加载器** 会将类加载请求 **委派给父类加载器**，直到请求传递到最顶层的 **Bootstrap ClassLoader**，如果父类加载器无法加载类，则由子类加载器进行加载。
+
+**Bootstrap ClassLoader** 是 JVM 内置的类加载器，它负责加载 Java 核心库（如 `rt.jar`、`resources.jar` 等）。
+
+### **避免重复加载**
+
+通过委派机制，同一个类如果被不同的类加载器加载，会导致 **类加载冲突** 和 **重复加载**，使用双亲委派机制可以避免这类问题。
+
+### **保证核心类库的安全性**
+
+使用双亲委派机制，**核心类库（如 JDK 自带的类）由顶层加载器（Bootstrap ClassLoader）负责加载**，避免了用户自定义类加载器加载核心类库，降低了潜在的安全风险。例如，`java.lang.String` 类由 **Bootstrap ClassLoader** 加载，**自定义类加载器** 无法覆盖和篡改它。
+
+### **加载顺序明确**
+
+每个类加载器有一个明确的层级关系，避免了加载过程中的混乱和错误。
+
 类加载机制，当一个类加载器要加载一个类时，它会先委托给父类加载器去加载，只有当父类加载器找不到该类时，才由自身去加载。**防止重复加载**，防止核心类API `String`被篡改，确保稳定性
+
+### 失效
+
+自定义类加载器覆盖父类加载器的加载行为
+
+在多重类加载器中并行加载
 
 ### 类加载的过程
 
@@ -4480,7 +4695,7 @@ public class A extends B{
 
 存储在 JVM 的字符串常量池（String Pool）
 
-字符串对象一般存储在堆（Heap）收到GC管理
+**字符串对象**一般存储在堆（Heap）GC管理
 
 ```java
 String s1="hello";//constant
@@ -4528,7 +4743,7 @@ System.gc()
 ### 回收算法
 
 - 标记清除
-  根据可达性分析进行标记，再清除，碎片化内存不连续（不用）
+  根据**可达性分析进行标记**，再清除，碎片化内存不连续（不用）
 
 - 标记整理
   标记清除后，将存活对象都向内存一段移动（需要移动效率低）
@@ -4549,7 +4764,7 @@ Eden不足就复制到s1，然后释放内存
 
 ### MinorGC MixedGC FullGC
 
-STW暂停时间 stop the world
+**STW暂停时间 stop the world**
 
 MinorGC 在young gen，STW短
 
@@ -4557,7 +4772,7 @@ MixedGC在yound+old gen 部分区域回收，G1收集器特有？这个是什么
 
 FullGC在yound+old gen全局回收，STW长，（不要使用）
 
-### GC
+### GC!!!!!
 
 Serial GC串型，就这一个线程在回收
 
@@ -4567,15 +4782,26 @@ Parallel GC，default jdk8
 
 Parallel New复制 和 Parallel Old 标记整理，所有线程都STW
 
-CMS GC（Concurrent Mark-Sweep GC）
+**CMS GC（Concurrent Mark-Sweep GC）**
 
 ![](./Java/jvm4.png)
 
-G1 GC（Garbage First GC，jdk9 default）
+### G1 GC（Garbage First GC，jdk9 default）
 
-等二刷！
+**低延迟**和**高吞吐量**的垃圾回收器
 
-### Reference
+不区分区域，二刷讲heap分成多个region，每个region可以是eden，survivor，old
+
+多线程执行垃圾回收任务，提高回收效率
+
+采用并发标记（Concurrent Marking）和增量回收（Incremental Compaction），减少 GC 停顿时间。
+
+避免全堆压缩
+
+传统 GC 可能需要全堆压缩，而 G1 采用 **增量压缩**（Incremental Compaction），只对一部分区域进行回收，从而降低 STW（Stop-The-World）时间。增量回收类似redis里的scheduled deletion，**分批次处理**，避免一次性处理导致的长时间停顿。
+Garbage First is 追踪region的垃圾比例，优先回收垃圾多的区域，最大化回收效率
+
+### Reference!!!!!!
 
 ```java 
 System.gc();
@@ -4635,7 +4861,85 @@ static class Entry extends WeakReference<ThreadLocal<?>>{
 
 先加入引用队列，释放user，然后再释放 
 
-### JVM参数设置
+### 总结一下Reference
+
+#### Strong Reference
+
+对象不会被 GC 自动回收，除非没有任何引用指向它，用new创造的，除非置null
+
+#### Soft Reference（图片缓存、对象池）
+
+在内存不足时，JVM 会尝试回收软引用对象，适用于缓存场景，适用于 **`SoftReference<T>`** 类
+
+#### Weak Reference
+
+只要 GC 运行，弱引用对象就会被立即回收，适用于非必须对象，比如 ThreadLocal
+
+主要用于 **ThreadLocal、缓存、WeakHashMap** 等场景
+
+**ThreadLocal** 生命周期绑定到线程，线程销毁时随之销毁
+
+避免内存泄漏。实际上kv存到**ThreadLocalMap**里，`ThreadLocalMap` 是 `Thread` 内部的一个**弱键（WeakReference）哈希表**，key soft reference， value strong reference
+
+如果 `ThreadLocal` 被回收（因为它是 `WeakReference`），但 `ThreadLocalMap` 仍然持有 `Value`，会发生 **Key = null，Value 还存活** 的情况
+
+比如使用ThreadPool，线程不会结束，Threadlocal对象没有被手动remove()就一直存在threadlocalmap里，占用内存，同理长生命周期的ExecutorService线程不会立即销毁
+
+```java
+ThreadLocal<Integer> threadLocal = new ThreadLocal<>();
+try{
+  threadLocal.set(42);
+  Integer value=threadLocal.get();
+}finally{
+	threadLocal.remove()//每次调用完就删除
+}
+```
+
+即使 `ThreadLocal` 被 GC 了，`ThreadLocalMap` 也不会残留 `Value`，不会发生泄漏。
+
+**WeakHashMap**：键（Key）是弱引用，防止长期占用内存
+
+#### Phantom Reference
+
+对象随时都会被 GC 回收，主要用于检测对象何时被回收，配合 ReferenceQueue 处理资源释放
+
+虚引用对象 **无法通过 `get()` 方法获取**，总是返回 `null`
+
+主要用于**检测对象是否被回收**，配合 `ReferenceQueue` 使用
+
+适用于 **`PhantomReference<T>`** 类
+
+监测对象何时被回收，进行**资源清理**（如关闭文件、清理缓冲区
+
+```java
+import java.lang.ref.PhantomReference;
+import java.lang.ref.ReferenceQueue;
+
+public class PhantomReferenceExample {
+    public static void main(String[] args) {
+        ReferenceQueue<Object> queue = new ReferenceQueue<>();
+        PhantomReference<Object> phantomRef = new PhantomReference<>(new Object(), queue);
+
+        System.out.println(phantomRef.get()); // 总是返回 null
+
+        System.gc(); // 触发 GC
+        System.out.println(queue.poll() != null); // true，说明对象已被回收
+    }
+}
+```
+
+`WeakReference<Object> weakRef`
+
+`weakRef.get()` 回收了就null，没回收就非null
+
+```
+普通对象->强引用
+缓存对象->软引用
+短生命周期防止内存泄漏->弱引用
+资源管理清理->虚饮用
+```
+
+### JVM参数设置！！！
 
 ```
 nohup java -Xms512m -Xmx1024m -jar xxx.jar &
@@ -4645,19 +4949,45 @@ nohup java -Xms512m -Xmx1024m -jar xxx.jar &
 
 `-Xmx`堆的最大大小
 
+`-Xmn`：新生代大小（包括 Eden + Survivor）
+
+`-XX:NewRatio`：老年代和新生代比例
+
+`-XX:+UseG1GC`：启用 G1 垃圾回收器（推荐）java9默认G1！
+
+`-XX:+UseParallelGC`：多线程 GC（高吞吐）
+
+`-XX:+UseConcMarkSweepGC`（CMS）低延迟，但现在逐渐被 G1 替代
+
 虚拟机栈一般每个线程开1m memory，一般256k就足够
 
 `-Xss` stack的大小 `-Xss128k`
 
-`jps`
+`jps `类似于 Linux 的 `ps` 命令，但专门用于 Java 进程
 
-`jstack`
+`jstack` 查看线程堆栈的，常用于排查死锁、线程卡住等问题
+
+`jstack <pid>`：打印所有线程的堆栈信息。这里pid是进程id，查看当前进程的所有线程的堆栈信息
+
+`jstack -F <pid>`：强制生成线程堆栈（当普通命令被阻塞时）
+
+看线程卡在哪，可以根据 `BLOCKED`、`WAITING`、`RUNNABLE` 状态找瓶颈
+
+比如 `Deadlock detected` 就能快速定位死锁线程
 
 ```shell
 ps -eo pid,ppid,cmd,%cpu --sort=-%cpu | head
 ps H -eo pid,tid,%cpu | grep #process_id
 jstack #process_id
 ```
+
+`jmap` 是 JVM 提供的**堆内存分析工具**，主要用来查看内存使用情况和生成堆转储文件
+
+`jmap -heap <pid>`：查看堆内存分配情况，包括 Eden、Survivor、老年代、Metaspace。
+
+`jmap -histo <pid>`：打印堆中对象的实例数量、大小、类名，排查内存泄漏非常好用！
+
+`jmap -dump:format=b,file=heap_dump.hprof <pid>`：生成堆快照，配合 `MAT（Memory Analyzer Tool）` 分析内存泄漏。
 
 # Senario 2025.1.27
 
@@ -4692,7 +5022,37 @@ Animal animal = A.createAnimal();
 
 ### Chain of Responsibility Pattern
 
-等二刷
+### 为什么要用jwt而不是session和cookie呢
+
+#### **无状态认证 (Stateless Authentication)**
+
+- **JWT**：JWT 是无状态的，它的所有信息都包含在 token 本身，而不是存储在服务器端。这意味着服务器不需要维护任何状态信息，所有的认证数据都在客户端持有，每次请求都会携带 token。这样可以避免服务器端存储用户会话的负担。
+- **Session 和 Cookie**：传统的 **Session** 机制需要将会话信息存储在服务器端。每次客户端发起请求时，服务器必须查找并验证会话信息，增加了服务器的负担。如果是分布式环境（例如微服务架构），保持会话的一致性和同步会变得更加复杂
+
+#### **可扩展性**
+
+- **JWT**：JWT 在分布式环境下尤其有优势。由于 JWT 是无状态的，它不依赖于服务器端的会话存储，因此在多个服务之间进行认证时非常方便。例如，微服务架构中每个服务可以独立验证 JWT，而不需要访问集中式的会话存储。
+- **Session 和 Cookie**：在分布式系统中，Session 必须存储在共享的数据库或缓存中（如 Redis），并且每个请求必须从这个共享存储中读取 Session 信息，这可能会影响性能，尤其在高并发环境下。此外，Session 状态的一致性维护也较为复杂。
+
+#### **性能**
+
+- **JWT**：由于 JWT 不依赖于服务器端的会话存储，服务器每次接收到请求时只需要验证 JWT 是否有效，无需查找存储在数据库中的 Session 数据，这在性能上具有优势。
+- **Session 和 Cookie**：每次请求都需要读取服务器端存储的 Session 信息，这会增加服务器的负担，特别是在高并发情况下。会话存储的查找操作也会成为性能瓶颈。
+
+#### **跨域支持**
+
+- **JWT**：JWT 在跨域请求时更加灵活。JWT 可以通过 HTTP 请求头中的 Authorization 字段传递，这使得它能够跨越不同的域进行认证，尤其适合现代前后端分离的应用。
+- **Session 和 Cookie**：Cookie 通常依赖于浏览器发送，且默认只能与指定的域名进行交互，这使得跨域认证变得复杂。使用 Cookie 时，涉及到跨域请求时可能会遇到各种安全限制和复杂配置（如 CORS 策略）。
+
+#### **灵活性**
+
+- **JWT**：JWT 可以包含丰富的自定义数据，不仅限于认证信息，还可以包含用户角色、权限、过期时间等信息。这使得 JWT 成为一种自带认证信息的方便工具。它可以携带应用特定的元数据，减少额外的请求或数据库查询。
+- **Session 和 Cookie**：虽然 Session 也可以存储相关的认证信息，但这需要额外的存储操作，并且 Session 中的数据量通常有限，尤其是在性能要求较高的系统中，过多的会话数据存储可能会降低系统性能。
+
+#### **过期和刷新机制**
+
+- **JWT**：JWT 通常有 **过期时间**（`exp`），可以非常灵活地控制 token 的生命周期。过期后，用户必须重新认证或使用 **刷新 token** 来获取新的 JWT。这种机制使得管理认证更加灵活且简便。
+- **Session 和 Cookie**：Session 也有过期时间，但需要服务器端维护 Session 状态，并且当用户会话过期时，必须手动清理过期的会话数据，且这通常会增加服务器端的负担。
 
 ### JWT原理
 
@@ -4702,7 +5062,7 @@ JWT 本质上就是一组字串，通过（`.`）切分成三个为 Base64 编�
 
 ![JWT 组成](https://oss.javaguide.cn/javaguide/system-design/jwt/jwt-composition.png)
 
-Header,Payload,Signature
+Header,Payload,**Signature**
 
 Payload不加密，base64URL编码，Signature加密HS256非对称加密
 
@@ -4710,7 +5070,7 @@ JWT 通常是这样的：`xxxxx.yyyyy.zzzzz`
 
 JWT在POST login时返回，客户端（如浏览器）将JWT保存在`localStorage`或`sessionStorage`中，每次请求时将JWT放入`Authorization`头中发送给服务器。（联想postman里的Authrization的请求）
 
-与`sessionStorage`相比，存储在`localStorage`中的数据没有时间限制，即数据在用户关闭浏览器窗口或标签页后依然可以保持
+**与`sessionStorage`相比，存储在`localStorage`**中的数据没有时间限制，即数据在用户关闭浏览器窗口或标签页后依然可以保持
 
 也可以放在Cookie里
 
@@ -4846,7 +5206,16 @@ Authorization在Authentication后，RBAC是基于角色的鉴权机制
 
 ![](./Java/s2.png)
 
-### Cookie!!!!!得背
+### Cookie!!!!!+Session
+
+Session id可以用于识别用户信息（UUID/hashkey），会过期，过期了server就清除session id和信息了，如果id无效就创建新session
+
+如果希望用户在 Session 过期后仍能恢复登录状态，可以：
+
+1. **让 Cookie 记录一个长期有效的 Token**（如 JWT），用它来重新生成 Session
+2. Session 过期时，后端通过 Token 重新创建 Session
+
+
 
 `Cookie` 和 `Session` 都是用来跟踪浏览器用户身份的会话方式
 
