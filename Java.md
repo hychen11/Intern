@@ -4814,6 +4814,45 @@ System.gc()
 
   一分为二，交换两个内存大角色，无碎片但是内存使用率低（用的多）
 
+### 跨代引用的话如何处理
+
+如果新生代对象引用了老年代的对象，就需要**扫描整个老年代找指向新生代的引用**，这就很慢，得不偿失。
+
+记忆集（Remembered Set）+ 卡表（Card Table）
+
+#### Card Table（卡表）
+
+堆内存被划分成很多小块（通常是 512 字节为一个单位，叫一个 card）。
+
+每当一个老年代对象 **写入一个字段，且这个字段指向新生代对象时**，就会：
+
+- 把对应 card 的状态标记为“脏”（dirty）；
+- 记录这个 card 被修改过。
+
+这个过程靠的是 **“写屏障（Write Barrier）”**，即写引用时执行额外的逻辑。
+
+#### **Remembered Set（记忆集）**
+
+每个 Region 都维护一个 **记忆集（RSet）**，记录哪些其他 Region 有对象引用了这个 Region 的对象。
+
+- 如果一个老年代 Region 的对象引用了新生代 Region 中的对象，新生代 Region 的 RSet 就会记录这个引用。
+- 在 GC 时，**只需要扫描 RSet 指向的新 Region**，而不是全堆遍历，极大地优化了性能。
+
+```
+GC Root
+  ↓
+[Minor GC 开始扫描 新生代 Region-Y1]
+  ↓
+[查找 Region-Y1 的 RSet]
+  ↓
+[发现 Region-O1 中的 Card #1 是脏的，有指向我的引用]
+  ↓
+[只扫描 Region-O1 中 Card #1 范围的对象]
+  ↓
+[找到了 oldObj.field -> youngObj，youngObj 是活的]
+
+```
+
 ### 分代回收
 
 Eden/s1/s0 8:1:1和old gen, new:old=1:2
