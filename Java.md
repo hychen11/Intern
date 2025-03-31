@@ -1,4 +1,4 @@
-**ArrayList线程安全** → 默认**不安全**，可以用`Collections.synchronizedList`或者`CopyOnWriteArrayList`加锁
+**ArrayList线程安全吗** → 默认**不安全**，可以用`Collections.synchronizedList`或者`CopyOnWriteArrayList`加锁
 
 **throw vs throws**：
 
@@ -7,12 +7,12 @@
 
 throws在函数名边上，throw就正常抛出
 
-**接口 vs 抽象类**：
+**接口 vs 抽象类!!!!!!**
 
 - 接口只能有**默认方法（default）**、**静态方法**，不能有实例变量
 - 抽象类可以有方法实现、成员变量
 
-#### redisions 参数
+#### redissons 参数
 
 ```
 SET lock:user123 "locked" NX EX 5
@@ -21,15 +21,52 @@ SET key value NX EX 10
 
 # Filter和Interceptor!!!!!!!
 
-Interceptor **Spring**层面（基于AOP思想，拦截的是Controller）
+**Filter 是“Servlet 管”，Interceptor 是“Spring 管”；Filter 管得更底层，Interceptor 更贴近业务**
 
-只拦截Controller层
+运行顺序不同，Filter在请求发出到Servlet之间，Interceptor是Servlet到controller之间
+
+配置方式不同，Filter webxml，Interceptor spring 配置文件配置，比如JWTInterceptor，或者注解方法
+
+Filter依赖Servlet容器，Interceptor不依赖
+
+Filter只对Request，Response操作
+
+Interceptor对Request，Response，handler，modelAndView，exception
+
+Interceptor **Spring**层面（基于AOP思想，拦截的是Controller）只拦截Controller层
 
 **按注册顺序执行**，`preHandle -> Controller -> postHandle -> afterCompletion`
 
-Filter **Servlet**层面（在请求进入Servlet前、响应返回客户端前处理）
+Filter **Servlet**层面（在请求进入Servlet前、响应返回客户端前处理）**可以拦截所有请求**（包括静态资源，比如CSS、JS）
 
-**可以拦截所有请求**（包括静态资源，比如CSS、JS）
+```
+客户端请求
+   ↓
+Filter（过滤器，Servlet层面）
+   ↓
+Servlet（DispatcherServlet）
+   ↓
+Interceptor.preHandle（拦截器前置逻辑）
+   ↓
+Controller（真正处理请求）
+   ↓
+Interceptor.postHandle（拦截器后置逻辑，controller执行成功后调用）
+   ↓
+视图渲染（ModelAndView）
+   ↓
+Interceptor.afterCompletion（请求结束后，不管成功/异常，都会执行）
+   ↓
+Filter（响应返回前）
+   ↓
+客户端接收响应
+```
+
+**Controller 返回的是业务处理的“结果”**，这个结果可能是：
+
+- JSON 数据（给前端 API 的）
+- 页面名（跳转到某个模板页面）
+- 视图对象（Spring MVC 自动渲染）
+- 甚至什么都不返回（比如上传接口）
 
 # Java basic
 
@@ -663,49 +700,6 @@ submit 提交一个task返回`Future`， `future.get()` 方法，可以阻塞当
 
 # Redis 2025.01.12 3.1二刷
 
-### innodb如何实现事务隔离级别的？不同隔离级别下锁隔离机制有什么不同？
-
-InnoDB 使用多种机制来实现事务的 **隔离级别**，包括 **锁机制**、**MVCC**
-
-MVCC 允许数据库在 **没有锁的情况下** 实现并发读操作，提高了事务的并发性和性能
-
-- **共享锁(S锁)**：允许并发读，阻止其他事务获取排他锁
-- **排他锁(X锁)**：阻止其他事务获取任何锁
-- **意向锁(IS/IX)**：表级锁，表明事务将在行上获取S或X锁
-- **间隙锁(Gap Lock)**：锁定索引记录间的间隙
-- **临键锁(Next-Key Lock)**：记录锁+间隙锁的组合
-
-#### READ UNCOMMITTED
-
-- 不加任何读锁
-- 写操作仍需要X锁
-- 可能脏读，性能最高但一致性最差
-
-#### READ COMMITTED
-
-- **SELECT**：使用MVCC，不加锁(快照读)
-- **UPDATE/DELETE**：
-  - 对扫描到的记录加X锁
-  - 不持有间隙锁(可能导致幻读)
-- **current read**(SELECT...FOR UPDATE)：
-  - 只锁定符合条件的现有记录(无间隙锁)
-
-#### REPEATABLE READ (MySQL默认)
-
-- **SELECT**：使用MVCC，首次读取建立一致性视图
-- **UPDATE/DELETE**：
-  - 使用Next-Key Lock锁定扫描范围内的记录和间隙
-  - 防止幻读(在索引上)
-- **锁定读**：
-  - 使用Next-Key Lock锁定记录和间隙
-  - 唯一索引等值查询退化为记录锁
-
-#### SERIALIZABLE
-
-- 所有普通SELECT自动转为SELECT...FOR SHARE
-- 使用Next-Key Lock范围锁定
-- 并发度最低，完全串行化
-
 SpringCache是一种集成多种缓存方案的接口，是一层抽象层
 
 启动类加上`@EnableCaching`
@@ -1204,6 +1198,8 @@ Redis 会自动将数字类型的字符串（例如 `"100"`）存储为 **整数
 
 它是堆上的连续内存块，数据结构类似
 
+
+
 ### Quicklist对于双向链表的改进（每个链表节点存了一个压缩列表）
 
 **Quicklist**是Redis对传统双向链表的优化
@@ -1215,6 +1211,22 @@ Redis 会自动将数字类型的字符串（例如 `"100"`）存储为 **整数
 通过这种方式，Quicklist在双向链表的同时保持了**内存的高效性**和**速度**，并且对于频繁的增删操作具有较高的性能。
 
 ziplist就是三部分，len，type，content
+
+### 为什么用skiplist而不是B+树，RBT呢
+
+skiplist**范围查找**快，RBT范围查找需要中序遍历，效率低
+
+skiplist插入删除逻辑比红黑树简单，维护成本低
+
+skiplist**支持顺序遍历**，有“链表结构”，顺序访问效率高（比如 `ZRANGE`）
+
+跳表用多级索引结构，有冗余，但读写更快
+
+跳表结构易于实现 lock-free 并发结构
+
+Redis 是 **内存数据库**，不需要像 B+ 树那样做“磁盘友好”的优化
+
+Redis 追求极致性能，高频插入中跳表的**写性能更稳定**
 
 ### Redis如何测试
 
@@ -1264,6 +1276,59 @@ ziplist就是三部分，len，type，content
 **Netty**里也用 **DirectBuffer**（堆外内存）实现零拷贝
 
 # Mysql 2025.1.19 3.10二刷
+
+### B+树 SSD还有优势吗
+
+SSD 随机访问性能提
+
+B+树一个page可以存上百个索引，IO次数少（很关键），因为SSD还是比内存慢
+
+适合范围索引
+
+SSD可以用LSM树RocksDS，适合写多读少的场景
+
+### innodb如何实现事务隔离级别的？不同隔离级别下锁隔离机制有什么不同？
+
+InnoDB 使用多种机制来实现事务的 **隔离级别**，包括 **锁机制**、**MVCC**
+
+MVCC 允许数据库在 **没有锁的情况下** 实现并发读操作，提高了事务的并发性和性能
+
+- **共享锁(S锁)**：允许并发读，阻止其他事务获取排他锁
+- **排他锁(X锁)**：阻止其他事务获取任何锁
+- **意向锁(IS/IX)**：表级锁，表明事务将在行上获取S或X锁
+- **间隙锁(Gap Lock)**：锁定索引记录间的间隙
+- **临键锁(Next-Key Lock)**：记录锁+间隙锁的组合
+
+#### READ UNCOMMITTED
+
+- 不加任何读锁
+- 写操作仍需要X锁
+- 可能脏读，性能最高但一致性最差
+
+#### READ COMMITTED
+
+- **SELECT**：使用MVCC，不加锁(快照读)
+- **UPDATE/DELETE**：
+  - 对扫描到的记录加X锁
+  - 不持有间隙锁(可能导致幻读)
+- **current read**(SELECT...FOR UPDATE)：
+  - 只锁定符合条件的现有记录(无间隙锁)
+
+#### REPEATABLE READ (MySQL默认)
+
+- **SELECT**：使用MVCC，首次读取建立一致性视图
+- **UPDATE/DELETE**：
+  - 使用Next-Key Lock锁定扫描范围内的记录和间隙
+  - 防止幻读(在索引上)
+- **锁定读**：
+  - 使用Next-Key Lock锁定记录和间隙
+  - 唯一索引等值查询退化为记录锁
+
+#### SERIALIZABLE
+
+- 所有普通SELECT自动转为SELECT...FOR SHARE
+- 使用Next-Key Lock范围锁定
+- 并发度最低，完全串行化
 
 ### SQL执行流程
 
@@ -3943,7 +4008,25 @@ CAS 乐观锁，synchronize悲观锁
 
 本地方法 系统提供，c/c++实现的
 
+### AtomicInteger
+
+`Atomic` 或 `synchronized`
+
+基于 CAS 实现，轻量级原子操作
+
+`AtomicInteger count = new AtomicInteger(0);`
+
 ### volatile
+
+```java
+volatile int count = 0;
+count++; // 实际上是三个操作：
+1. 读取 count
+2. count + 1
+3. 将结果写回 count
+```
+
+本身并不能保证线程安全，保证**变量的可见性**和**防止指令重排序**。但是，它**不能保证原子性**
 
 `volatile`变量可以是堆上的对象字段，也可以是栈上的局部变量。关键是**共享性**，而不是位置。
 
@@ -3953,11 +4036,7 @@ CAS 乐观锁，synchronize悲观锁
 
 读操作直接从主内存读取，而不是从线程本地缓存（如CPU缓存、寄存器等）读取
 
-
-
 `@JCStressTest`
-
-保证**变量的可见性**和**防止指令重排序**。但是，它**不能保证原子性**
 
 **可见性**：当一个线程修改了被 `volatile` 修饰的变量的值，其他线程可以立即看到这个修改。换句话说，`volatile` 保证了 **线程之间对变量值的同步更新**。
 
@@ -3986,7 +4065,7 @@ r.r2=y;
 
 ### AQS AbstractQueuedSynchronizer
 
-**抽象队列同步器，是一种锁机制**，内部是有一个state(0可以获取锁，1就得进入队列）和一个FIFO的双向队列
+**抽象队列同步器，是一种锁机制**，内部是有一个state(0可以获取锁，1就得进入队列）和一个FIFO的双向队列，这个双向队列是不加锁的！通过CAS实现锁机制
 
 - ReentrantLock 阻塞式锁
 - Semaphora 信号量
@@ -4352,15 +4431,82 @@ Runtime.getRuntime().availableProcessors();
 
 低并发执行时间长->IO密集 (N*2+1), CPU密集就(N+1)
 
+### 为什么IO密集就N*2+1呢？
+
+因为一般线程可以IO操作，但是因为CPU空闲，因此可以还可以一边干别的事情
+
 **高并发执行时间长 首先考虑缓存cache，增加server 然后再threadpool**
 
 java里IO比较多
 
-### 不允许Executors，用ThreadPoolExecutor
+### 一个4核的cpu，可以分配多少线程？
+
+```java
+int coreNum = Runtime.getRuntime().availableProcessors(); // 4
+ExecutorService cpuPool = Executors.newFixedThreadPool(coreNum);
+```
+
+**可以创建非常非常多的线程数量，只要内存够，但每个线程占用一定栈空间（通常 ~1MB**），所以：
+
+> ✅ 线程数 = “合理利用资源的数量”
+>  ❌ ≠ “最大能创建的线程数”
+
+你可以创建很多线程，但太多会导致：
+
+- 上下文切换频繁，反而效率低
+- 内存消耗大
+- 稳定性差（可能OOM）
+
+### 线程本质是什么？
+
+一个4核cpu，物理线程只有8个，但是软件线程，用户线程可以创建上千个
+
+软件线程：由操作系统或程序自己创建的执行路径，远远多于物理线程。
+
+>  操作系统支持**多线程调度**。
+>
+> 操作系统有调度器（Scheduler），它使用**时间片轮转（Time Slicing）**来实现“看起来是并发”的运行。
+>
+> - 比如你有1000个线程，但只有8个物理线程可用。
+> - OS会快速切换这些线程的执行状态，每个线程占用CPU一点点时间。
+> - 人眼和大多数程序感知不到这种“切换”，所以就像是“并发”运行。
+>
+> **结论**：线程 ≠ 物理线程。线程是逻辑抽象，可以多于物理核心，依靠OS调度实现并发。
+
+`ulimit -a` 查看一个进程最多可以开多少个线程
+
+### user线程和kernel线程
+
+user上下文切换都在user，快，切换开销小，某个用户线程崩溃可能导致整个进程挂掉
+
+kernel切换要陷入内核态，慢，切换开销大
+
+### 线程模型
+
+#### 1:1 模型（一个用户线程对一个内核线程）
+
+- 常见于 Linux 上的 `pthread` 实现。
+- 每个线程都由内核管理，能充分利用多核。
+- 缺点：创建/销毁线程成本高、系统资源消耗大。
+
+#### **M:1 模型（多个用户线程对应一个内核线程）**
+
+- 全部在用户空间管理，切换快。
+- 缺点：**一个线程阻塞，整个进程挂住**（因为共享一个内核线程）
+
+#### **M:N 模型（多个用户线程映射到多个内核线程）**
+
+- 更加灵活，可以在用户空间高效调度，同时利用多核。
+- 实现复杂，调度器需要和内核配合。
+- 例子：Go 协程（Goroutines）、早期 Java 绿色线程（Green Threads）、Rust async 任务等。
+
+### 不允许Executors，用ThreadPoolExecutor!!!OOM
 
 FixedThreadPool and SingleThreadPool blockingQueue最大`Integer.MAX_VALUE`，堆积request导致OOM!!!!!
 
 CachedThreadPool允许创建thread最大`Integer.MAX_VALUE`，创建大量thread导致OOM
+
+
 
 ## Senario
 
@@ -4396,9 +4542,11 @@ try{
 
 ### 项目里的ThreadLocal
 
-jwt前端登录请求，得到jwt令牌，然后通过jwt解析出员工id
+jwt前端登录请求，得到jwt令牌，存在localstorage里，后面请求都会带上这个token，在后端被intercepter 拦截后解析出员工id，存入threadlocal，BaseContext.save....然后在这次请求里，可以通过threadlocal可以访问用户信息，而不用通过数据库去查询，JWT是无状态的，不像session在server是有状态的
 
-interceptor会解析出id存入threadlocal，BaseContext.save....然后在这次请求里，可以通过threadlocal可以访问用户信息，而不用通过数据库去查询，JWT是无状态的，不像session在server是有状态的
+**ThreadLocalMap**
+
+Threadlocalmap里key就是threadlocal对象，value就是员工id！
 
 ThreadLocal 数据在请求结束时会释放，但有坑——如果线程池重用线程，ThreadLocal 可能残留旧数据。
 
@@ -4786,7 +4934,29 @@ Parallel New复制 和 Parallel Old 标记整理，所有线程都STW
 
 ![](./Java/jvm4.png)
 
+适合低延迟场景
+
+并发回收老年代（不会 stop-the-world 很久）
+
+缺点：
+
+- **容易产生碎片**
+- **多阶段 STW**
+- 会发生**"失败回收" → 退化为 Full GC（单线程）**
+
+### 什么时候退化
+
+回收线程太慢 → 老年代内存不足
+
+并发标记阶段没完成就触发 GC
+
+老年代碎片太多，无法分配大对象
+
+退化后会走 `Serial Old GC`，**单线程、耗时长、卡顿大**
+
 ### G1 GC（Garbage First GC，jdk9 default）
+
+并发 + 增量回收，**延迟可预测**。有自己的内部算法，避免碎片化，支持“混合回收”：Young + Old 一起回收
 
 **低延迟**和**高吞吐量**的垃圾回收器
 
@@ -4800,6 +4970,10 @@ Parallel New复制 和 Parallel Old 标记整理，所有线程都STW
 
 传统 GC 可能需要全堆压缩，而 G1 采用 **增量压缩**（Incremental Compaction），只对一部分区域进行回收，从而降低 STW（Stop-The-World）时间。增量回收类似redis里的scheduled deletion，**分批次处理**，避免一次性处理导致的长时间停顿。
 Garbage First is 追踪region的垃圾比例，优先回收垃圾多的区域，最大化回收效率
+
+可以通过设置`-XX:MaxGCPauseMillis=100`
+
+它动态决定：“我这次 GC 该回收多少块，才能控制在 100ms 内完成？”
 
 ### Reference!!!!!!
 
@@ -5064,7 +5238,11 @@ JWT 本质上就是一组字串，通过（`.`）切分成三个为 Base64 编�
 
 Header,Payload,**Signature**
 
-Payload不加密，base64URL编码，Signature加密HS256非对称加密
+Payload不加密，base64URL编码，Signature加密HS256**非对称加密**
+
+`signature = HMAC_SHA256( base64Url(header) + "." + base64Url(payload), secret )`
+
+这里服务端只存一个secret key就行，然后解析signature，对比查看header和payload
 
 JWT 通常是这样的：`xxxxx.yyyyy.zzzzz`
 
