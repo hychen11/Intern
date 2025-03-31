@@ -203,70 +203,14 @@ myArray=myString.toCharArray();
 **`Integer`** 是 **`int`** 的封装类，属于 **引用类型**。它是一个类，可以将基本类型 `int` 包装成一个对象
 
 ```java
-Integer.valueOf(10);
 //int to string
 String.valueOf(num);
 Integer.toString(num);
 
 //string to int
 Integer.parseInt(str);
+Integer.valueOf(str);
 ```
-
-#### Final
-
-`final` 含义是这是最终的、不可更改的结果，被 `final` 修饰的变量只能被赋值一次，赋值后不再改变。
-
-#### String
-
-String is final, cannot inherit
-
-String is Object! is not datatype!!
-
-`==` compare the **same object!** rather than value!
-
-`str1.equals(str2)`
-
-```java
-public class StringComparison {
-    public static void main(String[] args) {
-        String str1 = "hello";
-        String str2 = "HELLO";
-        String str3 = "world";
-        String str4 = new String("hello");
-
-        // 使用 == 运算符
-        System.out.println("Using == :");
-        System.out.println(str1 == str2); // false
-        System.out.println(str1 == str4); // false
-
-        // 使用 equals() 方法
-        System.out.println("Using equals() :");
-        System.out.println(str1.equals(str2)); // false
-        System.out.println(str1.equals(str4)); // true
-
-        // 使用 equalsIgnoreCase() 方法
-        System.out.println("Using equalsIgnoreCase() :");
-        System.out.println(str1.equalsIgnoreCase(str2)); // true
-
-        // 使用 compareTo() 方法
-        System.out.println("Using compareTo() :");
-        System.out.println(str1.compareTo(str2)); // 32 (根据Unicode值的差值)
-        System.out.println(str1.compareTo(str3)); // -15 (根据Unicode值的差值)
-
-        // 使用 compareToIgnoreCase() 方法
-        System.out.println("Using compareToIgnoreCase() :");
-        System.out.println(str1.compareToIgnoreCase(str2)); // 0
-        System.out.println(str1.compareToIgnoreCase(str3)); // -15
-    }
-}
-
-```
-
-String to Integer
-
-`Integer.parseInt()`, `Integet.valueOf()`, 传入char就输出ASCII值，传入string就。
-
-`String.valueOf()`, `Integer.toString()`
 
 #### Scanner
 
@@ -397,49 +341,11 @@ public class Test {
 
 **Dog a = new Animal();**: 这种写法在 Java 中是不允许的，因为 `Animal` 是 `Dog` 的父类，不能把父类对象赋值给子类引用。这会导致编译错误。
 
-### Multithreading
-
-```java
-public class MultiThreadExample {
-    public static void main(String[] args) {
-        // 创建并启动第一个线程(use interface Runnable)
-        Thread thread1 = new Thread(new MyRunnable(), "Thread 1");
-        thread1.start();
-
-        // 创建并启动第二个线程(use extends Threads)
-        Thread thread2 = new MyThread("Thread 2");
-        thread2.start();
-    }
-
-    // 实现 Runnable 接口的类
-    static class MyRunnable implements Runnable {
-        public void run() {
-            System.out.println(Thread.currentThread().getName() + " is running");
-        }
-    }
-
-    // 继承 Thread 类的子类
-    static class MyThread extends Thread {
-        public MyThread(String name) {
-            super(name);
-        }
-
-        public void run() {
-            System.out.println(Thread.currentThread().getName() + " is running");
-        }
-    }
-}
-```
-
-#### States
-
-including `NEW`, `RUNNABLE`, `BLOCKED`, `WAITING`, `TIMED_WAITING`, and `TERMINATED`
-
-Threads can be assigned priorities ranging from 1 to 10. The default priority is 5
-
 #### interrupt & join
 
 当线程调用 `interrupt` 方法时，如果线程处于阻塞状态（如 `sleep`、`wait`、`join` 等），会抛出 `InterruptedException` 异常，如果线程没有处于阻塞状态，会设置线程的中断标志
+
+这里主线程运行t2.join()就是主线程等待t2执行完成
 
 ```java
 public class InterruptExample {
@@ -603,13 +509,7 @@ public class JDBCDemo {
 }
 ```
 
-# SSM
 
-**Spring**：核心框架，提供依赖注入（Inversion of Control, IoC）和面向切面编程（Aspect-Oriented Programming, AOP）等功能，用于管理整个应用的对象生命周期和事务管理。
-
-**SpringMVC**：Spring 框架中的 MVC 模块，用于构建 Web 应用程序，处理 HTTP 请求并返回响应，遵循 Model-View-Controller 设计模式。
-
-**MyBatis**：一个持久层框架，用于简化与数据库的交互。相比于 Hibernate 等 ORM 框架，MyBatis 提供了更细粒度的 SQL 操作控制，开发者可以编写自己的 SQL 语句。
 
 ## Sping
 
@@ -725,8 +625,6 @@ public void deleteAll(){
     userMapper.deleteAll();
 }
 ```
-
-
 
 场景：缓存，分布式锁，计数器，保存token，消息队列MQ，延迟队列
 
@@ -911,7 +809,7 @@ lfu linklist+hashmap+freq_hashmap
 
 ### DCL（Distributed Cache Lock）
 
-**加锁时，最重要的是\保证分布式系统中的锁的唯一性和可用性**。核心问题包括：
+**加锁时，最重要的是保证分布式系统中的锁的唯一性和可用性**。核心问题包括：
 
 - **锁的公平性**：确保多个请求能公平地获取锁，而不至于某些请求饿死。
 - **死锁避免**：加锁时需要避免死锁，通常通过锁超时、锁竞争机制等来防止。
@@ -1072,6 +970,14 @@ redis主要保证AP，也就是高可用性，说白了就是redis解决不了�
 
 如果一定要强一致性，就采用**zookeeper**实现的分布式锁，可以CP
 
+zookeeper是读多写少，因为leader和follower都可以读，顺序一致性
+
+raft是
+
+- 严格保证**线性一致性**
+- 简化状态机复制逻辑
+- 所有操作有序通过Leader
+
 ### 集群方案
 
 高并发读：主从集群，高可用：哨兵集群，高并发写：分片集群
@@ -1198,8 +1104,6 @@ Redis 会自动将数字类型的字符串（例如 `"100"`）存储为 **整数
 
 它是堆上的连续内存块，数据结构类似
 
-
-
 ### Quicklist对于双向链表的改进（每个链表节点存了一个压缩列表）
 
 **Quicklist**是Redis对传统双向链表的优化
@@ -1243,6 +1147,15 @@ Redis 追求极致性能，高频插入中跳表的**写性能更稳定**
 
 都是懒删除
 
+```java
+RedisTemplate redisTemplate= new RedisTemplate();
+// 设置连接工厂
+redisTemplate.setConnectionFactory(redisConnectionFactory);
+// 设置key的序列化器
+redisTemplate.setKeySerializer(new StringRedisSerializer());
+// 设置value的序列化器
+```
+
 # Zero-Copy零拷贝
 
 传统IO流程：
@@ -1254,6 +1167,8 @@ Redis 追求极致性能，高频插入中跳表的**写性能更稳定**
 如何避免用户态和内核态拷贝？
 
 #### mmap
+
+按需加载，而不是一次性拷贝！！！lazy load
 
 将文件直接映射到用户空间的内存中，应用程序可以直接访问文件数据，而无需将数据拷贝到用户缓冲区
 
@@ -1619,7 +1534,7 @@ MySQL **无法强制使用一个不存在的索引**
 
 ### 多个索引如何存储
 
-**多个索引** 时，MySQL 为每个索引 **创建一棵独立的 B+ 树**
+**多个索引** 时，MySQL 为每个索引 **创建一棵独立的 B+ 树** 除了主键
 
 **主键索引（聚簇索引）**：完整数据行存储在叶子节点
 
@@ -1669,7 +1584,7 @@ SELECT * FROM users WHERE name LIKE 'John%';
 
 ### 数据库主键自增
 
-序号生成策略可以有多种方法，如使用雪花算法，UUID，或者数据库自增
+序号生成策略可以有多种方法，如使用**雪花算法，UUID**，或者数据库自增
 
 分库分表会重复
 
@@ -1732,7 +1647,7 @@ SELECT * FROM users WHERE name LIKE 'John%';
     #这里的status是范围查询,右边的address Miss
     ```
 
-- 不要在索引列上进行运算操作
+- 不要在索引列上进行运算操作 or？
 
 - 字符串不加单引号（数字类型与String类型的 ‘0’）
 
@@ -1827,7 +1742,7 @@ redo log是记录物理修改，undo log记录逻辑修改，通过逆操作恢�
 - **Dirty Page**：指 **被修改但未写回磁盘** 的数据页。
 - 事务提交 **不会立即刷盘**，数据可能仍在 Buffer Pool 里。
 
-**日志记录 (WAL)**：
+**日志记录 (WAL)**：Write-Ahead Logging
 
 - **事务修改的数据** 会先写入 **Redo Log**（持久化到磁盘），确保即使宕机，也能恢复数据。
 - **WAL 规则**：日志必须先写入磁盘，再修改 Buffer Pool 里的数据。
@@ -1845,6 +1760,8 @@ redo log是记录物理修改，undo log记录逻辑修改，通过逆操作恢�
 - 刷盘后，Dirty Page 变为 **Clean Page**。
 
 redo log buffer, redo log file, 事务改完后buffer写到disk里，因为是追加，是顺序磁盘io
+
+![](./Java/java1.png)
 
 ### Binlog 二进制的日志
 
@@ -1864,16 +1781,13 @@ mixed就是两者结合起来
 
 ### **Binlog和Redo Log的两阶段提交**
 
-**Binlog** 和 **Redo Log** 的两阶段提交主要用于确保数据库的一致性和恢复能力，特别是在事务处理时。
+undo log 数据修改前写
 
-1. **Binlog的两阶段提交**：
-   - **阶段1：写入Binlog**：事务在提交之前，首先会把操作写入Binlog，确保数据变动已经被记录。
-   - **阶段2：提交事务**：事务正式提交，在这个阶段，数据操作才会在数据库中生效，并且事务日志 **redo log**也被刷新到磁盘。
-2. **Redo Log的两阶段提交**：
-   - **阶段1：日志写入磁盘**：事务的操作首先写入Redo Log，确保在系统崩溃时可以恢复。
-   - **阶段2：数据更新**：真正的数据库操作会通过Undo Log（回滚日志）和Redo Log进行持久化。
+redo log数据修改时
 
-这种机制确保在事务提交过程中，日志先行写入，数据更新后才提交，这样即便发生崩溃，也能确保数据的一致性。
+binlog 事务提交时
+
+如果事务回滚binlog已经写了，就会主从不一致
 
 ### WAL write ahead log 先写日志再修改数据
 
@@ -2513,7 +2427,7 @@ public class UserController {
 
 `@Component`**通用组件**标记为 Spring 组件，默认被扫描（如果需要 `@Bean`）
 
-`@Service`  **Service 层**  业务逻辑类，语义清晰
+`@Service`  **Service 层**业务逻辑类，语义清晰
 
 `@Repository`**DAO 层**数据访问层，异常转换
 
@@ -4974,6 +4888,48 @@ Garbage First is 追踪region的垃圾比例，优先回收垃圾多的区域，
 可以通过设置`-XX:MaxGCPauseMillis=100`
 
 它动态决定：“我这次 GC 该回收多少块，才能控制在 100ms 内完成？”
+
+### 分配大对象
+
+G1 对于**大于 Region 一半大小（>RegionSize / 2）的对象**，会直接放入 **连续的多个 Region 中**，称为 **Humongous Object**。
+
+> 例如，Region 大小是 4MB，一个 3MB 的对象就要占用连续的 Humongous Region。
+
+如果内存里虽然空 Region 很多，但它们是 **不连续的**，就可能：
+
+- 无法找到一段 **连续的空闲 Region**
+- 导致 **大对象分配失败**
+- 引发 **Full GC**
+
+##### **内存利用率下降**
+
+碎片导致：
+
+- 很多 Region 里只剩一点点活跃对象；
+- 这些 Region 没法被完全释放；
+- 等于是空间浪费了——虽然总堆空间还有很多，但实际可用空间很少。
+
+### region化+并发压缩机制
+
+G1 是一种 **“拷贝式 GC”**（copying collector），意思是：
+
+> 在 Minor GC 或 Mixed GC 时，会把存活对象 **从一个 Region 拷贝到另一个 Region**
+
+- Eden 区对象经过 GC，一部分对象存活；
+- 这些对象会被 **拷贝到 Survivor 区 或 Old 区的新的 Region 中**；
+- 原来的 Eden Region 被清空，释放掉，供后续重用。
+
+通过这种方式，就**避免了原地标记清除带来的碎片问题**。每次 GC 都是“拷贝存活对象 + 清空原 Region”。
+
+老年代也可能存在碎片，比如某个 Old Region 只剩少量对象，浪费空间。G1 会在 **Mixed GC** 中处理这个问题。
+
+1. **标记阶段**（并发）：G1 找出所有存活对象；
+2. **计算阶段**：分析哪些 Region 的回收性高（即回收后可以释放很多空间）；
+3. **拷贝阶段**：将这些 Region 中的存活对象 **拷贝到其他 Region** 中；
+4. **清空旧 Region**：被拷贝出来的原始 Region 就可以回收了；
+5. ✅ 最终效果：对象被“搬家”，**形成连续的可用空间，减少碎片**。
+
+> 这就叫 **“并发压缩”（Concurrent Compaction）**，虽然拷贝阶段是在 Stop-The-World 期间完成，但 G1 尽量减少停顿时间。
 
 ### Reference!!!!!!
 

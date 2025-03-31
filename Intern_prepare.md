@@ -1,3 +1,64 @@
+## 数据库为什么要自己实现 buffer pool？
+
+### 1️⃣ 控制粒度：**按页（page）精准管理**
+
+InnoDB 使用 16KB 的 page 单位，**缓存的是“逻辑页”**，而不是字节流。
+
+- 能实现 B+ 树结构的“页级访问”
+- 能维护 Page Header、Record Slot、MVCC 信息
+
+### 2️⃣ 控制刷新机制：**什么时候刷盘，由数据库决定**
+
+- 操作系统刷缓存是异步、不可控的
+- InnoDB 需要控制：redo log → 数据页刷盘 → checkpoint → 崩溃恢复
+- 可以实现 **WAL（write-ahead logging）策略**
+
+### 3️⃣ 更好的 LRU / 淘汰策略
+
+InnoDB 实现了自己的一套 **LRU + Clock-like 算法**
+ 能优先淘汰冷页、保留热点页，还能考虑 dirty page 刷盘优先级。
+
+### 4️⃣ 能记录脏页、是否被修改（dirty flag）
+
+- 自己的 buffer pool 能精确记录哪些页是“脏的”
+- 统一做 Checkpoint、Flush，不受 OS 干扰
+
+### 5️⃣ 实现多版本控制（MVCC）
+
+- 一个页可能存在多个版本（undo 版本链）
+- 数据库需要感知事务级别的“可见性”
+- OS 的缓存无法满足这类需求
+
+# Redis分布式锁中`myLock`和`"thread-1"`的详细解释
+
+### 1. `myLock`：锁的名称（Key）
+
+- **作用**：作为Redis中的键(Key)，标识被锁定的资源
+- **命名规范**：
+  - 通常与被保护的资源相关（如：`order_lock:123`表示对订单ID 123的锁）
+  - 建议使用业务前缀避免冲突（如：`payment:lock:account_789`）
+
+### 2. `"thread-1"`：锁的唯一标识（Value）
+
+- **核心作用**：标识当前锁的持有者，用于安全释放锁
+- **为什么需要**：
+  - 防止误删其他客户端的锁（对比值匹配才删除）
+  - 实现锁的可重入性（如果是相同持有者可以重复获取）
+
+线程间通信：同一进程内的线程，wait()/notify()、volatile、synchronized
+进程间通信(IPC)：不同进程之间，管道、消息队列、共享内存、Socket
+
+- `wait()`/`notify()`必须在`synchronized`块中调用
+- 否则会抛出`IllegalMonitorStateException`
+
+**优先选择`java.util.concurrent`**：
+
+- 现代Java开发更推荐使用：
+  - `Lock` + `Condition`
+  - `BlockingQueue`
+  - `CountDownLatch`等高级工具
+
+
 # Kernel 和 User Thread
 
 user thread pthread管理
@@ -117,8 +178,6 @@ public class AlternatingPrinter {
 
 - mysql的decimal类型可以指定数值的位数和其中小数的长度,DECIMAL(8, 2)
 
-# 进程间通信 vs 线程间通信
-
 # Java泛型(Generics)+通配符+类型擦除+自动装箱和拆箱机制
 
 ```java
@@ -223,6 +282,8 @@ vector<A*> 实现多态行为
 # 进程切换，上下文切换的理解
 
 # Zookeeper+Spark
+
+
 
 # 业界的kv库（TiKV）区别是什么
 
@@ -1461,7 +1522,7 @@ go里M:N 模型，多个 Goroutine（M）在少量线程（N）上调度执行
 
 线程并行（408），协程并发，适合IO读取
 
-# 线程间通信
+# 线程间通信！
 
 # Java 为啥 `List<int>` 不行，而 C++ 可以
 
