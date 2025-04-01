@@ -756,7 +756,9 @@ save 900 1 #900s里1key修改就bgsave
 
 ### AOF (append only file) 在磁盘里
 
-？？？先写redis，再写AOF的吗？为了避免命令的写入过程中对Redis的性能造成过多影响。执行命令后，AOF文件会追加操作日志，保证命令能被存在磁盘上。
+先写redis，再写AOF的吗！
+
+为了避免命令的写入过程中对Redis的性能造成过多影响。执行命令后，AOF文件会追加操作日志，保证命令能被存在磁盘上。
 
 redis处理每一个write都记录在AOF，因此会比RDB大得多！注意这里是写操作！（如`SET`、`LPUSH`、`HSET`等）
 
@@ -874,9 +876,9 @@ if(lock.tryLock()){
 
 #### setnx (set if not exist)
 
-这里key就是锁的名称，表示加锁的资源，key要唯一
+这里**key就是锁的名称**，表示加锁的资源，key要唯一
 
-value是锁的唯一表示，通常设置为当前线程的唯一ID，UUID或者thread id
+**value是锁的唯一表示，通常设置为当前线程的唯一ID，UUID或者thread id**
 
 ```shell
 SET lock value NX EX 10 #放在一起保证原子性,这里NX互斥,EX超时
@@ -901,7 +903,7 @@ DEL key #释放锁
 
 注意，这里Reddison有读写锁`RReadWriteLock`和普通分布式锁`RLock`
 
-`RLock`基于`SETNX`实现，可重入，watchdog续期
+`RLock`基于`SETNX`实现，**可重入**，watchdog续期
 
 `tryLock`尝试获取锁，`10` 秒是获取锁的最大等待时间。如果在 10 秒内成功获得锁
 
@@ -1834,6 +1836,14 @@ binlog是MySql的日志，redolog和undolog是InnoDB的日志
 * id范围路由
 
 #### Sharding 分表
+
+#### 选择选取分片键（Sharding Key）
+
+推荐选择业务上稳定、不频繁变动的字段，如`user_id`或`order_id`，常选业务稳定且具备一定分散性的字段，如用户ID
+
+避免频繁更新且不易控制的字段
+
+
 
 一个表分开，防止IO争抢锁表？
 
@@ -2989,6 +2999,23 @@ none
 * 每个msg设置一个唯一的id，UUID，consumer验证业务id是否存在，有id就不处理，没有就处理
 * 幂等方案，加redisson分布式锁，数据库锁，悲观锁或者乐观锁（效率低下）
 
+### 什么是幂等（Idempotency）
+
+**无论请求执行多少次，结果都一样，不能产生副作用**。唯一 ID（业务 ID / 消息 ID / 订单号）是实现幂等的核心手段之一
+
+### 那为什么还要用锁？（redisson、数据库锁等）
+
+**原因：是为了防止并发时出现幂等检查失效的情况。**
+
+来看一个并发例子：
+
+1. 两个线程 A、B 几乎同时收到相同的 msg；
+2. A 去查数据库：ID 不存在；
+3. B 也去查数据库：ID 不存在；
+4. A 和 B 都进入处理逻辑，业务被执行了两次！
+
+这时候就算你有“唯一 ID 检查”，也拦不住并发穿透。
+
 ### 死信交换机
 
 场景：订单超时被丢弃了，限时优惠，定时发布
@@ -3069,10 +3096,6 @@ QueueBuilder.quorum();//仲裁队列
 
 ### Kafka
 
-
-
-等二刷
-
 **Kafka 默认将消息写入磁盘**，不会主动丢弃数据（除非配置了数据清理策略）。
 
 **Kafka 依赖 Linux 页缓存（Page Cache）**，大量数据其实直接读取内存，避免频繁磁盘 I/O
@@ -3082,6 +3105,24 @@ QueueBuilder.quorum();//仲裁队列
 #### 消费顺序
 
 consumer会维护多个分区，每个partition会有offset
+
+### Kafka与RabbitMQ
+
+![](./Java/java2.png)
+
+Kafka不支持直接**手动删除单条消息**，但提供以下方法：
+
+- **保留策略删除**：根据时间（`retention.ms`）或大小（`retention.bytes`）自动删除；
+- **删除整个主题或分区的数据**：通过命令行工具删除指定的Topic数据；
+- 通过修改topic的offset，可以变相跳过一些消息（不是真删除）。
+
+**拉模式（Pull）**：消费者主动拉取消息，Kafka不会主动推送。
+
+**推模式（Push）**：消息自动推送到消费者。
+
+Kafka延迟稍高，因采用批量处理（默认ms级延迟）。
+
+RabbitMQ通常延迟极低（微秒级到毫秒级）。
 
 # Data Structure 2025.1.24 3.13二刷
 
@@ -3235,6 +3276,11 @@ list.remove(1);     // 按索引删除
   ```
 
 ### Map
+
+`HashMap` 是否允许 `null`：
+
+- **允许一个 `null` 作为 key**（只能有一个）
+- **允许多个 `null` 作为 value**
 
 `HashMap` 是非线程安全的，`Hashtable` 是线程安全的,因为 `Hashtable` 内部的方法基本都经过`synchronized` 修饰，不要用`Hashtable`，保证线程安全就`ConcurrentHashMap`
 
@@ -4692,9 +4738,12 @@ NIO **基于 Buffer 和 Channel** 的 IO 方式
 
 `.java->javac->.class(Bytecode)->jvm interpreter/JIT`
 
-- Bootstrap 启动类加载器
-- ExtClassLoader 扩展类加载器
-- AppClassLoader 应用类加载器
+- **Bootstrap 启动类加载器**
+- **ExtClassLoader 扩展类加载器**
+- **AppClassLoader 应用类加载器**
+- 自定义类加载器（Custom ClassLoader）
+
+自定义加载器 → 应用类加载器 → 扩展类加载器 → 引导类加载器
 
 ### Parent Delegation Model 双亲委派机制
 
@@ -4814,11 +4863,19 @@ System.gc()
 
   一分为二，交换两个内存大角色，无碎片但是内存使用率低（用的多）
 
-### 跨代引用的话如何处理
+### 跨代引用的话如何处理！！！！
+
+#### GC 中为什么要特别处理隔代引用？
+
+以 **Minor GC（只回收年轻代）** 为例：
+
+为了效率，Minor GC 通常只遍历 GC Roots 和年轻代内部引用来判断存活对象，**不会默认遍历整个老年代**（因为开销太大）
+
+但是如果老年代中有对象引用了年轻代对象，而 GC 不知道这个引用，就可能误删这个年轻代对象（悬空引用，导致程序错误）。
 
 如果新生代对象引用了老年代的对象，就需要**扫描整个老年代找指向新生代的引用**，这就很慢，得不偿失。
 
-记忆集（Remembered Set）+ 卡表（Card Table）
+卡表（Card Table）+ 记忆集（Remembered Set）
 
 #### Card Table（卡表）
 
@@ -4832,6 +4889,8 @@ System.gc()
 这个过程靠的是 **“写屏障（Write Barrier）”**，即写引用时执行额外的逻辑。
 
 #### **Remembered Set（记忆集）**
+
+在 GC 时，GC 会扫描**卡表中被标记为“脏”的区域，只检查这些地方有没有老年代引用年轻代的情况**
 
 每个 Region 都维护一个 **记忆集（RSet）**，记录哪些其他 Region 有对象引用了这个 Region 的对象。
 
@@ -4885,6 +4944,23 @@ Parallel New复制 和 Parallel Old 标记整理，所有线程都STW
 
 **CMS GC（Concurrent Mark-Sweep GC）**
 
+这里为什么重新标记
+
+1. **初始标记（Initial Mark）**
+   - 停顿（Stop-the-world）
+   - 标记从GC Roots直接可达的对象，速度快。
+2. **并发标记（Concurrent Mark）**
+   - 不停顿
+   - 从初始标记的对象开始，进行全堆遍历，标记可达对象。
+3. **重新标记（Remark）**
+   - 停顿
+   - **为什么需要重新标记？**
+     - 因为并发标记期间，用户线程还在运行，对象图可能发生变化（如新对象引用、原有引用断开）。
+     - 所以需要一个短暂的阶段，再次修正标记结果，保证准确性。
+4. **并发清除（Concurrent Sweep）**
+   - 不停顿
+   - 清除不可达的对象，释放内存。
+
 ![](./Java/jvm4.png)
 
 适合低延迟场景
@@ -4893,7 +4969,7 @@ Parallel New复制 和 Parallel Old 标记整理，所有线程都STW
 
 缺点：
 
-- **容易产生碎片**
+- **容易产生碎片**！！！！！！
 - **多阶段 STW**
 - 会发生**"失败回收" → 退化为 Full GC（单线程）**
 
@@ -4908,6 +4984,8 @@ Parallel New复制 和 Parallel Old 标记整理，所有线程都STW
 退化后会走 `Serial Old GC`，**单线程、耗时长、卡顿大**
 
 ### G1 GC（Garbage First GC，jdk9 default）
+
+很少产生碎片
 
 并发 + 增量回收，**延迟可预测**。有自己的内部算法，避免碎片化，支持“混合回收”：Young + Old 一起回收
 
