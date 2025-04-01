@@ -1,3 +1,43 @@
+#### 最最基本的语法！我tm都错了
+
+```java
+interface AtomicIntegerFactory {
+    AtomicInteger create(int initValue);
+}
+
+@RestController
+@RequestMapping("/api")
+public class Thread1 {
+    @Autowired
+    private AtomicIntegerFactory factory;
+
+    private final Map<Long, AtomicInteger> counterMap = new ConcurrentHashMap<>();
+    private final int limit = 100; // 默认QPS限制为100
+
+    @RequestMapping("/qps")
+    public String checkQPS() throws Exception {
+        try {
+            qps(limit);
+            return "请求通过";
+        } catch (Exception e) {
+            return "请求被限流";
+        }
+    }
+
+    private void qps(int limit) throws Exception {
+        long currentSecond = System.currentTimeMillis() / 1000;
+        AtomicInteger counter = counterMap.computeIfAbsent(currentSecond, k -> factory.create(0));
+        
+        int currentCount = counter.incrementAndGet();
+        if (currentCount > limit) {
+            throw new Exception("QPS超限");
+        }
+    }
+}
+```
+
+
+
 **ArrayList线程安全吗** → 默认**不安全**，可以用`Collections.synchronizedList`或者`CopyOnWriteArrayList`加锁
 
 **throw vs throws**：
