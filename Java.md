@@ -4226,6 +4226,27 @@ CAS控制数组节点添加
 
 synchronized只锁当前链表或RBT对首节点，fine grained粒度更细性能更好
 
+### 这里细节就是！！
+
+```
+【先尝试 CAS 插入空桶】
+          ↓ 失败或桶非空
+【再使用 synchronized 锁住桶】
+```
+
+先尝试 CAS（乐观无锁）插入空桶，如果失败或桶不为空，再用 synchronized 锁定桶。
+
+如果当前桶为空（`table[i] == null`）：
+
+- 使用 **CAS** 原子地插入节点，不加锁，效率高。
+- 如果 CAS 成功，插入完成。
+- 如果 CAS 失败，说明别的线程也在插入这个桶，进入下一个
+
+如果当前桶已经有节点了（即不是空桶）：
+
+- 那就说明发生哈希冲突了。
+- 此时进入 `synchronized`，对这个桶的**头节点**加锁，进行链表或红黑树的插入逻辑。
+
 ### 并发三大特性
 
 #### 原子性Atomicity
@@ -4433,7 +4454,7 @@ Runtime.getRuntime().availableProcessors();
 
 ### 为什么IO密集就N*2+1呢？
 
-因为一般线程可以IO操作，但是因为CPU空闲，因此可以还可以一边干别的事情
+因为一半线程可以IO操作，但是因为CPU空闲，因此可以还可以一边干别的事情
 
 **高并发执行时间长 首先考虑缓存cache，增加server 然后再threadpool**
 
@@ -5025,7 +5046,7 @@ Parallel New复制 和 Parallel Old 标记整理，所有线程都STW
 
 ### G1 GC（Garbage First GC，jdk9 default）
 
-很少产生碎片
+**很少产生碎片**
 
 并发 + 增量回收，**延迟可预测**。有自己的内部算法，避免碎片化，支持“混合回收”：Young + Old 一起回收
 
@@ -5035,7 +5056,7 @@ Parallel New复制 和 Parallel Old 标记整理，所有线程都STW
 
 多线程执行垃圾回收任务，提高回收效率
 
-采用并发标记（Concurrent Marking）和增量回收（Incremental Compaction），减少 GC 停顿时间。
+采用**并发标记（Concurrent Marking）和增量回收（Incremental Compaction）**，减少 GC 停顿时间。
 
 避免全堆压缩
 
@@ -5281,6 +5302,8 @@ jstack #process_id
 ## 设计模式
 
 #### Simple Factory Pattern
+
+DCL
 
 不是设计模式，通过一个 **静态工厂方法**，根据参数创建不同类型的对象，避免直接 `new`
 

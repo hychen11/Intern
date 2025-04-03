@@ -1,3 +1,263 @@
+# ZooKeeper 的分布式锁是怎么实现的
+
+
+
+Available如何理解，有响应就必有回复！
+
+大部分新建对象（`new` 出来的）默认进入 **Eden 区**；
+
+G1 把堆划分为多个大小相同的 Region（默认 1~32MB），Eden、Survivor、Old 都由这些 region 构成；
+
+Eden 中存放新对象，等 Minor GC 时转移到 Survivor，再晋升到 Old。
+
+
+
+这里碎片
+
+Serial / Parallel GC->Card Table + 写屏障
+
+CMS->Remembered Set + Card Table
+
+G1-> Region + 每个 Region 的 Remembered Set
+
+ZGC / Shenandoah -> 使用复杂的 Barriers（Load Barrier 等）
+
+
+### 递归的本质 = 栈的压栈/出栈过程
+
+
+
+### sql锁
+
+Insert/update/delete 默认加锁
+
+select也可以通过变成select for update 来加锁
+
+### Wait()/notify() + signal()
+
+#### synchronized + wait()，对象锁！！
+
+signal()是Condition!!条件变量的
+
+```java
+wait(),notify();
+wait(),notify_all();
+synchronized (lock) {
+    lock.wait();       // 当前线程挂起，等待别人 notify
+}
+synchronized (lock) {
+    lock.notify();     // 唤醒某个正在 lock.wait() 的线程
+}
+synchronized (lock) {
+    lock.notifyAll();     // 唤醒某个正在 lock.wait() 的线程
+}
+```
+
+```java
+private final Lock lock = new ReentrantLock();
+private final Condition a  = lock.newCondition();
+a.await();
+a.signal();
+a.signalAll();
+```
+
+
+
+## `fork()` 创建子进程后，内存怎么处理？文件描述符会共享吗？
+
+### fork 后内存行为：
+
+- 子进程会**拷贝父进程的完整地址空间**
+- 但不是“立即复制”，是**写时复制（Copy-on-Write）**
+- 只有当子进程或父进程**修改某段内存时**，内核才会复制对应页，保证互不影响
+
+### 文件描述符呢？
+
+- 子进程 **继承父进程打开的所有文件描述符**
+- 所以它们可以访问同一个文件、socket、pipe
+- **文件偏移量是共享的**，因为底层是同一个 `file struct`（内核中的文件对象）
+
+### condition_variable
+
+```c++
+std::mutex mtx;
+std::condition_variable cv;
+std::queue<int> q;
+bool done = false;
+
+void producer() {
+    for (int i = 0; i < 5; ++i) {
+        std::unique_lock<std::mutex> lock(mtx);
+        q.push(i);
+        cv.notify_one();  // 通知消费者
+    }
+    {
+        std::unique_lock<std::mutex> lock(mtx);
+        done = true;
+    }
+    cv.notify_all();  // 通知退出
+}
+
+void consumer() {
+    while (true) {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [] { return !q.empty() || done; });
+        if (!q.empty()) {
+            std::cout << "consume " << q.front() << std::endl;
+            q.pop();
+        } else if (done) {
+            break;
+        }
+    }
+}
+
+```
+
+```c++
+std::mutex mtx;
+std::condition_variable cv;
+bool ready = false;
+
+void thread_func() {
+    std::unique_lock<std::mutex> lock(mtx);
+    cv.wait(lock, [] { return ready; });  // 自动释放锁+阻塞
+    std::cout << "Thread woke up!\n";
+}
+
+void wake_up() {
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        ready = true;
+    }
+    cv.notify_all();  // 唤醒所有 wait 的线程
+}
+
+```
+
+
+
+### 线程之间的通信方式
+
+| 方法                             | 用法说明                       |
+| -------------------------------- | ------------------------------ |
+| 共享变量                         | 多线程访问同一个变量，需要加锁 |
+| `std::mutex` / `std::lock_guard` | 保护临界区，防止竞争           |
+| `std::condition_variable`        | 通知等待线程，有数据可处理     |
+| 原子变量 `std::atomic<T>`        | 无锁通信，适合简单数据         |
+
+| 通信方式              | 特点                     | 是否跨进程 | 跨平台 |
+| --------------------- | ------------------------ | ---------- | ------ |
+| 管道（pipe）          | 最基础，父子进程常用     | ✅          | ✅      |
+| 命名管道（FIFO）      | 可用于非亲缘进程         | ✅          | ✅      |
+| 共享内存（shm）       | 高效，但需同步机制       | ✅          | Linux  |
+| 消息队列（msg queue） | 类似消息邮箱             | ✅          | Linux  |
+| 信号量（semaphore）   | 控制并发访问资源         | ✅          | ✅      |
+| Socket（本地套接字）  | 网络风格的 IPC，可跨主机 | ✅          | ✅      |
+
+### 迭代器失效
+
+- `vector` 是连续内存数组
+- 删除一个元素会引起 **后续所有元素前移**，也就是元素位置发生改变
+- 所以：
+  - 所有 **被删除位置之后的迭代器都会失效**
+  - 即使你不是删除当前的那个元素
+
+list则不会
+
+### TCP UDP可以同一个端口吗？可以
+
+操作系统协议栈是按 `(协议类型, IP地址, 端口号)` 区分 socket 的
+
+操作系统维护两个独立的 socket 表
+
+| 协议 | socket key 结构                     |
+| ---- | ----------------------------------- |
+| TCP  | `(proto=TCP, local_ip, local_port)` |
+| UDP  | `(proto=UDP, local_ip, local_port)` |
+
+它们**不会互相冲突**，因为协议不同。
+
+数据流是独立的
+
+- TCP 是面向连接的，数据是可靠有序的流
+- UDP 是无连接的，数据是离散的包
+
+即使端口号一样，比如都是 `53`（DNS 服务），TCP/UDP 流量也会分别进入各自对应的 socket。
+
+```shell
+sudo nc -l -p 8080        # TCP 监听 8080
+sudo nc -u -l -p 8080     # UDP 监听 8080
+```
+
+### 多路复用（Multiplexing）到底是啥？
+
+**多个 HTTP 请求可以“同时”通过一个 TCP 连接发送，不再一个接一个排队。**
+
+### QUIC？？？
+
+建连快 0-RTT
+
+多路复用 类似 HTTP2
+
+### **TCP的“有序传输（有序编号）”是啥意思？**
+
+TCP是**面向字节流、可靠传输的协议**。
+
+#### 具体含义：
+
+- 每个数据包都带有**序列号（Sequence Number）**。
+- 接收端根据序列号将数据**重新排序**，确保按发送顺序组装数据。
+- 即使包乱序到达，TCP会缓存、排序后再交给上层应用。
+
+### **拥塞控制作用是什么？**
+
+你的理解**很接近**：确实是为了**防止网络中包太多**导致“网络过载”
+
+#### 拥塞控制的核心目标：
+
+- 不是控制**某个连接的速率**，而是为了**防止整个网络（比如中间路由器）因为过载而崩溃**。
+- **网络中的链路、路由器的缓存**都是有限的，太多TCP连接同时高速发送，缓存溢出，包就会被丢弃。
+
+#### 拥塞控制算法（TCP自带）：
+
+- **慢开始**（一开始小心翼翼发）
+- **拥塞避免**（逐渐增大窗口）
+- **快速重传/快速恢复**（丢包时快速响应）
+
+### 流量控制
+
+**流量控制是点对点的“我吃不了你发慢点”**。
+
+**拥塞控制是“网络可能要崩了，大家都慢点”**
+
+
+
+#### mmap 快的原因：
+
+- 它直接将文件内容**映射到进程地址空间**，**无需手动read/write、复制内核缓冲**。
+- 访问数据 = 访问内存，系统负责页调入，非常适合**大文件、只读访问、随机访问场景**。
+
+#### 它用到了哪些技术：
+
+- ✅ **COW（Copy-On-Write）**：mmap的写时共享（可选），多个进程共享页面，只有写时才复制。
+- ✅ **Lazy Load（按需加载）**：映射初期不读取文件内容，只有在访问某页时才发生**页缺失（page fault）**，然后加载。
+- ✅ 减少上下文切换和系统调用开销。
+
+**RDMA（Remote Direct Memory Access）**！
+
+- 允许一台机器**直接访问另一台机器内存**（经过网卡）；
+- 绕过内核、绕过CPU，延迟极低；
+- 但硬件要求高，需使用**RDMA网卡（如IB、RoCE）**。
+
+### 大多数弹幕系统使用的是 **TCP**，不是UDP
+
+弹幕虽然看起来“不重要”，但对体验的“同步性”和“有序性”要求非常高，使用 TCP 更稳妥
+
+### 弹幕通信技术栈常见形式：
+
+- WebSocket（基于 TCP） 用于浏览器/移动端弹幕收发；
+- 长轮询 / SSE / HTTP2 Stream 也可以，但 WebSocket 是主流。
+
 # UUID
 
 **32位数的16进制数字所构成**
@@ -51,8 +311,9 @@ InnoDB 实现了自己的一套 **LRU + Clock-like 算法**
   - 防止误删其他客户端的锁（对比值匹配才删除）
   - 实现锁的可重入性（如果是相同持有者可以重复获取）
 
-线程间通信：同一进程内的线程，wait()/notify()、volatile、synchronized
-进程间通信(IPC)：不同进程之间，管道、消息队列、共享内存、Socket
+### **线程间通信：同一进程内的线程，wait()/notify()、volatile、synchronized**
+
+### **进程间通信(IPC)：不同进程之间，管道、消息队列、共享内存、Socket**
 
 - `wait()`/`notify()`必须在`synchronized`块中调用
 - 否则会抛出`IllegalMonitorStateException`

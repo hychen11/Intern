@@ -1,3 +1,229 @@
+```c++
+/* 
+  你必须定义一个 `main()` 函数入口。
+  you must define a `main()` function entry.
+  请你选择合适的数据结构来实现一个具有以下功能的编辑器：
+append(char)：将给定的字符添加到当前文本的末尾
+delete()：删除当前文本的最后一个字符
+appendBlock(index,substring)：在当前文本中的给定索引处插入一个字符块（子串）
+deleteBlock(startIndex, endIndex)：从当前文本中删除从 startIndex 到 endIndex（包括 endIndex）的字符块
+replaceBlock(startIndex, endIndex, substring)：用给定的子字符串替换当前文本中从 startIndex 到 endIndex（包括 endIndex）的字符块
+reverse(startIndex, endIndex)：反转当前文本中从 startIndex 到 endIndex（包括）的字符顺序
+undo(startStep, endStep)：撤销从 startStep 到 endStep（包括 endStep）的操作，执行顺序相反
+redo(startStep,endStep)：重做从 startStep 到 endStep（包括 endStep）之间被撤销的操作，按原来的执行顺序
+getText(): 返回当前文本的方法
+*/
+#include <iostream>
+#include <string>
+#include <bits/stdc++.h>
+using namespace std;
+
+int main()
+{
+  
+}
+class file{
+private:
+  string str1;
+  string str2;
+  file(){
+    str1="";
+    str2="";
+  }
+public:
+  void append(char ch){
+    str2+=ch;
+  }
+  void delete1(){
+    if(str2.length()>0){
+      str2.pop_back();
+    }else if(str1.length()>0){
+      str1.pop_back();
+    }
+  }
+
+  bool appendBlock(int index,string substring){
+    int len1=str1.length();
+    int len2=str2.length();
+    
+    if(index>len1+len2){
+      str2+=substring;
+      return true;
+    }
+
+    if(index<=len1){
+      str2=str1.substr(index,len1-index)+str2;
+      str1=str1.substr(0,index)+substring;
+    }
+    else{
+      str1+=str2.substr(0,index-len1);
+      str2=substring+str2.substr(index-len1,len2+len1-index);
+    }
+    return true;
+  }
+  /*
+  len1,len2
+  start,end
+  */
+  bool deleteBlock(int startIndex, int endIndex){
+    int len1=str1.length();
+    int len2=str2.length();
+    if(len1<=startIndex){
+      str1+=str2.substr(0,startIndex-len1);
+      str2=str2.substr(endIndex-len1,len1+len2-endIndex);
+    }else{
+      str1=str1.substr()
+    }
+  }
+  //
+  bool replaceBlock(startIndex, endIndex, substring){
+    
+  }
+};
+
+```
+
+
+
+返回当前对象自身的**引用**，可以支持**链式赋值**操作：
+
+```c++
+#include <iostream>
+#include <cstring>
+
+class MyString {
+private:
+    char* data;
+
+public:
+    // 构造函数
+    MyString(const char* str) {
+        data = new char[strlen(str) + 1];
+        strcpy(data, str);
+    }
+
+    // ✅ 拷贝构造函数（深拷贝）
+    MyString(const MyString& other) {
+        std::cout << "Copy constructor called!" << std::endl;
+        data = new char[strlen(other.data) + 1];
+        strcpy(data, other.data);
+    }
+
+    // ✅ 拷贝赋值运算符
+    MyString& operator=(const MyString& other) {
+        std::cout << "Copy assignment called!" << std::endl;
+        if (this == &other) return *this; // 防止自赋值
+
+        delete[] data; // 释放旧资源
+        data = new char[strlen(other.data) + 1];
+        strcpy(data, other.data);
+        return *this;
+    }
+
+    // 析构函数
+    ~MyString() {
+        delete[] data;
+    }
+
+    void print() {
+        std::cout << data << std::endl;
+    }
+};
+
+```
+
+`std::weak_ptr`是C++11引入的一种智能指针，主要与`std::shared_ptr`配合使用。
+
+它的主要作用是解决循环引用问题、观察`std::shared_ptr`对象而不影响引用计数，以及在需要时提供对底层资源的访问。
+
+1. 解决循环引用问题：当两个或多个`std::shared_ptr`对象互相引用时，会导致循环引用。这种情况下，这些对象的引用计数永远不会变为0，从而导致内存泄漏。
+
+`shared_ptr` 的一个关键特性是可以共享所有权，即多个 `shared_ptr` 可以同时指向并拥有同一个对象。
+
+当最后一个拥有该对象的 `shared_ptr` 被销毁或者释放该对象的所有权时，对象会自动被删除。
+
+这种行为通过**引用计数**实现，即 `shared_ptr` 有一个成员变量记录有多少个 `shared_ptr` 共享同一个对象。
+
+unique_ptr<int> p=make_unique<int>(42);
+
+```c++
+#include <iostream>
+#include <memory>
+
+class MyClass {
+public:
+    MyClass() { std::cout << "MyClass 构造函数\n"; }
+    ~MyClass() { std::cout << "MyClass 析构函数\n"; }
+    void do_something() { std::cout << "MyClass::do_something() 被调用\n"; }
+};
+
+int main() {
+    {
+        std::shared_ptr<MyClass> ptr1 = std::make_shared<MyClass>();
+        {
+            std::shared_ptr<MyClass> ptr2 = ptr1; // 这里共享 MyClass 对象的所有权
+            ptr1->do_something();
+            ptr2->do_something();
+            std::cout << "ptr1 和 ptr2 作用域结束前的引用计数: " << ptr1.use_count() << std::endl;
+        } // 这里 ptr2 被销毁，但是 MyClass 对象不会被删除，因为 ptr1 仍然拥有它的所有权
+        std::cout << "ptr1 作用域结束前的引用计数: " << ptr1.use_count() << std::endl;
+    } // 这里 ptr1 被销毁，同时 MyClass 对象也会被删除，因为它是最后一个拥有对象所有权的 shared_ptr
+
+    return 0;
+}
+```
+
+double free 问题就是一块内存空间或者资源被释放两次。
+
+那么为什么会释放两次呢？
+
+double free 可能是下面这些原因造成的：
+
+- 直接使用原始指针创建多个 shared_ptr，而没有使用 shared_ptr 的 make_shared 工厂函数，从而导致多个独立的引用计数。
+- 循环引用，即两个或多个 shared_ptr 互相引用，导致引用计数永远无法降为零，从而无法释放内存。
+
+### 如何解决 double free
+
+解决 shared_ptr double free 问题的方法：
+
+- 使用 make_shared 函数创建 shared_ptr 实例，而不是直接使用原始指针。这样可以确保所有 shared_ptr 实例共享相同的引用计数。
+- 对于可能产生循环引用的情况，使用 weak_ptr。weak_ptr 是一种不控制对象生命周期的智能指针，它只观察对象，而不增加引用计数。这可以避免循环引用导致的内存泄漏问题。
+
+```c++
+#include <iostream>
+#include <memory>
+
+class B; // 前向声明
+
+class A {
+public:
+    std::shared_ptr<B> b_ptr;
+    ~A() {
+        std::cout << "A destructor called" << std::endl;
+    }
+};
+
+class B {
+public:
+    std::weak_ptr<A> a_ptr; // 使用 weak_ptr 替代 shared_ptr
+    ~B() {
+        std::cout << "B destructor called" << std::endl;
+    }
+};
+
+int main() {
+    {
+        std::shared_ptr<A> a = std::make_shared<A>();
+        std::shared_ptr<B> b = std::make_shared<B>();
+        a->b_ptr = b; // A 指向 B
+        b->a_ptr = a; // B 对 A 使用 weak_ptr
+    } // a 和 b 离开作用域，它们的析构函数会被正确调用
+
+    std::cout << "End of main" << std::endl;
+    return 0;
+}
+```
+
 
 
 # #pragma once
