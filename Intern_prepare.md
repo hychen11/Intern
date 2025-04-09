@@ -1,3 +1,114 @@
+term 是 Raft 中的“逻辑时钟”，用于识别“新旧领导者”和“拒绝过期操作”，是选举和日志一致性的重要依据。
+
+### **领导人选举冲突判断**
+
+每次开始选举时，候选人会增加自己的 `currentTerm`。
+
+- 接收者节点如果发现自己 **term 比请求的 term 更大**，就会拒绝选票
+- 保证 **旧任期的候选人不会成为 leader**
+
+✅ **解决了多个候选人同时选举、老领导回来抢班的问题**
+
+------
+
+### 2️⃣ **拒绝落后 leader 的请求**
+
+Follower、Candidate 接收到 `AppendEntries` 或 `RequestVote` 请求时：
+
+- 如果请求中的 `term < currentTerm`，直接拒绝
+- 如果请求的 `term > currentTerm`，自己会变成 Follower 并更新 term
+
+✅ **防止老领导（网络分区后）带着过期的日志继续写入，保证一致性**
+
+------
+
+### 3️⃣ **日志一致性判断（防止脑裂）**
+
+日志追加时，`AppendEntries` 请求中会带有 leader 的 term：
+
+- 如果 follower 日志中对应的 index 的 term 不匹配，说明存在冲突
+- 会进行 **日志回滚**，丢弃冲突日志
+
+✅ **解决了网络分区或延迟导致的分叉日志问题**
+
+------
+
+### 4️⃣ **term 决定了谁是合法 leader**
+
+Raft 保证整个集群中最多有一个 leader：
+
+- **当前 term 只能有一个节点成为 leader**
+- 所有节点都会认 term 最大、日志最新的节点为 leader
+
+
+
+`synchronized(A.class)` 是给 **类对象 A 的 Class 实例加锁**，它是一种**类级别的锁**，所有线程对这个类的访问都会被同步控制。
+
+# static synchronized
+
+一个**非静态类**里定义了一个**静态内部类**，编译后会被编译成两个独立的 `.class` 文件
+
+即使它们在同一个 `.java` 文件中定义。
+
+```java
+public class Outer {
+    static class Inner {
+        // 静态内部类
+    }
+}
+```
+
+编译后，会生成两个 `.class` 文件：
+
+```
+Outer.class
+Outer$Inner.class
+```
+
+**静态内部类本质上就是一个独立的类**，只是被限定在外部类的命名空间中。
+
+
+
+# spring/springboot/springMVC/springCloud的区别
+
+### spring核心
+
+ **IOC（控制反转）+ AOP（面向切面编程）**
+
+管理对象生命周期（IOC 容器）
+
+解耦模块之间的依赖关系
+
+提供事务管理、缓存、安全、数据库访问等功能
+
+与各种框架（Hibernate, MyBatis, Struts, etc.）整合
+
+### MVC是Model-View-Controller
+
+前端请求通过 DispatcherServlet 统一调度
+
+使用注解开发 Controller
+
+参数绑定、表单验证、异常处理、视图解析都非常强大
+
+通常配合 Thymeleaf、JSP 等模板引擎使用
+
+Spring MVC 只是 Spring 中的一个子模块，用于开发 Web 层
+
+### Spring Boot
+
+为了简化 Spring 应用开发而生的框架，让你可以“**快速启动一个 Spring 项目**”
+
+自动配置（AutoConfiguration）：省去写大量 XML 或配置类
+
+内嵌服务器（Tomcat/Jetty）：直接运行，不需要部署 war 包
+
+提供大量的 starter（starter-web、starter-data-jpa 等）
+
+更容易进行监控、部署与配置（application.yml）
+
+Spring Boot 是 Spring 的快速开发脚手架，简化了 Spring 项目的配置与部署流程
+
 # ZooKeeper 的分布式锁是怎么实现的
 
 
@@ -602,6 +713,8 @@ TiKV 使用 **Raft** 保证多副本强一致
 使用 **隔离类加载器** 机制（如 SPI、模块化系统）
 
 # jdk和cglib的区别和应用场景的区别
+
+> CGLIB 是通过继承目标类并使用 ASM 技术在字节码层面生成子类代理对象的，它会重写非 final 方法并在方法前后织入横切逻辑。而 JDK 动态代理只能基于接口，底层用的是反射机制。Spring AOP 会根据是否存在接口来选择使用 JDK 或 CGLIB。
 
 jdk接口代理（使用 `java.lang.reflect.Proxy`）
 

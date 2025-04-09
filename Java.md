@@ -1,4 +1,87 @@
-#### 最最基本的语法！我tm都错了
+# Synchronize
+
+### 锁在对象上
+
+`synchronized` 作用在**静态方法**
+
+```java
+public synchronized static void myStaticMethod() {
+    // 临界区代码
+}
+```
+
+这和 `synchronized(MyClass.class)` 是**等价的**，锁的对象是类的 `Class` 对象（即 `MyClass.class`），也属于**类锁**。
+
+`synchronized` 锁在 **非静态方法** 上（实例锁）
+
+```java
+public synchronized void myMethod() {
+    // 临界区代码
+}
+```
+
+这个锁的是当前对象实例（`this`），属于 **对象锁（实例锁）**
+
+也就是说：
+
+- 每个对象有自己的锁
+- 不同对象调用这个方法，**互不干扰**
+- 同一个对象多线程调用这个方法，**互斥执行**
+
+```java
+A a1 = new A();
+A a2 = new A();
+
+Thread t1 = new Thread(() -> a1.myMethod());
+Thread t2 = new Thread(() -> a2.myMethod());
+```
+
+上面这两个线程不会互相阻塞，因为 `a1` 和 `a2` 是不同对象，各自持有自己的锁。
+
+`synchronized` 作用在**静态方法** ⇒ 类锁（`MyClass.class`）
+
+`synchronized` 作用在**实例方法** ⇒ 对象锁（`this`）
+
+### 锁在class上
+
+```java
+synchronized (A.class) { ... }              // 类锁
+```
+
+这是**类锁**（Class-level lock），作用于整个类的 Class 对象（JVM 中每个类只有一个 Class 对象）。
+
+作用范围是：**同一个类的所有线程共享这个锁，不管这些线程访问的是哪个对象，只要使用这个类锁的代码块，就互斥执行。**
+
+典型用途：控制所有该类对象共享资源的访问，比如静态变量的操作。
+
+控制所有实例间的同步
+
+# `equals` 未改写可以直接比较两个对象是否相等
+
+```java
+Object a = new Object();
+Object b = new Object();
+
+System.out.println(a.equals(b)); // false，因为它们是两个不同的对象
+System.out.println(a == b);      // 也是 false
+
+Object c = a;
+System.out.println(a.equals(c)); // true
+```
+
+可以比较，但结果是：**只比较引用地址是否相等**，即：
+
+默认的 `equals` 方法是 Object 类中的，源码如下：
+
+```java
+public boolean equals(Object obj) {
+    return (this == obj);
+}
+```
+
+所以如果你没有重写 `equals()`，比较的就是**是否是同一个对象实例**，即和 `==` 的结果是一样的。
+
+# 最最基本的语法！我tm都错了
 
 ```java
 interface AtomicIntegerFactory {
@@ -212,6 +295,10 @@ final class不可继承
 
 
 ### Syntactical
+
+```java
+return new Exception("new error");
+```
 
 ```java
 import java.util.Scanner;
@@ -1076,7 +1163,7 @@ client可以访问任意master,都会被转发到正确节点（router）
 
 一般都是用户拷贝到内核缓冲区，内核通过网卡发送，然后读入内核缓冲区，拷贝回用户缓存区
 
-Redis瓶颈是网络延迟, I/O多路服用高效网络请求
+Redis瓶颈是网络延迟, I/O多路复用高效网络请求
 
 * User Space & Kernel Space
 * Blocking IO, Nonblocking IO, IO Multiplexing
@@ -4808,7 +4895,7 @@ NIO **基于 Buffer 和 Channel** 的 IO 方式
 
 ### Parent Delegation Model 双亲委派机制
 
-解决类加载器之间的冲突问题，保证类加载的顺序和安全性
+**解决类加载器之间的冲突问题**，保证**类加载的顺序和安全性**
 
 **子类加载器** 会将类加载请求 **委派给父类加载器**，直到请求传递到最顶层的 **Bootstrap ClassLoader**，如果父类加载器无法加载类，则由子类加载器进行加载。
 
