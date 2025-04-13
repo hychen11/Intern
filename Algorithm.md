@@ -5025,6 +5025,8 @@ a*pow(b, -1, MOD) % MOD
 
 # Manacher’s Algorithm
 
+个算法就像是在蘑菇丛林里面，先一路爬到最大的蘑菇上，然后就在最大的蘑菇之间跳跃，不用管下面的小蘑菇了
+
 ```c++
 class Solution {
 public:

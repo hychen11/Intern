@@ -1,3 +1,15 @@
+# Redis设置过期时间
+
+`EXPIRE mykey 60`
+
+`SET mykey "value" EX 60`
+
+`TTL mykey`
+
+`SET mykey "value"`  # 不加 EX / PX 就不会过期
+
+# Term
+
 term 是 Raft 中的“逻辑时钟”，用于识别“新旧领导者”和“拒绝过期操作”，是选举和日志一致性的重要依据。
 
 ### **领导人选举冲突判断**
@@ -1059,6 +1071,8 @@ Start()后就是runnable，获取cpu时间片，就是runnable（实际上在run
 * 调用`wait(time)`, `sleep(time)`、`join(time)` 等** → 进入 `TIMED_WAITING` 状态。
 
 * 线程已执行完成或发生异常Terminated
+
+这里blocked状态如果是synchronized的锁，等释放锁了才唤醒，只唤醒一个，从EntryList里唤醒，从头唤醒，有点类似AQS的公平锁
 
 # session和cookie
 

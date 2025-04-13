@@ -1,4 +1,25 @@
+# RESTFUL是什么？和http关系是什么？
+
+**RESTful 是一种 Web API 的设计风格（不是协议，不是标准）**，全称是：
+
+> **RE**presentational **S**tate **T**ransfer
+
+它的核心思想是：
+ 用 URL 表示资源（Resource），
+ 用 HTTP 方法（GET、POST、PUT、DELETE）来对资源进行操作。
+
+## RESTful 与 HTTP 的关系？
+
+- **HTTP 是协议**：定义了浏览器和服务器如何通信（GET/POST 等）
+- **RESTful 是设计风格**：利用 HTTP 协议去优雅地设计接口
+
+RESTful 是“构建在 HTTP 协议之上的一种接口设计规范”。
+
+HTTP 是传输协议，RESTful 是一种接口设计方法。RESTful 是用 HTTP 来优雅地操作资源的方式。
+
 # Synchronize
+
+static class可以有static的method
 
 ### 锁在对象上
 
@@ -57,6 +78,16 @@ synchronized (A.class) { ... }              // 类锁
 控制所有实例间的同步
 
 # `equals` 未改写可以直接比较两个对象是否相等
+
+比较是否是同一个对象，比较两个对象的引用是否相同（即是否是同一个对象）
+
+```java
+public boolean equals(Object obj) {
+    return (this == obj);
+}
+```
+
+Hashcode将对象映射为一个整数，用于快速定位数据在哈希结构（如 HashMap、HashSet）中的“**桶（bucket）**”
 
 ```java
 Object a = new Object();
@@ -4001,6 +4032,8 @@ public synchronized void increment(){
 
 重量级锁：底层使用**monitor，会涉及用户态与内核态的切换**，性能较低，多线程竞争锁
 
+**线程真正的挂起和唤醒，是通过操作系统的调度器完成的，JVM 只是发起请求**
+
 轻量级锁：线程加锁时间错开（**没有竞争**）时使用。**修改了对象头的锁标志**，修改使用了CAS，不同线程交替持有
 
 偏向锁：**当一个线程获取锁后，JVM 认为这个锁“偏向”这个线程**，后续这个线程 **不需要再竞争锁，直接使用**，避免 **CAS（Compare-And-Swap）**开销，如果没有其他线程争抢锁，则不会升级为更重的锁（如轻量级锁或重量级锁）一个线程持有
@@ -4046,7 +4079,7 @@ public static void method2(){
 
 ![](./Java/juc5.png)
 
-先创建一个obj，无锁状态01，然后加轻量级锁后进行CAS交换，obj存锁地址，lock里存obj的hash code
+先创建一个obj，无锁状态01，然后加轻量级锁后进行CAS交换，**obj存锁地址**，lock里存obj的hash code
 
 然后lock record有几个就代表重入锁几次 
 
