@@ -5118,6 +5118,58 @@ public:
 };
 ```
 
+模版
+
+ ```c++
+ class Solution {
+ public:
+     string preProcess(string s){
+         int n=s.length();
+         if(n==0){
+             return "^$";
+         }
+         string ans="^";
+         for(int i=0;i<n;i++){
+             ans=ans+"#"+s[i];
+         }
+         ans+="#$";
+         return ans;
+     }
+     string longestPalindrome(string s) {
+         auto origin=s;
+         s=preProcess(s);
+         int n=s.length();
+         vector<int> p(n);
+         int c=0,r=0;
+         for(int i=1;i<n-1;i++){
+             int i_mirror=c*2-i;
+             if(r>i){
+                 p[i]=min(r-i,p[i_mirror]);
+             }else{
+                 p[i]=0;
+             }
+             while(s[i-1-p[i]]==s[i+1+p[i]]){
+                 p[i]++;
+             }
+             if(i+p[i]>r){
+                 r=i+p[i];
+                 c=i;
+             }
+         }
+         int maxlen=0;
+         int index=0;
+         for(int i=1;i<n-1;i++){
+             if(p[i]>maxlen){
+                 maxlen=p[i];
+                 index=i;
+             }
+         }
+         int start=(index-maxlen)/2;
+         return origin.substr(start,maxlen);
+     }
+ };
+ ```
+
 # Intervals problem 经典贪心
 
 #### [435. Non-overlapping Intervals](https://leetcode.cn/problems/non-overlapping-intervals/)
