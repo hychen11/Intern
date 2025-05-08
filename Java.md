@@ -5,8 +5,10 @@
 > **RE**presentational **S**tate **T**ransfer
 
 它的核心思想是：
- 用 URL 表示资源（Resource），
- 用 HTTP 方法（GET、POST、PUT、DELETE）来对资源进行操作。
+
+用 URL 表示资源（Resource）
+
+用 HTTP 方法（GET、POST、PUT、DELETE）来对资源进行操作。
 
 ## RESTful 与 HTTP 的关系？
 
@@ -1386,12 +1388,12 @@ MVCC 允许数据库在 **没有锁的情况下** 实现并发读操作，提高
 - **UPDATE/DELETE**：
   - 对扫描到的记录加X锁
   - 不持有间隙锁(可能导致幻读)
-- **current read**(SELECT...FOR UPDATE)：
+- **current read**(SELECT...FOR UPDATE)
   - 只锁定符合条件的现有记录(无间隙锁)
 
 #### REPEATABLE READ (MySQL默认)
 
-- **SELECT**：使用MVCC，首次读取建立一致性视图
+- **SELECT**：使用MVCC，**首次读取建立一致性视图**
 - **UPDATE/DELETE**：
   - 使用Next-Key Lock锁定扫描范围内的记录和间隙
   - 防止幻读(在索引上)
@@ -1881,6 +1883,8 @@ A->B 1000
 行锁，间隙锁，范围锁，防止幻读（幻读其实就是先后两次读的记录个数不一样）
 
 ### undo log 和 redo log 回滚的时候用的
+
+**Redo log记录的是状态，比如k多少写入v多少，而不是记录操作！！！！**
 
 **Undo Log**（未提交事务）：回滚到原始状态。一致性和原子性
 

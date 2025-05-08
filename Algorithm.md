@@ -3916,11 +3916,119 @@ class Solution:
 
 # PRIM算法
 
+```c++
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <utility>
+#include <limits>
 
+using namespace std;
+
+const int INF = numeric_limits<int>::max();
+
+typedef pair<int, int> PII; // first:权重, second:顶点
+
+int prim(int n, vector<vector<PII>>& adj) {
+    vector<bool> visited(n, false);
+    vector<int> dist(n, INF);
+    priority_queue<PII, vector<PII>, greater<PII>> pq;
+
+    dist[0] = 0;
+    pq.push({0, 0}); // 从顶点 0 开始
+
+    int total_weight = 0;
+
+    while (!pq.empty()) {
+        auto [weight, u] = pq.top(); pq.pop();
+        if (visited[u]) continue;
+
+        visited[u] = true;
+        total_weight += weight;
+
+        for (auto [v, w] : adj[u]) {
+            if (!visited[v] && w < dist[v]) {
+                dist[v] = w;
+                pq.push({w, v});
+            }
+        }
+    }
+
+    return total_weight;
+}
+```
 
 # Kruskal算法
 
+```c++
+#include <iostream>
+#include <vector>
+#include <algorithm>
 
+using namespace std;
+
+struct Edge {
+    int u, v, weight;
+    bool operator<(const Edge& other) const {
+        return weight < other.weight; // 升序排序
+    }
+};
+
+class UnionFind {
+private:
+    vector<int> parent, rank;
+
+public:
+    UnionFind(int n) {
+        parent.resize(n);
+        rank.resize(n, 0);
+        for(int i = 0; i < n; ++i) parent[i] = i;
+    }
+
+    int find(int x) {
+        if (parent[x] != x)
+            parent[x] = find(parent[x]); // 路径压缩
+        return parent[x];
+    }
+
+    bool unite(int x, int y) {
+        int fx = find(x), fy = find(y);
+        if (fx == fy) return false; // 已经连通
+
+        if (rank[fx] < rank[fy]) {
+            parent[fx] = fy;
+        } else {
+            parent[fy] = fx;
+            if (rank[fx] == rank[fy]) rank[fx]++;
+        }
+        return true;
+    }
+};
+
+int kruskal(int n, vector<Edge>& edges) {
+    sort(edges.begin(), edges.end()); // 按权重升序排序
+    UnionFind uf(n);
+    int mst_weight = 0;
+    for (const auto& e : edges) {
+        if (uf.unite(e.u, e.v)) {
+            mst_weight += e.weight;
+        }
+    }
+    return mst_weight;
+}
+
+// Example usage:
+int main() {
+    int n = 4; // 顶点数
+    vector<Edge> edges = {
+        {0, 1, 10}, {0, 2, 6}, {0, 3, 5}, {1, 3, 15}, {2, 3, 4}
+    };
+
+    int mst = kruskal(n, edges);
+    cout << "Minimum Spanning Tree Weight: " << mst << endl;
+    return 0;
+}
+```
 
 # Dijkstra算法
 
@@ -5769,4 +5877,64 @@ public:
 ```
 
 
+
+# 堆排序
+
+```c++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+// 调整堆：使得以 i 为根的子树成为一个大顶堆
+void heapify(vector<int>& arr, int n, int i) {
+    int largest = i;        // 当前根节点
+    int left = 2 * i + 1;   // 左孩子
+    int right = 2 * i + 2;  // 右孩子
+
+    // 如果左孩子比根节点大
+    if (left < n && arr[left] > arr[largest])
+        largest = left;
+
+    // 如果右孩子比目前最大还大
+    if (right < n && arr[right] > arr[largest])
+        largest = right;
+
+    // 如果最大不是根节点
+    if (largest != i) {
+        swap(arr[i], arr[largest]);  // 交换
+        heapify(arr, n, largest);    // 递归调整
+    }
+}
+
+// 主函数：堆排序
+void heapSort(vector<int>& arr) {
+    int n = arr.size();
+
+    // 1. 建立初始堆（从最后一个非叶子节点开始调整）
+    for (int i = n / 2 - 1; i >= 0; i--) {
+        heapify(arr, n, i);
+    }
+
+    // 2. 逐个取出堆顶元素（最大值），放到数组末尾
+    for (int i = n - 1; i > 0; i--) {
+        swap(arr[0], arr[i]);    // 把最大值（堆顶）移到末尾
+        heapify(arr, i, 0);      // 重新调整剩下的元素，继续成堆
+    }
+}
+
+// 测试
+int main() {
+    vector<int> arr = {12, 11, 13, 5, 6, 7};
+    
+    heapSort(arr);
+
+    cout << "Sorted array is: ";
+    for (int num : arr)
+        cout << num << " ";
+    cout << endl;
+
+    return 0;
+}
+
+```
 
