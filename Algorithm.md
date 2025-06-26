@@ -4542,6 +4542,84 @@ ranges::push_heap(h,greater<>());
 
 # Trie Tree
 
+注意这里TrieTree里定义一个Node *root
+
+然后TrieTree *tree=new TrieTree();
+
+tree->build()
+
+```c++
+#include <iostream>
+#include <unordered_map>
+#include <string>
+
+class TrieNode {
+public:
+    bool isEnd;  // 是否是一个单词的结尾
+    std::unordered_map<char, TrieNode*> children;
+
+    TrieNode() : isEnd(false) {}
+};
+
+class Trie {
+private:
+    TrieNode* root;
+
+public:
+    Trie() {
+        root = new TrieNode();
+    }
+
+    // 插入单词
+    void insert(const std::string& word) {
+        TrieNode* node = root;
+        for (char ch : word) {
+            if (!node->children.count(ch)) {
+                node->children[ch] = new TrieNode();
+            }
+            node = node->children[ch];
+        }
+        node->isEnd = true;
+    }
+
+    // 查找完整单词
+    bool search(const std::string& word) {
+        TrieNode* node = root;
+        for (char ch : word) {
+            if (!node->children.count(ch)) return false;
+            node = node->children[ch];
+        }
+        return node->isEnd;
+    }
+
+    // 是否存在某个前缀
+    bool startsWith(const std::string& prefix) {
+        TrieNode* node = root;
+        for (char ch : prefix) {
+            if (!node->children.count(ch)) return false;
+            node = node->children[ch];
+        }
+        return true;
+    }
+
+    ~Trie() {
+        clear(root);
+    }
+
+private:
+    // 递归释放内存
+    void clear(TrieNode* node) {
+        for (auto& pair : node->children) {
+            clear(pair.second);
+        }
+        delete node;
+    }
+};
+
+```
+
+
+
 #### 3291 week415 Q3
 
 避免内存超，可以用vector<array<int,26>> 来存！
@@ -4636,6 +4714,23 @@ class Solution:
 ```
 
 # Trick
+
+这里解释一下，signed，unsigned 和补码（Two's Complement）负数是正数的反码+1
+
+`unsigned int`一般是32位无符号整数 和`uint32_t` 32位无符号整数
+
+```c++
+bit_width((uint32_t)m);//返回传入整数的二进制表示中有效位数,计算整数 k 表示成二进制时，最高位是第几位（1-based）
+__builtin_clz(n)	//count leading zero,注意这个n必须非0！
+__builtin_ctz(n)	//count tail zero
+__lg(n)           //log₂(n) 向下取整
+  
+  
+//一般来说
+32-__builtin_clz(n)==bit_width((uint32_t) n)
+```
+
+`substr(...,nullptr,2);` 第三个参数 `2` 表示以**二进制**形式解析字符串。
 
 得到位数
 

@@ -1,4 +1,23 @@
+# 404的原因
 
+* 反向代理失误，确定request转发到哪里，如果规则出错找不到目标服务，404
+* CDN，加了一层缓存，给网站加速，如果节点缓存失效回源失败，或者缓存了错误404页面
+* 数据库存储异常，如果CDN失效或者文章没被缓存，需要查数据库
+* 权限配置错误，不小心拦截官方域名下的目录请求
+
+# c++ lock and multithread
+
+```c++
+std::mutex mtx;
+mtx.lock();
+mtx.unlock();
+
+lock_guard<mutex> lock(mtx);
+scope_lock<mutex> lock(mtx);
+unique_lock<mutex> lock(mtx);//可以手动解锁，递归锁
+lock.unlock();
+lock.lock();
+```
 
 # std::move
 
