@@ -4715,6 +4715,23 @@ class Solution:
 
 # Trick
 
+c++里到`s.replace(pos,1,"hi")` 就是把pos开始的1个字符换成hi
+
+替换所有空格
+
+```c++
+//modern
+s.erase(remove(s.begin(),s.end(),' '),e.end());
+//better
+s.erase_if(s,[](char c){return c==' ';});
+
+//not recommand, find(target,start_pos)
+size_t pos = 0; //size_t is unsigned int depends on platform, uint,uint32,unsigned int, is always 32bit
+while((pos=s.find(' ',pos))!=string::npos){
+  s.replace(pos,1,"");
+}
+```
+
 这里解释一下，signed，unsigned 和补码（Two's Complement）负数是正数的反码+1
 
 `unsigned int`一般是32位无符号整数 和`uint32_t` 32位无符号整数
@@ -6030,6 +6047,172 @@ int main() {
 
     return 0;
 }
+
+```
+
+# 简单计算器
+
+### Lc224 递归实现
+
+```c++
+class Solution {
+public:
+    int calculate(string s) {
+        int i = 0; // 全局遍历指针
+        return helper(s, i);
+    }
+
+    int helper(const string& s, int& i) {
+        stack<int> stk;   // 存放当前层的中间结果
+        int num = 0;      // 当前正在构造的数字
+        char op = '+';    // 当前操作符（默认是加）
+
+        while (i < s.size()) {
+            char c = s[i];
+
+            // 如果是数字，累加构成完整数字（支持多位）
+            if (isdigit(c)) {
+                num = num * 10 + (c - '0');
+            }
+
+            // 如果遇到左括号，进入递归计算括号里的值
+            if (c == '(') {
+                i++; // 跳过 '('
+                num = helper(s, i); // 括号里的结果作为当前 num
+            }
+
+            // 如果遇到操作符或末尾 或 ')'
+            // 就把之前的 num 和 op 处理到 stk 里
+            if ((!isdigit(c) && c != ' ' && c != '(') || i == s.size() - 1) {
+                if (op == '+') stk.push(num);
+                if (op == '-') stk.push(-num);
+                if (op == '*') {
+                    int tmp = stk.top(); stk.pop();
+                    stk.push(tmp * num);
+                }
+                if (op == '/') {
+                    int tmp = stk.top(); stk.pop();
+                    stk.push(tmp / num);
+                }
+
+                op = c;  // 更新当前操作符
+                num = 0; // 重新开始读取下一个数字
+            }
+
+            // 如果遇到右括号，结束当前递归
+            if (c == ')') {
+                i++; // 跳过 ')'
+                break;
+            }
+
+            i++;
+        }
+
+        // 当前这一层的所有结果累加后返回
+        int result = 0;
+        while (!stk.empty()) {
+            result += stk.top();
+            stk.pop();
+        }
+        return result;
+    }
+};
+
+```
+
+### 栈实现
+
+```c++
+class Solution {
+public:
+    int calculate(string s) {
+        s.erase(remove(s.begin(),s.end(),' '),s.end());
+        s=preprocess(s);
+        stack<int> nums; // 数值栈
+        stack<char> ops; // 操作符栈
+        int n = s.size();
+        int i = 0;
+
+        while (i < n) {
+            char c = s[i];
+            // 数字（支持多位）
+            if (isdigit(c)) {
+                int num = 0;
+                while (i < n && isdigit(s[i])) {
+                    num = num * 10 + (s[i] - '0');
+                    i++;
+                }
+                nums.push(num);
+                continue; // 注意不要 i++
+            }
+
+            // 左括号直接入栈
+            if (c == '(') {
+                ops.push(c);
+            }
+
+            // 右括号：不断执行操作直到遇到 '('
+            else if (c == ')') {
+                while (!ops.empty() && ops.top() != '(') {
+                    compute(nums, ops);
+                }
+                ops.pop(); // 弹出 '('
+            }
+
+            // 运算符
+            else {
+                // 当前操作符优先级 <= ops.top()，就先算前面的
+                while (!ops.empty() && precedence(ops.top()) >= precedence(c)) {
+                    compute(nums, ops);
+                }
+                ops.push(c);
+            }
+
+            i++;
+        }
+
+        // 清算剩余操作
+        while (!ops.empty()) {
+            compute(nums, ops);
+        }
+
+        return nums.top();
+    }
+
+private:
+    // 返回优先级
+  	string preprocess(string s){
+        string res;
+        for(int i=0;i<s.length();i++){
+            char c = s[i];
+            if((c=='+'||c=='-')&&(i==0||!isdigit(s[i-1])&&s[i-1]!=')')){
+                res+='0';
+            }
+            res+=c;
+        }
+        return res;
+    }
+    int precedence(char op) {
+        if (op == '+' || op == '-') return 1;
+        if (op == '*' || op == '/') return 2;
+        return 0; // '('
+    }
+
+    // 从栈顶弹出两个数，执行一次操作
+    void compute(stack<int>& nums, stack<char>& ops) {
+        int b = nums.top(); nums.pop();
+        int a = nums.top(); nums.pop();
+        char op = ops.top(); ops.pop();
+
+        int res = 0;
+        if (op == '+') res = a + b;
+        else if (op == '-') res = a - b;
+        else if (op == '*') res = a * b;
+        else if (op == '/') res = a / b;
+
+        nums.push(res);
+    }
+};
 
 ```
 
