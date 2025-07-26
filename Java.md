@@ -1,3 +1,110 @@
+# ...
+
+本质就是一个数组
+
+Java 中可变参数只能用于方法的**最后一个参数**；
+
+一个方法中只能有**一个可变参数**；
+
+可变参数内部是通过数组来实现的。
+
+# Aopcontext.currentProxy()
+
+是 Spring AOP 提供的一个 **获取当前 AOP 代理对象** 的方法。它主要用于解决 **内部方法调用无法触发切面（增强）** 的问题
+
+当一个类内部调用自己类的方法时，这种 **“自调用”** 不会经过 Spring 的 AOP 代理，因此 **切面不会生效**
+
+```java
+@Service
+public class MyService {
+    @Transactional
+    public void methodA() {
+        methodB();  // <-- 自调用，事务不会生效
+    }
+
+    @Transactional
+    public void methodB() {
+        // some db operation
+    }
+}
+```
+
+ `@Transactional`不会走代理
+
+```
+((MyService) AopContext.currentProxy()).methodB();
+```
+
+使用条件就是开启AOP `@EnableAspectJAutoProxy(exposeProxy = true)`
+
+**只能在 AOP 代理对象管理的类中使用**（比如加了 `@Service`、`@Component` 的 Bean）。
+
+# @Autowired VS @Autowire
+
+```java
+@Autowired
+private UserService userService;
+```
+
+Spring 会找 **所有类型是 `UserService` 的 Bean**。
+
+如果找到多个，需要用 `@Qualifier("xxx")` 指定 Bean 名称，否则报错。
+
+可以配合 `@Primary` 指定首选 Bean。
+
+默认必须注入，若可能为 null，加 `@Autowired(required = false)`。
+
+此外可以使用`@Lazy`来延迟加载
+
+> Spring 默认会在容器启动时就创建所有 `@Component`、`@Service` 等单例 Bean。
+>
+> 但有些 Bean：
+>
+> - 初始化代价很大（比如连接外部系统）
+> - 不一定每次都用到
+> - 或者会出现**循环依赖**
+
+### `@Resource` —— **默认按名字注入**
+
+```java
+@Resource
+private UserService userService;
+```
+
+默认会找 **名字为 `userService` 的 Bean**，名字优先。
+
+找不到才会退回到按类型。
+
+不支持 `@Primary` 和 `@Qualifier`。
+
+如果名字匹配多个 Bean，会报错。
+
+```java
+@Service("userServiceA")
+public class UserServiceA implements UserService {}
+
+@Service("userServiceB")
+public class UserServiceB implements UserService {}
+```
+
+`@Service`就是注册bean
+
+```java
+@Autowire
+@Qualifier("userServiceA")
+private UserService userService;
+
+@Resource(name="userServiceA")
+private UserService userService;
+//可以
+
+@Resource
+private UserService userService;
+//找不到会有问题
+```
+
+
+
 # RESTFUL是什么？和http关系是什么？
 
 **RESTful 是一种 Web API 的设计风格（不是协议，不是标准）**，全称是：
