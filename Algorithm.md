@@ -4715,6 +4715,14 @@ class Solution:
 
 # Trick
 
+去重复
+
+```c++
+vector<int> nums = {1, 1, 2, 2, 3, 3, 4};
+// unique 之后 nums 变为：{1, 2, 3, 4, ?, ?, ?}（? 是未定义旧值）
+int m = ranges::unique(nums).begin() - nums.begin();
+```
+
 c++里到`s.replace(pos,1,"hi")` 就是把pos开始的1个字符换成hi
 
 替换所有空格

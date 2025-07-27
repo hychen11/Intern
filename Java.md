@@ -934,7 +934,7 @@ bloom filter hash碰撞怎么办
 
 * 双bloom filter，**没有什么是加一中间层没法解决的**
 
-### 击穿Cache Miss Storm
+### 击穿Cache Miss Storm/Cache Breakdown
 
 注意看这里加锁的时机，是先**cache未命中加互斥锁**！
 
@@ -945,7 +945,7 @@ bloom filter hash碰撞怎么办
 * 互斥锁 (强一致性)
 * 逻辑过期  这里也获取互斥锁，只不过是直接返回old value，然后另开一个线程异步更新value+expire time
 
-### 雪崩 cache avalanche
+### 雪崩 Cache avalanche
 
 同一时间大量key同时失效或者redis宕机
 
