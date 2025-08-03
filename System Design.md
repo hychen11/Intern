@@ -142,7 +142,7 @@ body:
   {"title":xx, "body":xx}
 ```
 
-这里的Authorization里的Bearer用来传递身份令牌（token），这个在登录时就获取了，后续请求都携带，可以是JWT，也可以是Oauth的access_token
+这里的Authorization里的Bearer用来传递身份令牌（token），这个在登录时就获取了，后续请求都携带，可以是JWT，也可以是Oauth的access_token  
 
 而session存在Cookie里， `Cookie: JSESSIONID=abc123xyz`，后端服务器根据这个 session ID 去 Redis 或内存中查找用户状态
 
@@ -150,11 +150,11 @@ Oauth里有一个临时授权码code来换取token，然后有了access_token后
 
 ### scaling database/scalibility
 
-数据分区
+* 数据分区（分库分表、水平切分、Sharding）
 
-功能分区
+* 功能分区（拆分不同微服务，User Service，Product Service，Order Service，Payment Service，微服务、单体拆分、Vertical Partitioning）
 
-添加副本 scale cube 复制多份数据
+* 添加副本 scale cube 复制多份数据 （主从复制、读写分离、Replica Set）（Master Slave）
 
 首先估算QPS，封底估算，100M user, 10/day, 10K QPS, peek read QPS = 30-50K QPS
 
@@ -188,7 +188,7 @@ cache storage = 100M * 2/day * 3day * 300Bytes = 180GB
 
 还可以更快吗？就绕过传统查询，直接在user发布的时候给他的follower预构建timeline，follower可以直接读取，也就是post到follower对应的timeline的cache里
 
-### Fan-out
+#### Fan-out
 
 Not time sensitive, so we can use Async, which is MQ
 
@@ -215,7 +215,218 @@ pull读取的时候再获取post，也就是要先登录，不活跃账号不消
 
 ### video sharing platform (tiktok)
 
+Functional requirement
 
+1 upload video
+
+2 watch video 
+
+Non-functional requirements
+
+1 scalibility
+
+2 availability
+
+3 video latency
+
+4 Fault tolerance
+
+#### scaling estimate
+
+1B DAU (Daily Active User)
+
+watch 100/day
+
+upload 1/day
+
+Average 1 min -> 10M, duration 15s-3min 
+
+
+
+**split** backend service into 2 part, one upload and one view, pros is workload isolation (functional partitioning) , cons is 
+
+Three ways for scale out
+
+*  data partitioning
+
+*  functional partitioning
+
+*  replication
+
+#### SQL vs NoSQL
+
+SQL事务操作复杂，Join不能跨库，没有shard
+
+NoSQL不支持事务操作，内建shard
+
+如何选择呢？一般取决于有什么，比如有user表在MySQL里，就继续用MySQL
+
+#### video storage 
+
+**Blob(Binary Large Objec)** Storage，非结构化数据的云存储
+
+HDFS (Hadoop Distributed FileSystem)
+
+HyDFS (Hybrid Distributed FileSytem)
+
+HDFS 分割文件成不同的chunk，64M，会有多个replica，劣势读取速度慢，存储空间偏大，但是便宜
+
+> 为什么HDFS便宜？ 存储空间更大，甚至还会冗余三份副本
+>
+> 大规模数据存储成本 vs 传统存储方式（如高性能 NAS、SAN、商业数据库）
+>
+> * 硬件成本每 TB 低很多
+>   * HDFS使用廉价的通用服务器
+>   * 传统存储（如 Oracle RAC、NAS）通常需要：专用存储设备（如 SAN、磁盘阵列），商业硬件，昂贵且封闭
+> * 软件层面：开源、免授权
+>   * HDFS 是开源的，基于 Apache License，无授权费
+>   * 商业数据库/存储系统动辄按节点、CPU 核心计费（Oracle，IBM）
+> * 可横向扩展（scale out），避免提前一次性投入大规模硬件
+>   * 可以从三台机器开始部署，扩容到几十台
+>   * 传统系统通常需要一次性采购高端硬件，且扩展性差
+>
+> * 现在HDFS有Erasure Coding 纠删码，可以做到1.4x存储，10块原始块，4块校验块，任意保留 10 个块，就能解出原始数据，Reed-Solomon，只要你有任意 `k` 块，就能还原原始 `k` 个数据
+>
+>   ```
+>   D1, D2, ..., D10
+>   P1 = a1*D1 + a2*D2 + ... + a10*D10  
+>   P2 = b1*D1 + b2*D2 + ... + b10*D10  
+>   P3 = c1*D1 + c2*D2 + ... + c10*D10  
+>   P4 = d1*D1 + d2*D2 + ... + d10*D10  
+>   系数是预定义的、不同的，形成一个可逆的矩阵
+>   线性方程组
+>   有 10 个未知数（D1~D10）
+>   只要有任意 10 个块（D 或 P），我们就有 10 个方程 → 可以解出原始数据
+>   ```
+>
+>   pros: 适合冷数据、大规模数据湖
+>
+>   cons: 编码解码开销大（CPU + 网络）不适合写入频繁的热数据（恢复过程复杂）,计算密集
+>
+>   更加简单的例子就是D1，D2，P1=D1+D2，这三块里可以丢失任意一块
+
+第二点原因是适合碎片化存储
+
+#### Fix the issue of exposed storage interface
+
+不可以直接存storage，即暴露storage，替代方案就是开辟一个临时的存储空间raw存原始视频
+
+#### upload video
+
+1min ->10 MB，
+
+upload有压缩的余地
+
+方案一：当成文件存储，chunk 1MB，10 chunks
+
+方案二：syntax， segmentation分割 
+
+因为手机app，存在网络不稳定的问题
+
+1. failed->Retry
+2. parallel，哪部分失败了哪部分重传
+
+传完后给upload service一个signal，上传完成后就是处理视频
+
+#### upload finished
+
+upload service finished, then send to MQ (msg: done, address: raw bucket) 
+
+MQ have tasks for workers to consume
+
+**worker pool** can dynamically adjust workers' number according to Message Backlog Condition
+
+Message Backlog 就是消息挤压
+
+#### worker pool
+
+split raw file into small chunks and then merge into complete video
+
+File Integrity Verification 校验，使用SHA-256，直接hash文件内容，进行校验码的对比
+
+然后做转码，播放的时候根据用户网速和设备动态调整，所以我们视频会被转码成不同格式，eg. 一个1080p的视频，会转成360p，480p和1080p三个可选版本
+
+最后把编码好的视频放进blob storage里，同时写入metadata
+
+metadata还要有一个状态status `start->ready->processing->done`
+
+processing失败会触发retry，扭转到ready
+
+相比于直接upload video存入blob storage，有风险
+
+#### view video
+
+先查metadata，然后再读blob storage，cons分发慢，并且可能会造成hotspot
+
+解决方法是靠近用户侧引入CDN (Content Delivery Network)
+
+首先CDN代替我们读blob storage，再进行视频分发
+
+Pros 视频放在CDN里，优化了传输速度，降低了Latency
+
+Cons 引入了额外的cost
+
+所以只存放热门视频，需要extractor Service来定期查找hot spot的视频，再替换CDN里的视频
+
+#### Optimize latency
+
+方案一：视频切小段，看到什么地方就只把这个segment推送给你，而不是整个加载完成再播放，并且动态调整视频清晰度
+
+方案二：streaming protocol, apple HTTP Live Streaming流媒体协议，边传输边播放
+
+#### wrap up
+
+方案一：view service采用feed形式，数据库查关注了哪些人，发了哪些视频，然后倒序排一下，形成一个news feed 然后推送给用户
+
+> ##### Feed Pull 模式
+>
+> 常用于新闻流、短视频、社交平台等推荐场景。
+>
+> 这里不一定按照时间顺序倒排，有时候也会按权重 + 时间混合排序，score = engagement_score + freshness_score
+>
+> 实时按需查询。
+>
+> 好处：实时、准确，不用预存储每个人的 feed。
+>
+> 缺点：高并发下查询慢，难以支撑巨量用户访问。
+>
+> ##### 用户量大、频繁拉取，实时查询太慢
+>
+> 提前把每个用户的 Feed 算好、存入 Redis （Push）
+>
+> Pros：Redis存储快，推用不需要实时查询
+>
+> Cons：大V放大读写压力（Fan-out），需要异步处理推送，甚至引入削峰限流（比如 Kafka）+ 分批 fan-out
+>
+> ##### 用 Kafka + 微服务实现异步化
+>
+> 大V发布内容时，有几十万、几百万粉丝，不可能实时遍历 + 写入 Redis。
+>
+> 发布消息到 Kafka，异步处理粉丝 Feed 写入任务
+>
+> 非阻塞：写 Kafka 不需要等消息被处理。
+>
+> 可扩展：消费服务可以横向扩容。
+>
+> 可落盘容错：Kafka 消息不怕服务崩。
+>
+> ##### 大V发内容，用户频繁访问大V的动态，热点聚焦 等容易形成hot spot 的情况
+>
+> 大V不推送，改为pull，普通用户push
+>
+> 分批异步推送 + 限流优先推送活跃粉丝（近7天活跃）剩下批量处理或延迟写入
+>
+> Feed 合并缓存，Redis 里不每人存一份，而是：每条内容存一次（用内容 ID 映射元数据），用户 Redis 里只存内容 ID 列表，节省内存，减少重复数据
+
+方案二：不同视频做不同权重，做一个推荐系统 recommendation
+
+引入一个双塔模型，视频特征，用户特征分别embedding成一个vector，根据用户特征选取视频推荐，优化视频观看指标
+
+cons：引入团队，更多的追踪指标
+
+方案三：数字治理，不同region有不同的tag要求，会有多个数据中心进行独立的处理
+
+### Data Retrieval
 
 # OOD
 
