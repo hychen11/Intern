@@ -241,7 +241,7 @@ upload 1/day
 
 Average 1 min -> 10M, duration 15s-3min 
 
-
+![](./sd_asset/sd5.png)
 
 **split** backend service into 2 part, one upload and one view, pros is workload isolation (functional partitioning) , cons is 
 
