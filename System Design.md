@@ -215,13 +215,13 @@ pull读取的时候再获取post，也就是要先登录，不活跃账号不消
 
 ### video sharing platform (tiktok)
 
-Functional requirement
+#### Functional requirement
 
 1 upload video
 
 2 watch video 
 
-Non-functional requirements
+#### Non-functional requirements
 
 1 scalibility
 
@@ -240,8 +240,6 @@ watch 100/day
 upload 1/day
 
 Average 1 min -> 10M, duration 15s-3min 
-
-![](./sd_asset/sd5.png)
 
 **split** backend service into 2 part, one upload and one view, pros is workload isolation (functional partitioning) , cons is 
 
@@ -426,7 +424,160 @@ cons：引入团队，更多的追踪指标
 
 方案三：数字治理，不同region有不同的tag要求，会有多个数据中心进行独立的处理
 
-### Data Retrieval
+![](./sd_asset/sd5.png)
+
+### Data Retrieval/ Indexing (POI Service)
+
+cache->query Index->modeling
+
+design a POI service (Point of Interest)
+
+#### Functional requirement
+
+1 search nearby by location
+
+2 view details
+
+3 owner can edit / delete
+
+#### Non-functional requirements
+
+1 low latency : 1s
+
+2 freshness : 1day
+
+3 scalable
+
+4 Fault tolerance (FT)
+
+#### scaling estimate
+
+1B Month Active User -> 50% -> 500M DAU (Daily Active User)
+
+200M Business
+
+Storage:
+
+1 NoSQL
+
+2 RDBM
+
+3 in memory (redis)
+
+business table: 
+
+```text
++ id 4B
++ owner_id 4B
++ longitude 8B
++ latitude 8B
+address
+city
+state
+country
+zip_code
+description 5KB //2500words
+photo_url 
+```
+
+200M * 10KB = 2TB 
+
+2TB可以放memory，但是不值当，多台机器shard数据，如果需要latency 100ms值得，但是这里1s
+
+此外memory需要snapshot或者checking Point备份 
+
+NoSQL vs RDBM
+
+NoSQL cheap, faster query, more features for out-of-box usage
+
+> Out-of-the-box solution 开箱即用
+>
+> Out-of-the-box feature 默认自带的功能
+
+```
+Search:
+500M * 5 q/day
+=25k QPS
+Peak 100k QPS
+
+Business:
+200M * 1 update/mon
+=70 QPS
+Peak 300 QPS
+```
+
+read QPS 100K, write QPS 300, Master-Slave mode, single master is already enough
+
+经纬度可以建立联合索引，但是不能范围查询，（最左匹配）最多只能固定经度，维度范围查，也就是查一定范围里的店铺id需要全表扫了
+
+#### Geolocation建立索引 Geohash, Quadtree
+
+数据库有geolocation的extension实现组件
+
+##### Geohash
+
+**经纬度编码成一个字符串**（Base32 编码），这个字符串的前缀越长，代表的范围越小，精度越高。
+
+1. **将经纬度范围不断二分**（先经度，再纬度，交替进行）：经度从 `[-180, 180]`，纬度从 `[-90, 90]`
+2. 每次二分产生一位二进制码（0表示左/下，1表示右/上）
+3. 生成的 bit 序列再使用 **Base32 编码**成字符串，如 `"wx4g0ec1"`
+
+相近地理位置的点，其 Geohash 前缀往往是相同的。
+
+利用 **字符串前缀匹配**，可以高效实现“附近查找”。适合范围查询
+
+##### Quadtree
+
+把地图不断划分为 4 个象限（左上、右上、左下、右下），形成一棵 **四叉树结构** Quadtree
+
+1. 起始：整张地图是一个节点，称为 Root
+2. 每次划分为 4 个子区域，每个子区域作为子节点
+3. 根据点的经纬度落在哪个象限，插入到对应的子树中
+4. 递归继续划分，直到达到最小单位或点数过少
+
+查询一个区域（如圆形、矩形范围）时，只遍历与之相交的树节点
+
+相当于做区域剪枝，减少搜索空间
+
+这里拆分可以有条件比如区域大于100个商家可以继续拆
+
+QuadTree 是一个内存结构
+
+#### trade-off
+
+quadtree可以作为index
+
+问题一：如何fit into memory, leaf heavy的结构
+
+leaf有(business_id, lat, long, short_brief) 100B左右
+
+200M business, each node store 100 business
+
+200M/100 * (100\*50B) = 10G 完全可以放进memory里
+
+构建index几分钟左右，从存储中读取所有数据，然后构建树，并且存在disk上，有一个seed
+
+> **seed** 在这个上下文中指的是一个**持久化保存的、预构建好的、完整的索引结构副本**（如 Quadtree 或 Geohash 树），可用于系统启动时快速加载。
+>
+> 每次cold start或者crash重启，不用重新扫全量数据重新构建索引
+>
+> load seed → deserialize → 放入内存 → 开始服务
+
+因为是in-memory storage容易丢失，crash就丢失了，只需要从seed里把预构建好的树copy出来
+
+Peek read-100K QPS, 一般也就20 shards，是在不行引入auto scaling增加副本
+
+如何update这个树，方案一：live update 方案二：eventually consistency，每小时rebuild一下，每小时做一次blue green rollout，重新构建好的seed推到线上去
+
+这里建立cache有没有必要呢？可以建立，但是有额外的开销，可以建立在search前，越往前效果越好
+
+#### wrap up
+
+根据deployment区域去划分，东中西部三个区域的server，分成三个部分，坏处cost高
+
+isolate failure region, blast radius减少，此外quadtree可以更小
+
+![](./sd_asset/sd6.png)
 
 # OOD
 
