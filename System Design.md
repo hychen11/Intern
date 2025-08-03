@@ -1,3 +1,222 @@
+# System Design
+
+### design web
+
+first may meet bottle neck, then scaling up
+
+Overview: users can follow each other, post and view post timeline
+
+![](sd_asset/sd1.png)
+
+数据库与业务代码之间增加一层抽象层ORM对象关系映射，ORM隐藏了数据库操作，db.session.add(user); db.session.commit(); 等
+
+MVC model view controller，model封装数据，controller响应请求，view数据展示
+
+#### Function Requirement
+
+* register, login
+* follow other user
+* See other's posts   
+
+#### Data Entity
+
+2个模型表存数据实体(User,Post)，1个关联表存多对多关系(Follow)
+
+![](./sd_asset/sd2.png)
+
+这里user_Id 是foreign key外键，注意看下面建数据库如何表示foreign key！
+
+`foreign_key (user_id) references users (id)`
+
+```sql
+create table users(
+  id integer primary_key,
+  username varchar,
+  password varchar,
+  created_at timestamp
+);
+
+create table posts(
+  id integer primary_key,
+  title varchar,
+  body text,
+  user_id integer,
+  created_at timestamp,
+  foreign_key (user_id) references users (id)
+);
+
+create table follows(
+  following_user_id integer,
+  followed_user_id integer,
+  created_at timestamp,
+  foreign_key (following_user_id) references users (id),
+  foreign_key (followed_user_id) references users (id),
+);
+```
+
+展示关注用户最近10篇post
+
+```sql
+select p.id, p.title, p.body, p.user_id, p.created_at
+from posts p
+join follows f on p.user_id = f.followed_user_id
+where f.following_user_id = <User ID>
+order by p.created_at desc
+limit 10 offset 0
+```
+
+但是join表开销巨大
+
+#### 解决方法
+
+* 抖音/微博那样的“推荐流”：后台异步计算用户可能感兴趣的 post，放入 Redis/ES/消息队列中
+* 限定关注数 + 分批加载
+* 预聚合 + 时间轴表（Timeline 表）
+
+设计一个 `timeline` 表，把关注用户的 post 预先“推送”到当前用户的时间轴上 Fan-out on write 
+
+Fan-out广播
+
+```sql
+CREATE TABLE timeline (
+  user_id INTEGER,               -- 当前登录用户
+  post_id INTEGER,               -- 他关注的人的post
+  post_user_id INTEGER,          -- 发帖人是谁
+  created_at TIMESTAMP,          -- 发帖时间
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (post_id) REFERENCES posts(id)
+);
+```
+
+当某个用户发帖后，比如用户 A：
+
+```sql
+-- 查出所有关注他的人
+SELECT following_user_id
+FROM follows
+WHERE followed_user_id = A;
+```
+
+然后写入 timeline 表
+
+```
+for each follower:
+    insert into timeline (user_id=follower, post_id=新发帖ID, post_user_id=A, created_at=帖子时间)
+```
+
+查询当前用户的 timeline 就变得非常快了
+
+```sql
+SELECT *
+FROM posts p
+JOIN timeline t ON p.id = t.post_id
+WHERE t.user_id = :current_user_id
+ORDER BY p.created_at DESC
+LIMIT 10;
+```
+
+#### RESTful API
+
+REST就是收取发送的都是资源，也就是我收到的就是html，这个在服务器端就渲染了
+
+而RESTful API，抽象成一个API返回json文件，前端自行渲染
+
+```json
+"pagination":{
+	"currentPage":1,
+	"pageSize":10,
+	"totalCount":100
+}
+```
+
+POST请求可能需要验证身份
+
+这里header里加上
+
+```
+POST /api/posts
+header:
+	Content-Type: application/json
+	Authorization: Bearer <token>
+body:
+  {"title":xx, "body":xx}
+```
+
+这里的Authorization里的Bearer用来传递身份令牌（token），这个在登录时就获取了，后续请求都携带，可以是JWT，也可以是Oauth的access_token
+
+而session存在Cookie里， `Cookie: JSESSIONID=abc123xyz`，后端服务器根据这个 session ID 去 Redis 或内存中查找用户状态
+
+Oauth里有一个临时授权码code来换取token，然后有了access_token后就可以直接访问资源了
+
+### scaling database/scalibility
+
+数据分区
+
+功能分区
+
+添加副本 scale cube 复制多份数据
+
+首先估算QPS，封底估算，100M user, 10/day, 10K QPS, peek read QPS = 30-50K QPS
+
+MySQL read 1-5K QPS, write 低一个数量级，因为要建立索引 <1k 
+
+**solution replication+shardig**
+
+shardingKey : post_id, user_id，有优劣势 然后取模
+
+如果用user_id，比如名人都在一个db上，访问timeline查询会造成大量的负载，相当于热点数据
+
+使用post_id可以分担负载，坏处就是查一个用户的话得遍历所有的shard
+
+scatter and gather, 需要跨分片查询
+
+### Optimize Latency
+
+正常查询，再查latency high，热门post起来缓存
+
+这里需要计算一下需要多少缓存
+
+```
+Post(post_id, content, user_id, timestamp)
+3*4byte+140\*2byte = 292 bytes
+
+cache storage = 100M * 2/day * 3day * 300Bytes = 180GB
+20% hot post = 180*20% = 36G //单机都可以
+```
+
+![](./sd_asset/sd3.png)
+
+还可以更快吗？就绕过传统查询，直接在user发布的时候给他的follower预构建timeline，follower可以直接读取，也就是post到follower对应的timeline的cache里
+
+### Fan-out
+
+Not time sensitive, so we can use Async, which is MQ
+
+这里timeline cache大小估算，cache - (post_id, user_id)，针对userid去读表，避免join的操作
+
+```
+cache - 100M * 8B * 100 = 80GB
+QPS - 2k * 100 = 200K
+```
+
+push推送模型，生成timeline速度快，读取也快
+
+缺点一 follower多，写入放大很多倍，名人会产生一个hot spot，二是每个用户构建了cache，但是不是所有账号都活跃
+
+pull读取的时候再获取post，也就是要先登录，不活跃账号不消耗资源，也没有分发的hot spot问题，缺点就是生成timeline慢，延迟高，关注用户太多需要大量排序合并再排序 ，不能实时更新，只有登录后才生成timeline
+
+如何结合呢？普通用户push，post的时候直接发送到对应的timeline cache上
+
+名人就pull，follower登录有再去数据库里缓存上他们发的帖，timeline service上合并
+
+可以把peek的数量严格的限制住
+
+![](./sd_asset/sd4.png)
+
+### video sharing platform (tiktok)
+
+
+
 # OOD
 
 SOLID+design pattern
@@ -791,3 +1010,68 @@ public class CglibProxyDemo {
 观察者模式**:** Spring 事件驱动模型就是观察者模式很经典的一个应用。 
 
 适配器模式 :Spring AOP 的增强或通知(Advice)使用到了**适配器**模式、 spring MVC 中也是用到了适配器模式适配 **Controller** 
+
+# 实战例子mt实习
+
+在实习的时候使用到了工厂策略模式
+
+首先定义工厂接口
+
+ ```java
+ public enum StateEnum {
+     INIT, PROCESSING, SUCCESS, FAIL;
+ }
+ 
+ public interface StateHandler{
+     StateEnum getState(); 
+     OpResult execute(Request request) throws OpException;
+ }
+ ```
+
+随后实现策略的注入
+
+```java
+@Component
+public class StateHandlerFactory implements InitializingBean{
+
+    private final Map<StateEnum, StateHandler> handlerMap = new HashMap<>();
+		
+    @Autowired
+    private List<StateHandler> handlerList;
+    
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        for (StateHandler handler : handlerList) {
+            handlerMap.put(handler.getState(), handler);
+        }
+    }
+
+    public OpResult route(Request request) {
+        StateHandler handler = handlerMap.get(request.getState());
+        if (handler == null) {
+            return new OpResult(false, "No handler found for state: " + request.getState());
+        }
+        return handler.execute(request);
+    }
+}
+```
+
+随后实现策略
+
+```java
+@Service
+public class InitStateHandler implements StateHandler {
+    @Override
+    public StateEnum getState() {
+        return StateEnum.INIT;
+    }
+
+    @Override
+    public OpResult execute(Request request) {
+        return new OpResult(true, "Init handled: " + request.getPayload());
+    }
+}
+```
+
+
+
