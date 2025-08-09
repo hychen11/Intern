@@ -190,6 +190,8 @@ cache storage = 100M * 2/day * 3day * 300Bytes = 180GB
 
 #### Fan-out
 
+fanout可以理解为广播，就是push之类的
+
 Not time sensitive, so we can use Async, which is MQ
 
 这里timeline cache大小估算，cache - (post_id, user_id)，针对userid去读表，避免join的操作
@@ -578,6 +580,465 @@ Peek read-100K QPS, 一般也就20 shards，是在不行引入auto scaling增加
 isolate failure region, blast radius减少，此外quadtree可以更小
 
 ![](./sd_asset/sd6.png)
+
+### Job Scheduler
+
+1. internal system, about 10k DAU
+
+2. MVP minimal viable product 满足最基本功能
+
+3. scope jobs can be all types
+
+   > task just run once？
+   >
+   > service need to bind and monitor
+
+#### Functional requirement
+
+1. user can submit tasks (tasks can be short-term temp script or long run service)
+
+2. user can view task result on dashboard
+3. Advance features:
+   + Schedule some tasks in future (cron service)
+     + check email every 30 minutes
+     + Database backup on 12pm every day
+   + spark hadoop DAG(Directed Acyclic Graph), job dependency 
+
+#### Non-functional requirements
+
+1. latency
+   + submit task execution within 10s
+   + Dashboard sync within 60s
+2. scalability
+3. reliability
+
+#### Job data model
+
+* repo (code/ config/ executable binary)
+* metadata
+  * job id
+  * owner id
+  * executable url
+  * Input/Output path
+  * created_time
+  * status
+  * num_of_retry
+
+#### State Machine
+
+```
+ready -> waiting -> running -> success
+          ^          |
+          |          v
+        retry <- failed# -> final failure
+        < 3          >= 3
+```
+
+#### QPS estimate
+
+DAU 10k, 1000 job/user/day
+
+= 10k * 1000 request/ 100k sec = 100 QPS
+
+peak QPS is about 3-5 average QPS, 500QPS (Read)
+
+submission QPS = 10k *100 / 100k = 10QPS
+
+peak QPS = 50 QPS (write)
+
+#### Data storage
+
+only one repo need to consider single point failure
+
+solution: Master-Slave, or Dual Master / Master-Master
+
+> Dual Master
+>
+> 都可以对外提供写服务，数据会在两个主节点之间实时同步
+>
+> 两边都是 *active*，既能处理读也能处理写
+>
+> 双向同步数据（可能是数据库、缓存、文件等）
+>
+> 一边挂了，另一边立刻接管，而且原本就已经在工作，不需要等待启动
+>
+> - 高可用 + 负载均衡（两边都能干活）
+> - 切换快，因为双方一直是活动状态
+>
+> - 数据冲突风险高（两边同时写时可能冲突，需要冲突检测或业务避免冲突）
+> - 同步延迟可能导致不一致
+>
+> Hot Standby / Active-Standby 双机热配
+>
+> 两台机器，一台是 **主机（Active）** 对外提供服务，另一台是 **备用机（Standby）**，平时不处理业务，但会实时同步主机数据，一旦主机故障就切换到备用机。
+>
+> 主机是 active，备用机是 standby
+>
+> Standby 不对外服务，但跟主机保持数据同步（热备状态）
+>
+> * 切换快（几秒级甚至毫秒级）
+>
+> * 数据一致性好（通常用心跳检测 + 数据镜像）
+> * Standby 平时闲置，资源利用率低
+> * 不能分担主机压力
+
+#### NoSQL vs SQL
+
+need **tie breaker signal** 
+
+* Data model need foreign key support
+* query pattern 是不是需要做一些联表的join查询
+* consistency requirement，是不是可以退化到最终一致性而放弃强一致性
+
+> **tie breaker（决胜信号/仲裁信号）** 是指在出现**脑裂（split-brain）或仲裁平局**时，用来打破僵局、决定谁继续当“主”的特殊信号或机制
+
+没有tie breaker signal怎么办，会defer这个decision，开闭原则（好的架构会增加未作出决策的数量）
+
+也就是如果不是blocker，就不要一上来就定死，后面不好变更
+
+#### queue trade-off
+
+Peak Shaving and Valley Filling
+
+in memory? in disk
+
+in memory 扩容方便，无状态
+
+in disk不丢失，扩容麻烦
+
+如果是in disk的话，和数据库不一致了，哪个是source of truth呢？需要加分布式锁或者transaction，实现双写一致，同时成功或者同时失败
+
+但是分布式锁会增加latency，并且会有连带关系，比如queue down了会导致data store反而不能写东西了
+
+in memory的话，queue就依赖于datastore，从data store推导出queue的状态
+
+可以Message queue as Database，比如Kafka Database，QPS 不高，不行partition，优势是streaming system，延时低，可以提供比较低的SLA（Service Level Agreement） 进行保证，坏处streaming database接受度不高
+
+Database as queue接受度高，spanner queue，实现了push和pull的语义，工程届有实例，但是单机性能不高，因为没有spanner高性能数据库，但是可以通过sharding解决，并且QPS不高，把数据存进database里，`select * from job_table where status=running and num_retry<3 order by id limit n`， 这样就实现了一个Queue的semantic
+
+单独加入一个informer或者publisher，datastore和worker隔开，informer每秒轮询查询数据库，找出可以执行的任务 ，然后publish
+
+#### assign task
+
+获得任务后如何把任务丢给worker去执行
+
+* worker发起rpc，去pull下来一个任务运行，运行完成回调rpc，任务状态写回数据库
+  * 好处informer不用管理很多，比如完成回调，fire and forget，任务丢出去就不管了
+  * 坏处worker需要轮询informer，95%的时间会得到idle空转，并且rpc是worker发起，说明worker权限大，不安全，此外worker也可以挂掉，状态无法更新，或者heartbeat通报心跳，但是rpc多了会拥塞，或者增加timeout，但是long-term不知道什么时候停机
+* informer发起rpc，push model，informer跟踪worker状态
+  * 好处worker不用发起请求
+  * informer需要长期追踪worker状态，还需要额外建立一个长连接，需要知道task对应worker的地址，因为要通信
+* hybird (push, pull) informer push task, worker 运行的时候搭载sidecar边车模式，60s发送一次heartbeat
+  * 好处安全，避免worker发起rpc，informer不用维护task于worker映射，因为sidecar可以管理metadata，heartbeat每隔60s汇报一次状态
+  * 坏处加入sidecar，增加了worker的开销
+
+> **Sidecar（边车）** 是一种分布式系统架构设计模式，核心思想是**将应用程序的辅助功能（如日志、监控、网络代理等）剥离到一个独立的进程/容器中**，与主应用（Worker）并行运行，就像摩托车的边车（Sidecar）一样附着在主应用旁，提供协同服务。
+>
+> Sidecar通常通过标准协议（HTTP/gRPC）与主应用通信，主应用可用任意语言编写
+>
+> 解耦，worker只需要关注业务逻辑，其他跨领域功能（如认证、加密、服务发现）交给Sidecar处理。
+
+#### resource allocation
+
+* add resource
+
+* exponential back-off retry
+  * short term 增加informer等待时间，做一个exponential back-off，第一次失败1s，第二次2s
+* save resource from runtime
+  * eg, vm execute task, change vm into container, more **Lightweight**
+  * 但是问题是container会暴露更多攻击面，需要加一层隔离，**gVisor** 是google的sandbox运行时的隔离，它介于传统容器（如 Docker）和虚拟机（如 KVM）之间
+  * 裁剪vm，是的vm更加轻量，google的no-vm或者aws的firecracker，体积小于5m，启动时间小于500ms
+* Reallocate resource
+  * workload isolation，IO heavy尽量占满bandwidth，compute heavy尽量使用高性能硬件资源
+  * 混合部署
+* recycle
+  * google的auto pilot，tencent的gocrane自动回收资源 
+  * 常驻内存production service优先保证高可用性
+  * temporay task延后或者压缩，preemptive可抢占的任务
+
+#### Scheduler
+
+**K8s Scheduler**：新 Pod 来了 → 马上找宿主机
+
+**Spark Scheduler**：任务很多 → 分两步，先分任务给 Executor，再分资源给 Executor
+
+**Cron Job**：到时间 → 跑命令
+
+##### Kubernetes scheduler
+
+**调度对象**：**Pod（容器化应用）** 到 **Node（集群中的计算节点）**
+
+**调度目标**：让每个 Pod 落到最合适的节点上，考虑资源利用率、负载均衡、亲和性/反亲和性等规则。
+
+**触发方式**：事件驱动（有新 Pod 待调度时立即触发）
+
+**调度过程**：
+
+1. **过滤（Filtering）**：剔除资源不足或不满足约束的节点。
+2. **打分（Scoring）**：对剩余节点评分（比如 CPU 空闲率高的节点得分高）。
+3. **绑定（Binding）**：把 Pod 绑定到选中的节点上。
+
+##### Spark scheduler
+
+分布式计算框架
+
+第一层driver端端Job/Stage/Task调度，Spark 会把用户提交的作业拆分成 **Job → Stage → Task**，由 **Task Scheduler** 分配 Task 给 Executor 执行（任务逻辑的依赖和分发）类似我HyDFS里的scheduler
+
+第二层集群资源调度器（Cluster Manager），可以是 YARN、Mesos、K8s 或 Spark Standalone，它决定 Spark 的 **Executor** 在哪些节点启动，占多少 CPU/内存。（关心底层机器资源的分配。）类似于HyDFS里的Rescheduler
+
+##### Linux Cron Job
+
+对象是任意可执行脚本/命令。在**固定的时间**或**周期性**执行任务（时间驱动）。
+
+`crond` 守护进程会每分钟检查一次 `/etc/crontab` 和用户的 `crontab` 文件，看哪些任务需要运行。
+
+![](./sd_asset/sd7.png)
+
+### File sharing platform
+
+#### Functional requirements 
+
+1. upload/download files
+2. sync files across devices
+3. handle conflicts
+
+#### Non-functional requirements 
+
+1. latency 20s
+2. scalibility (support large files)
+3. availability >> consistency
+4. Reliability (fault tolerance)
+
+#### estimate QPS
+
+100M user -> 20% DAU = 20M
+
+QPS = 20M *10 files /day = 2k QPS
+
+peak QPS 10k QPS
+
+##### high QPS NoSQL vs SQL
+
+NoSQL 比如redis 100K QPS
+
+SQL 读写分离，sharding
+
+NewSQL (TiDB) high latency (10k-50KQPS)
+
+#### optimization
+
+* chunk，10M太大，1M太碎了，一般5M，10G -> 200 chunks, upload 10 chunks at once
+  * 断点续传，retry机制
+
+* 完整性验证，MD5算法
+
+  * > MD5 算法就是任意长度输入转为固定长度的128为hash值，也就是32位16进制
+
+* 压缩：在client消耗几ms时间压缩，极大减小传输体积，文本类可以减少80%，视频音频不会减少很多
+
+* pre-signature URL
+
+  * client传大文件到file management后，需要验证完整性，再传blob storage，传了两次
+
+  * pre-signature URL已经在blob storage内部，只传一次
+
+  * > **Pre-Signed URL**（预签名 URL）是云存储服务（如 AWS S3、阿里云 OSS）提供的一种临时授权机制，允许用户通过一个有时效性的 URL 直接访问或操作私有资源，**无需身份验证**
+    >
+    > **绕过后端鉴权** 大文件上传/下载、高并发访问（如用户上传头像）
+
+#### status update
+
+##### trust but verify
+
+client传完给file management一个消息，然后file management依然去blob storage验证，验证完再修改metadata的status
+
+#### upload
+
+##### fully sync
+
+修改文件，修改后的文件新的副本全部上传
+
+##### delta sync
+
+只上传修改的部分
+
+由于已经使用chunk，两种做法，一直接替换chunk，二append only，使用version_timestamp, copy on write，返回完整文件
+
+一如果替换的chunk损坏，无法回滚
+
+二多消耗存储空间
+
+添加tombstone，标记删除的chunk但是仍然保留，db一天一扫，去除标记30天的chunk
+
+#### download
+
+state management给client通知
+
+pull vs push
+
+pull : client check version and download
+
+Cons: brust transmission pattern, 不均匀，浪费资源
+
+long polling，web socket 可以建立长链接不用频繁创建连接，long polling可以直接使用http协议但是开销大
+
+push: sse server side event (http)
+
+文件有变化会创建一个事件源给client
+
+#### State service <-> client
+
+client 感知文件变化，联系file management，拉取最新的metadata，拿到最新的blob storage url，将raw byte从storage直接下载到本地 (Direct server return，DSR)
+
+#### conflict
+
+* first writer win
+* keep both, 保留最后的version后缀
+
+#### log seq
+
+文件变动作为operational event写入log seq，state management不追踪最新状态，而是维护offset
+
+#### CDC (Change Data Capture)
+
+冷热分离，增加access time，超过一年没访问，该文件移入冷存储里
+
+![](./sd_asset/sd8.png)
+
+### Ad Event Aggregation System
+
+50 M ad_id
+
+1B click event
+
+1B/100K = 10k QPS
+
+#### CTR (Click-Through Rate)
+
+CTR = # click / # impression 
+
+in general it is around 1%
+
+100B impression, QPS 1M
+
+#### Functional requirements 
+
+1. aggregate metric of a given ad_id in last k minutes
+2. top k ad_id in last n minutes
+3. filtering 
+4. 2yr historical data
+
+#### Non-functional requirements 
+
+1. latency < 15s
+2. scalibility 
+3. High QPS
+4. High throughput
+5. data correctness & data integrity - payment related
+6. FT (fault tolerance)
+
+Fast, good, cheap, 2 out of 3!!!!!
+
+in general high throughput means high latency
+
+#### estimate QPS
+
+10B < ... < 100B
+
+request = 0.1 KB
+
+100B / 100k = 1M QPS, peak 3M QPS
+
+Avg 100 MB /sec, 300 MB/sec
+
+Storage = 100B *0.1kB = 10TB/ day
+
+1month = 300 TB
+
+#### Data collection
+
+* high QPS, don't use RDBMs
+
+* NoSQL
+  * 3M QPS  = 15k QPS * 200 nodes
+  * 带id的写都会有hotspot问题，解决办法就是增加随机后缀摊一下流量
+  * In memory KV storage. 100k-200k /sec = 15-30 nodes, 内存存储成本高，需要持久化，异步落盘，有数据丢失的风险
+
+* Message Queue like Kafka
+  * 100k ops/ sec = 30 brokers
+  * latency高，带缓冲
+
+* log file 直接写log file
+  * big data file format, low latency, 从MQ的zookeeper系统维护变为IO bottle neck的维护，需要batch flush等加速写入的优化，latency又会增加
+
+#### real-time processing
+
+MapReduce/ Flink
+
+* batch processing (MapReduce) (high latency)
+* minibatch
+* streaming  (Flink)
+  * (input speed > processing speed)
+  * server down problem
+  * checkpoint in isolated system
+
+1 node 50k event/sec
+
+3M / 50k = 60nodes
+
+Note: popular ad_id (hotspot)
+
+1min context window, flush interval = 10s
+
+上游的checkpoint会跟着计算窗口一起移动，streaming不需要checkpoint，出现宕机直接从上游的上一个checkpoint重新计算就可以
+
+#### data storage
+
+OLAP (apach doris)
+
+查询慢
+
+1. cold/hot (if small size, store in memory, store 30 days data) 
+1. cache (store aggregate query data in cache)
+1. Prebuilt ad_id/ geo (aggregate by id or geologic)
+
+#### data correctness
+
+streaming process have **Late Arriving Events** or **Event Reordering**
+
+> Late Arriving Events 事件迟到
+>
+> - 在流处理中，数据事件因网络延迟、系统故障等原因，**未按实际发生顺序到达处理系统**。
+>   *示例*：用户点击事件的时间戳是 `10:00:00`，但系统在 `10:00:05` 才收到（本应在 `10:00:02` 处理）
+> - 窗口聚合结果不准确（如按小时统计的 PV 漏计）。
+> - 状态计算错误（如会话超时判断失效）
+>
+> Event Reordering 事件重排
+>
+> 通过技术手段**将迟到事件插入到正确的时间位置**，保证处理逻辑基于事件时间（Event Time）而非处理时间（Processing Time）
+>
+> - **水位线（Watermark）**：标记事件时间的进度，延迟超过阈值的数据视为迟到（如 Flink 的 `allowedLateness`）。
+> - **侧输出（Side Output）**：将迟到事件单独处理，最后合并结果（如 Spark Structured Streaming 的 `withWatermark`）。
+
+| **机制**                    | **作用**                                       | **示例**                                             |
+| :-------------------------- | :--------------------------------------------- | :--------------------------------------------------- |
+| **事件时间（Event Time）**  | 以数据实际发生的时间为准，而非到达系统的时间。 | 用户行为日志中的 `timestamp` 字段。                  |
+| **水位线（Watermark）**     | 动态跟踪事件时间进度，决定窗口何时触发计算。   | Flink 的 `BoundedOutOfOrdernessTimestampExtractor`。 |
+| **状态管理（State）**       | 持久化中间状态，支持故障恢复和重复数据处理。   | Spark 的 `checkpoint`、Flink 的 `StateBackend`。     |
+| **幂等写入（Idempotency）** | 确保重复操作结果一致（如通过唯一 ID 去重）。   | Kafka 生产者启用 `enable.idempotence=true`。         |
+
+##### reconcile
+
+对账？
+
+上游streaming processing
+
+下游batch processing，使用cron job，如mapReduce来处理，然后upsert (insert+update)，合并覆盖掉流系统处理的结果，实现数据对账
+
+* lambda架构？同时使用批处理和流处理，流处理实时但是不一定准确，批处理准确但是有延迟的结果，缺点需要维护两套系统
+* kappa全部依赖流系统，也就是在data collection这里再做一次data refill回填，重新计算后upsert，容错低了，exactly-once语意，需要可靠的状态管理和恢复机制
+
+![](./sd_asset/sd9.png)
 
 # OOD
 

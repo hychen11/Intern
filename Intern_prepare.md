@@ -1,5 +1,80 @@
 Raft项目和Zookeeper，都是kv数据库，但是他们本身能寸的空间不大，比如1g左右，基本是用来做配置中心等作用的，但是可以持久化
 
+# NoSQL 为什么通常比关系型 SQL 一致性低
+
+NoSQL 的设计初衷是**优先考虑高可用性、分区容忍性（CAP 中的 AP）**，而传统关系型数据库（如 MySQL、PostgreSQL）则优先保证**强一致性（ACID）**
+
+- 大多数 NoSQL（如 MongoDB、Cassandra）默认采用 **最终一致性（Eventual Consistency）**，允许数据在不同节点间短暂不一致，以换取高吞吐和低延迟。
+- SQL 通过 **ACID 事务**（原子性、一致性、隔离性、持久性）确保数据严格一致，但代价是性能较低（如锁竞争、2PC 提交延迟）
+
+#### 分布式强一致方案（如 TiKV）的代价
+
+**TiKV（LSM-KV + Raft + MVCC）** 确实是 NewSQL 的经典实现
+
+##### Pros
+
+1. **分布式强一致** 通过 Raft 协议保证数据多副本强一致，读写线性一致（Linearizability）。
+2. **ACID 事务**支持跨行事务（MVCC + Percolator 模型），接近传统 SQL 的隔离级别。
+3. **水平扩展**数据分片（Region）可动态分裂，理论上无限扩展
+
+##### Cons
+
+1. **写放大（Write Amplification）**LSM-Tree 的压缩（Compaction）机制会导致多次磁盘写入（例如写入 1KB 数据，实际可能写入 10KB）。
+2. **CPU/内存开销**Raft 日志复制、MVCC 版本管理、事务冲突检测均需消耗大量计算资源。
+3. **事务延迟**2PC 提交 + Raft 同步复制引入额外网络往返（通常 2~10ms 级延迟）。
+4. **存储带宽翻倍**多副本（默认 3 副本）占用额外存储空间和网络带宽。
+5. **运维复杂度**需调优参数（如 RocksDB 的 `max_write_buffer_number`、Raft 的 `election_timeout`），故障恢复流程复杂。
+
+
+
+NewSQL 的强一致和分布式能力是通过 **牺牲资源效率** 换来的，适合对一致性要求严苛的场景（如金融核心系统），但普通业务可能更愿意用 **MySQL 分库分表** 或 **MongoDB** 来降低成本
+
+是否需要强一致？是否容忍更高延迟？
+
+- 若接受最终一致 → 选 NoSQL（如 Cassandra）；
+- 若需分布式强一致 → 选 NewSQL（如 TiDB）；
+- 若业务简单 → 传统 SQL + 分库分表可能更划算。
+-  TiKV 的写放大可能导致 SSD 寿命缩短，需预留更多硬件资源
+
+# LSM-KV
+
+LSM-Tree（Log-Structured Merge Tree）是一种**写优化的存储结构**，核心思想是：
+
+- **将随机写转换为顺序写**（通过 Append-Only Log），极大提升写入吞吐。
+- **分层合并（Compaction）**：通过后台合并操作优化读性能。
+
+##### **LSM-KV 的典型实现（如 RocksDB）**
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│ MemTable    │ →  │ SSTable L0  │ →  │ SSTable L1  │ → ...
+│ (内存哈希表) │    │ (磁盘文件)  │    │ (合并后的文件)│
+└─────────────┘    └─────────────┘    └─────────────┘
+```
+
+1. **写入流程**：
+   - 数据先写入内存的 **MemTable**（基于跳表或哈希表，快速写入）。
+   - MemTable 写满后转为不可变的 **Immutable MemTable**，并刷盘生成 **SSTable（Sorted String Table）**。
+   - 磁盘上的 SSTable 分层存储（L0→Ln），L0 文件有重叠，深层通过 Compaction 合并去重。
+2. **读取流程**：
+   - 先查 MemTable → 再逐层查 SSTable（可能触发多次磁盘 I/O）。
+   - 通过 **布隆过滤器（Bloom Filter）** 加速判断 Key 是否存在。
+3. **Compaction**：
+   - 后台合并重叠的 SSTable，清理过期数据，减少读放大。
+   - 但会导致 **写放大**（例如写入 1KB 数据，Compaction 后实际写入 5KB）。
+
+Pros 
+
+- **高写入吞吐**：Append-Only 写日志 + 内存缓冲，适合写密集场景（如日志、区块链）。
+- **天然支持有序遍历**：SSTable 按 Key 排序，适合范围查询（相比 B-Tree 随机写更优）。
+- **与 Raft 协同**：Raft 的 Log 本身就是 Append-Only，LSM 的 WAL（Write-Ahead Log）可复用 Raft Log。
+
+Cons
+
+- **读放大（Read Amplification）**：可能需要查多层 SSTable。
+- **写放大（Write Amplification）**：Compaction 带来额外磁盘写入。
+- **CPU/内存开销**：布隆过滤器、Compaction 线程占用资源。
+
 # 404的原因
 
 * 反向代理失误，确定request转发到哪里，如果规则出错找不到目标服务，404
