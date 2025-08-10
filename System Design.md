@@ -1040,6 +1040,285 @@ streaming process have **Late Arriving Events** or **Event Reordering**
 
 ![](./sd_asset/sd9.png)
 
+### Chat System
+
+#### Function Requirement
+
++ 1-1 chat
+  + online msg delivery
+  + support offline msg
++ Group chat (<200)
++ presence status
+
+#### Non-function Requirement
+
++ Scalability, 1B user
++ low latency < 500ms
++ High consistency
++ FT
+
+####  IO handling
+
+1. Polling 
+
+   * Clients 轮询 servers看是否有新的消息，但是可能90%以上时间都是空的，每次查询会建立新连接，TCP 三次握手开销大 
+
+2. long polling
+
+   * 长连接减少网络请求和服务器负载，但是服务器端并发上来也是不小开销（本质上还是client发起pull请求）
+
+   * 每个连接占用一个FD，Linux默认约1024，可通过`ulimit -n`调整
+
+   * 端口复用（`SO_REUSEADDR`）和快速回收（`tcp_tw_reuse`）可优化端口利用率
+
+   * 内存占用：一个TCP连接占用3-10KB内核内存（取决于缓冲区大小）
+
+   * 网络协议上：作为客户端时，本地临时端口（默认范围32768-60999）可能耗尽。 主动关闭连接会进入`TIME_WAIT`（默认60秒），占用资源
+
+     * ```bash
+       net.ipv4.tcp_tw_reuse = 1     # 允许复用TIME_WAIT连接
+       net.ipv4.tcp_fin_timeout = 30 # 缩短FIN超时
+       ```
+
+   * 应用层性能：选择高性能I/O模型（如epoll、kqueue）比多线程/多进程更高效，Nginx1M级别并发连接（epoll+NIO）。使用长连接（如HTTP/1.1 Keep-Alive、HTTP/2）减少握手开销。二进制协议（如gRPC）比文本协议（如HTTP/1.1）更节省资
+
+3. websocket
+   * 双方主动发送消息，延迟低，开销小，传输效率高，但是兼容差，不像long polling基于http
+4. QUIC
+
+手机app不稳定，可能会切换ip，因此需要额外逻辑，比如client给一个client token，定位用户使用token，而不是ip
+
+#### msg delivery
+
+##### session affinity
+
+引入session registration，可以查找client所在的chat server然后切换过去（重定向）可以降低latency，防止跨服
+
+坏处就是：开了多个单聊，需要不断切换，会有业务上的抖动，此外hotspot需要rehashing/ sharding
+
+场景：规模不大，实时要求高，比如游戏房间
+
+##### msg sync
+
+一个用户分配一个server，然后通过消息转发，首先是落盘存储，随后session registration查询，再rpc或者转发msg
+
+好处可以水平扩容，分摊热度
+
+坏处多一次转发，latency高，并且session registration需要高的一致性
+
+此外serverA, serverB之间时钟消息不同步，需要处理消息顺序问题，代码复杂度高
+
+优化就是不要转发，因为n台server就是n^2的链路，考虑使用总线，有消息写到消息队列或者数据存储，接受方订阅消息的队列
+
+问题就是这个中心话可能会造成hotspot，单点bottleneck
+
+#### Actor model
+
+用“**Actor**”来替代线程、锁和共享内存的概念，让系统在高并发下更容易写、扩展和维护
+
+1B user 
+
+高并发（每个在线用户都有自己的会话逻辑）
+
+高可靠（消息不能乱序或丢失）
+
+代码可维护（不想写一堆复杂的锁和同步逻辑）
+
+传统多线程共享内存的方式需要加锁、避免死锁、处理竞争条件，代码会很复杂
+
+**Actor Model** 把这些复杂性隐藏起来，每个用户、连接、群聊，都用一个 Actor 表示
+
+> 1. **一切都是 Actor**
+>    - Actor = 独立运行的对象/进程（有自己的状态和行为）
+>    - 例如：每个用户是一个 Actor，每个群聊是一个 Actor
+> 2. **Actor 之间通过消息传递（message passing）通信**
+>    - 不直接共享内存
+>    - 发消息是**异步**的（发送者不会阻塞等待）
+>    - 每个 Actor 自己维护**消息收件箱（mailbox）**，顺序处理消息
+> 3. **Actor 的行为**
+>     每个 Actor 收到一条消息时，可以：
+>    - 更新自己的状态
+>    - 给其他 Actor 发送消息
+>    - 创建更多 Actor
+
+#### group chat
+
+引入group registration，一个group成员分布在10个不同的chat server上，消息需要转发10份到不同的服务器上，server内部可以进行同机路由
+
+#### offline storage
+
+如果client未上线，也就是在session registration里找不到信息，存在offline里，后面client上线后去offline storage里找，再读
+
+保持30days
+
+#### High Level Diagram
+
+![](./sd_asset/sd10.png)
+
+### Payment System
+
+PSP (Payment service platform) API
+
+target: Bookkeeping + Internal Clearing 记账+内部清算
+
+1. initialization
+2. Execution (PSP API)
+3. recording
+4. notification
+5. clearing
+
+#### Functional requirements
+
++ Merchant send payment request
++ client can pay
++ merchant can query payment status
+
+#### Non-functional requirements
+
++ Security
++ Reliability- handle failure
++ Consistency
++ Correctness
+
+#### Payment integration
+
+1. Server-to-server
+   * 商家手机卡号+cvv发给银行，相当于自己建立一个PSP，大厂首选，一般不会这么做，因为会接触到PAN（primary account number），需要PCI审计
+2. SDK
+   * Stripe paypal
+   * 直接PSP的JS lib嵌入UI，然后商家得到token，用token调用PSP API
+   * 存在供应链攻击的风险
+3. inframe
+4. hosted redirect
+   * **PCI Compliance Burden **低
+
+#### Data entity
+
+data model
+
+* single center table
+* tree table: order+payment+ledger
+
+金融数据需要保证一致性，内部一致性可以使用RDBMs来保证，外部一致性
+
+网卡导致double spending/charging，需要做exactly once，需要idempotency key
+
+workflow都需要带idempotency key，client checkout时，server会生成一个idem key，后续都带idem key，然后payment service做de-duplication，拦截，随后更新状态
+
+PSP会有一个callback URL，完成会回调通知，如果网络问题调用失败，未通知到超过一定时间，就轮询主动查询
+
+#### retry
+
+1. timeout
+2. exponential backoff
+3. jitter 每次向后端发请求的时间间隔加入+-15%抖动
+4. dead letter queue
+
+#### Double-entry bookkeeping
+
+复式记账，每笔交易影响两个账号，金额相等方向相反的操作
+
+ledger不可更改，append only数据库
+
+alibaba ledgerDB, Amazon QLDB (Quantum Ledger DB)
+
+#### Clearing
+
+一天对账一次，银行定期会发settlement file结算报告
+
+#### problem
+
+一笔交易轮询最后fail了，但是PSP现实通过了，状态机的跳变，可以设置状态机的不可覆盖，扭转等
+
+一张表维护实时操作状态，一张账务表负责资金的守恒
+
+![](./sd_asset/sd11.png)
+
+### ChatGPT
+
+#### Goal metric
+
+1. Throughput
+2. Latency
+
+一般过来的消息会带上上下文，存Redis，然后WAL异步落盘
+
+session manager会根据session_id找到所有的对话上下文，打包成一个任务放进MQ里，然后inference service可以从MQ里取到对应的Task，进行推理返回消息
+
+#### VLLM KV Cache
+
+GPT 
+
+1. token by token
+2. auto regression
+
+注意这里llama3 8B使用了 GQA (Group Query Attention)
+
+query 头数还是 32
+
+但 **K/V 头数更少**，例如这里 `n_kv = 8`
+
+意思是：32 个 Q 头共享这 8 个 K/V 头的 KV cache（Q 会 map 到这些 KV 头）
+
+#### Batching
+
+1. naive batching
+
+2. continuous batching
+
+​	不用等都处理完，有空位就从MQ里取，throughput增加，降低latency
+
+* prefill write cache (time to first token)
+
+ * decode (read cache append one token) (time to incremental token)
+
+   ![](./sd_asset/sd12.png)
+
+* chunked prefill
+
+  类似os的抢占机制
+
+#### PD disaggregation
+
+同一节点内部，不同GPU上
+
+分成两个不同的节点，分别优化两个不同的节点，比如decode node上启用cuda graph，减少CPU开销，因为GPU执行的任务都是CPU assigned，但是decode GPU会等CPU。这里可以调节decode和prefill的比例
+
+##### reduce KV cache
+
+* quantization, FP16-FP8
+* Paged Attention
+  * Flash-Attention 主要减少计算 SRAM和HBM之间内存的访问
+  * paged attention减少存储的KV碎片
+* prefix sharding
+* compression
+  * Cache Gen
+  * Sliding window attention
+
+##### networking
+
+* InfiniBand
+* ROCEv2
+
+##### streaming pipeline
+
+Overlap Prefill & Decode
+
+某些系统（如TGI、vLLM）会在Prefill完成前**提前启动部分Decode**（例如Prefill完成80%时开始Decode前几个token）
+
+#### Parallelism
+
+* tensor parallelism
+  * 存在All-Reduce通信，每个层做两次同步
+* expert parallelism
+  * 存在热门专家，负载不均衡的问题 
+* context parallelism
+  * ring attention
+
+流水线并行一般用在training而不是inference
+
+![](./sd_asset/sd13.png)
+
 # OOD
 
 SOLID+design pattern
