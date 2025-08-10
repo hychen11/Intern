@@ -1,3 +1,46 @@
+# 堆内内存 vs 堆外内存
+
+| **维度**     | **堆内内存（Heap Memory）**         | **堆外内存（Off-Heap Memory）**                              |
+| :----------- | :---------------------------------- | :----------------------------------------------------------- |
+| **存储内容** | 对象实例、数组（`new`关键字创建的） | 直接内存（如`ByteBuffer.allocateDirect`）、JNI调用、Metaspace（类元数据） |
+| **管理方式** | JVM自动GC管理（分代回收）           | 手动管理（需显式释放，如`Unsafe`或`ByteBuffer`的`cleaner`）  |
+| **分配速度** | 较慢（需GC参与）                    | 较快（直接调用操作系统API，如`malloc`）                      |
+| **内存溢出** | `OutOfMemoryError: Java heap space` | `OutOfMemoryError: Direct buffer memory` 或 `OutOfMemoryError: Metaspace` |
+| **典型用途** | 业务对象、集合类                    | 网络IO（Netty）、大数据（Spark）、缓存（Ehcache）            |
+
+```
+jstack <java_pid> | grep <nid>  # 将线程ID（16进制）与堆栈关联
+```
+
+- **常见原因**：死循环、锁竞争、频繁GC、算法复杂度高。
+
+```
+jstat -gcutil <pid> 1000  # 每秒打印GC统计
+```
+
+- `YGC/YGCT`：年轻代GC次数/耗时。
+- `FGC/FGCT`：Full GC次数/耗时（频繁Full GC会导致CPU飙升）。
+
+```
+jmap -dump:format=b,file=heap.hprof <pid>  # 生成堆转储
+jhat heap.hprof  # 分析（或使用MAT工具）
+```
+
+Young Gen (Eden + Survivor0 + Survivor1) / Old Gen
+
+```
+-Xms512m -Xmx512m       # 堆初始/最大大小
+-XX:NewRatio=2           # 老年代/年轻代比例（2:1）
+-XX:SurvivorRatio=8      # Eden/Survivor比例（8:1:1）
+```
+
+Metaspace存储**类元数据**（如类名、方法字节码）
+
+```
+-XX:MaxMetaspaceSize=256m  # 限制大小
+-XX:MetaspaceSize=64m     # 初始大小
+```
+
 # ...
 
 本质就是一个数组
