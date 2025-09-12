@@ -4715,6 +4715,22 @@ class Solution:
 
 # Trick
 
+c++的前缀
+
+```c++
+string s = "hello world";
+s.starts_with("hello");
+
+
+bool starts_with(const string& s, const string& prefix) {
+    return s.size() >= prefix.size() &&
+           s.compare(0, prefix.size(), prefix) == 0;
+}
+//starts_with(s, "hello")
+```
+
+
+
 去重复
 
 ```c++
@@ -4791,6 +4807,23 @@ upper_bound(matrix.begin(), matrix.end(), target, [](int val, const vector<int>&
 ```
 
 lower_bound 先a，再val，upper_bound 先val后a
+
+```c++
+vector<int> a={1,3,4,6,8,9,10};
+int b=6;
+int l=-1,r=a.size();
+while(l+1<r){
+    int m=(l+r)/2;
+    //upper_bound >,lower_bound >=
+    if(a[m]>b){
+        r=m;
+    }else{
+        l=m;
+    }
+}
+```
+
+
 
 `constexpr int dirs[4][2]={}`在class外用，因为这个是预编译的
 
@@ -5837,6 +5870,84 @@ class LRUCache extends LinkedHashMap<Integer,Integer>{
  * obj.put(key,value);
  */
 ```
+
+# LFU
+
+创建一个 k:freq v:list {key,value,freq} 的freqmap
+
+一个k:key v: list::iterator 的kvmap
+
+两个参数，一个capacity，一个minFreq
+
+```c++
+using tiii = tuple<int,int,int>;//key,value,freq
+class LFUCache {
+public:
+    unordered_map<int,list<tiii>::iterator> m;
+    //key freq, value list
+    unordered_map<int,list<tiii>> f;
+    int capacity;
+    int minfreq;
+    LFUCache(int capacity):capacity(capacity) {}
+    
+    int get(int key) {
+        if(capacity==0) return -1;
+        if(m.find(key)==m.end()) return -1;
+        int val=get<1>(*m[key]);
+        int freq=get<2>(*m[key]);
+        f[freq].erase(m[key]);
+        if(f[freq].size()==0) {
+            f.erase(freq);
+            if(minfreq==freq)
+                minfreq++;
+        }
+        freq++;
+        f[freq].push_front(make_tuple(key,val,freq));
+        m[key]=f[freq].begin();
+        return val;
+    }
+    
+    void put(int key, int value) {
+        if(capacity==0) return ;
+        if(m.find(key)==m.end()){
+            if(m.size()==capacity){
+                //pop lfu
+                auto it=f[minfreq].back();
+                int oldkey=get<0>(it);
+                m.erase(oldkey);
+                f[minfreq].pop_back();
+                if(f[minfreq].size()==0){
+                    f.erase(minfreq);
+                }
+            }
+            f[1].push_front(make_tuple(key,value,1));
+            m[key]=f[1].begin();
+            minfreq=1;
+        }else{
+            int val=get<1>(*m[key]);
+            int freq=get<2>(*m[key]);
+            f[freq].erase(m[key]);
+            if(f[freq].size()==0) {
+                f.erase(freq);
+                if(minfreq==freq)
+                    minfreq++;
+            }
+            freq++;
+            f[freq].push_front(make_tuple(key,value,freq));
+            m[key]=f[freq].begin();
+        }
+    }
+};
+
+/**
+ * Your LFUCache object will be instantiated and called as such:
+ * LFUCache* obj = new LFUCache(capacity);
+ * int param_1 = obj->get(key);
+ * obj->put(key,value);
+ */
+```
+
+
 
 # Bash
 

@@ -1,3 +1,131 @@
+# 幂等如何实现
+
+### 唯一业务标识（推荐首选）
+
+- 为每次交易生成一个全局唯一的 `orderId`（UUID、雪花算法、数据库自增 + 时间戳等）。
+
+- 作为数据库主键 / 唯一索引。
+
+- 插入订单时，利用 **数据库的幂等性** 保证不会重复插入。
+
+- 更新订单时，加上条件，比如：
+
+  ```
+  UPDATE orders 
+  SET status = 'PAID' 
+  WHERE order_id = ? AND status = 'CREATED';
+  ```
+
+  → 如果已经是 `PAID`，就不会再更新，保证幂等。
+
+### Token/防重令牌
+
+- 在下单前，生成一个 `token`，写到 Redis 里。
+- 下单时必须携带这个 `token`，并且 Redis `DEL` 成功才能继续。
+- 重复请求因为 `token` 已经被删掉，就会失败。
+- 常见于秒杀/抢购场景。
+
+### 幂等表 / 去重表
+
+在分布式环境下，请求可能被 **重试 / 重放**（比如支付回调、MQ「至少一次投递」）。
+
+我们希望：同一个「业务请求」只被处理一次。
+
+做法：在数据库里建一张 **幂等表**，专门用来记录「业务唯一请求号」
+
+```sql
+CREATE TABLE idempotent_record (
+    request_id VARCHAR(64) NOT NULL,
+    biz_type   VARCHAR(32) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (request_id, biz_type)
+);
+```
+
+业务请求到来时，先尝试插入一条 `request_id`
+
+如果插入成功 → 说明这是**第一次请求**，继续执行业务逻辑。
+
+如果插入失败（主键冲突） → 说明**请求已处理过**，直接返回成功（丢弃重复请求）
+
+### 状态机控制
+
+- 订单天然是个 **状态机**：`CREATED → PAID → SHIPPED → COMPLETED`。
+
+- 每个状态只能往下走，不能回退。
+
+- 在状态流转时加条件：
+
+  ```
+  UPDATE orders 
+  SET status = 'SHIPPED' 
+  WHERE order_id = ? AND status = 'PAID';
+  ```
+
+  → 保证不会因为重复调用「发货」接口导致多次发货。
+
+# 数据库里的乐观锁和悲观
+
+### CAS是原子操作！！！
+
+### 悲观锁（Pessimistic Lock）
+
+- **认为冲突一定会发生**，所以操作数据前要「锁住」。
+
+- 典型实现：
+
+  ```
+  SELECT * FROM orders WHERE id = 1 FOR UPDATE;
+  ```
+
+  → 事务持有行锁，别人必须等我释放后才能修改。
+
+- 应用：库存扣减（防止超卖）。
+
+- 缺点：锁竞争严重时性能差，容易阻塞。
+
+### 乐观锁（Optimistic Lock）
+
+**认为冲突不常发生**，所以操作时不加锁，而是在提交时检查「有没有人动过数据」。
+
+常见实现：加一个 `version` 字段，每次更新时带上条件：
+
+```
+UPDATE orders 
+SET stock = stock - 1, version = version + 1 
+WHERE id = 1 AND version = 5;
+```
+
+- 如果 `version` 匹配 → 更新成功。
+- 如果 `version` 不匹配 → 说明数据被别人修改过，当前操作失败，需要重试。
+
+应用：高并发下的库存扣减、账户余额修改。
+
+优点：无锁，提高并发性能。
+
+缺点：需要业务侧写**重试逻辑**。
+
+有点类似CAS，但是它依靠的ACID来实现原子操作的！！！
+
+# `System.gc()` 和 Full GC 都不保证立即执行
+
+调用 `System.gc()` 是 **向 JVM 发出建议**，告诉它“现在可以尝试进行垃圾回收”。
+
+**JVM 可以选择忽略**这个请求，也可以延迟执行，具体行为取决于 JVM 实现（HotSpot、OpenJ9 等）和垃圾收集器（G1、Parallel GC、ZGC 等）。
+
+也就是说，调用 `System.gc()` 并不意味着马上就会触发 GC，也不保证会进行 Full GC。
+
+例如，在 G1 或 ZGC 下，`System.gc()` 可能只触发一次并发标记或某个 region 回收，而不是立刻清理整个堆。
+
+虽然 Full GC 本身是“立即执行”一旦触发，但触发条件不一定立刻满足，即 **你不能保证每次调用 System.gc() 都会立即触发 Full GC**
+
+```
+-XX:+ExplicitGCInvokesConcurrent  # 对 G1/并发 GC 有效
+-XX:+DisableExplicitGC            # 禁止 System.gc() 的调用
+```
+
+
+
 # 堆内内存 vs 堆外内存
 
 | **维度**     | **堆内内存（Heap Memory）**         | **堆外内存（Off-Heap Memory）**                              |
@@ -82,7 +210,7 @@ public class MyService {
 
 **只能在 AOP 代理对象管理的类中使用**（比如加了 `@Service`、`@Component` 的 Bean）。
 
-# @Autowired VS @Autowire
+# @Autowired VS @Resource
 
 ```java
 @Autowired
@@ -145,8 +273,6 @@ private UserService userService;
 private UserService userService;
 //找不到会有问题
 ```
-
-
 
 # RESTFUL是什么？和http关系是什么？
 
@@ -908,7 +1034,7 @@ execute 提交一个`Runnable`任务
 
 submit 提交一个task返回`Future`， `future.get()` 方法，可以阻塞当前线程并等待任务执行完成，返回结果
 
-# Redis 2025.01.12 3.1二刷
+# Redis 2025.01.12 3.1 8.28三刷
 
 SpringCache是一种集成多种缓存方案的接口，是一层抽象层
 
@@ -1504,7 +1630,35 @@ redisTemplate.setKeySerializer(new StringRedisSerializer());
 
 **Netty**里也用 **DirectBuffer**（堆外内存）实现零拷贝
 
-# Mysql 2025.1.19 3.10二刷
+# Mysql 2025.1.19 3.10 8.28二刷
+
+### 如何用sql语句实现undolog？
+
+```sql
+START TRANSACTION;  -- 开始事务
+COMMIT;             -- 提交事务
+ROLLBACK;           -- 回滚事务
+```
+
+手工在 MySQL CLI 里执行，也是一条条敲的
+
+```sql
+START TRANSACTION;
+
+UPDATE account SET balance = balance - 100 WHERE id = 1;
+-- OK
+
+UPDATE account SET balance = balance + 100 WHERE id = 999;
+-- ERROR 1062: ... （报错）
+```
+
+如果报错就`ROLLBACK;`
+
+没报错就`COMMIT;`
+
+**undo log**：记录修改之前的数据，用于 **回滚 (ROLLBACK)** 和 **一致性读 (MVCC)**
+
+**redo log**：记录修改之后的数据，用于 **崩溃恢复 (Crash Recovery)**
 
 ### B+树 SSD还有优势吗
 
@@ -1730,7 +1884,7 @@ Mysql底层的innoDB采用的B+树,路径短,disk读取代价低
 
 * Primary key
 
-* 没Primary key就用地一个Unique的Index
+* 没Primary key就用地一个Unique的Index（这里Unique得是非空）
 
 * 没有Unique的index, innoDB就会生成一个rowid作为隐藏的cluster index
 
@@ -1992,7 +2146,7 @@ sql语句的优化
 - 避免索引失效写法
 - 用union all代替union，union会多一次过滤，效率低 (union去掉重复) union all会包含重复的
 - 避免在where字句中对字段进行表达式操作（可能索引失效 （比如substr)
-- join优化,能inner join就不要left join和right join,如必须就要小表为驱动, inner join会把小表放外面,大表放里（自动的！）
+- join优化，能inner join就不要left join和right join，如必须就要小表为驱动, inner join会把小表放外面,大表放里（自动的！）
 
 主从复制，读写分离
 
@@ -2052,6 +2206,33 @@ redo log是记录物理修改，undo log记录逻辑修改，通过逆操作恢�
 
 - 事务提交后，数据先在 **Buffer Pool**（内存缓存）中修改，而不是直接写入磁盘。
 - 如果数据页（Page）已经在 Buffer Pool 里，就直接修改；如果不在，则从磁盘加载进 Buffer Pool，再修改。
+
+> **数据库在加载 page 时确实使用到了 Page Cache**，但这里有一个非常重要的细节：数据库通常会使用 **双重缓存（Double Buffering）** 策略，即同时利用操作系统的 Page Cache 和数据库自己的 Buffer Pool。
+>
+> ```
+> 磁盘 (Disk)
+>     ↓ (物理I/O)
+> 操作系统 Page Cache   ←── 第一次缓存
+>     ↓ (内存拷贝)
+> 数据库 Buffer Pool    ←── 第二次缓存  
+>     ↓
+> 数据库工作内存
+> ```
+
+有些数据库可以配置直接I/O，跳过OS缓存
+
+```
+磁盘 (Disk)
+    ↓ (直接I/O)
+数据库 Buffer Pool    ←── 只有一次缓存
+    ↓  
+数据库工作内存
+```
+
+```
+[mysqld]
+innodb_flush_method = O_DIRECT
+```
 
 **数据页标记为 Dirty Page**：
 
@@ -2235,7 +2416,9 @@ session.selectOne("selectUserByName", "admin' OR '1'='1");
 
 如何防止？ 使用`#{}`预编译，SQL 先编译，再传入参数
 
-# frame 2025.1.20 3.12二刷
+# frame 2025.1.20 3.12 8.31二刷
+
+DDD架构 就是处理放在service里，而不是在controller里有处理逻辑
 
 **MVC= model+view+controller**
 
@@ -2291,6 +2474,14 @@ singleton的Bean会存在ApplicationContext/BeanFactory的内存中
 可以通过applicationContext.getBean(y)拿到bean
 
 ### AOP
+
+如果你用 `@Around("@annotation(Loggable)")`，其实就是：
+
+- Spring AOP 会扫描到某个方法上有 `@Loggable` 注解
+- 把这个方法作为 Pointcut 选中
+- 然后代理生成的对象会在调用这个方法时，把你的环绕逻辑织入
+
+这里Joint Point 就是方法级别，所以 **切口就是一个“方法的执行”**。不像 AspectJ 那样可以切到字段、构造器
 
 **增强（Advice）** 指的是在 **不修改原始代码的情况下，为方法增加额外的功能**
 
@@ -3272,7 +3463,7 @@ cron表达式
 
 round轮询，fallover 故障转移，第一个heartbeat检测成功的，sharding_broadcast分片广播
 
-# MQ 2025.1.22 3.12二刷 
+# MQ 2025.1.22 3.12 8.31二刷 
 
 ### 解耦，异步，削峰
 
@@ -3446,8 +3637,6 @@ RabbitMQ通常延迟极低（微秒级到毫秒级）。
 
 BufferedReader 内部维护一个缓冲区（默认大小为 8KB），一次性从磁盘读取大量数据到缓冲区。后续读取操作直接从缓冲区中获取数据，减少磁盘 I/O 操作。提供 `readLine()` 方法，方便逐行读取文本文件。
 
-
-
 #### Map
 
 - `HashMap`：JDK1.8 之前 `HashMap` 由数组+链表组成的，数组是 `HashMap` 的主体，链表则是主要为了解决哈希冲突而存在的（“拉链法”解决冲突）。JDK1.8 以后在解决哈希冲突时有了较大的变化，当链表长度大于阈值（默认为 8）（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）时，将链表转化为红黑树，以减少搜索时间。
@@ -3464,8 +3653,6 @@ BufferedReader 内部维护一个缓冲区（默认大小为 8KB），一次性�
   System.out.println(map.get("A")); // 输出 1
   map.remove("B");
   ```
-
-
 
 ### Queue
 
@@ -3965,7 +4152,7 @@ return futures.stream().map(CompletableFuture::join).collect(Collectors.toList()
 ### thread State
 
 ```java
-public enum Statr{
+public enum State{
   NEW,
   RUNNABLE,
   BLOCKED,
@@ -4029,6 +4216,8 @@ t3.start();
 
 #### 方法二 **CompletableFuture**
 
+所以在默认 `commonPool` 下，**你不能保证 T1/T2/T3 一定是不同的线程**。
+
 ```java
 // 创建三个CompletableFuture对象
 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -4045,7 +4234,7 @@ CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
 future.join();
 ```
 
-#### 信号量Semaphore!!!最好
+#### 信号量Semaphore!!!最好 acquire release
 
 如果300个thread顺序执行，就直接创建300个semaphore=new Semaphore(300);
 
@@ -4093,6 +4282,8 @@ public class SequentialThreads {
 notify()随机唤醒等待队列中的一个线程的一个线程wait()
 
 notifyAll()唤醒所有
+
+wait绑定notify，然后wait需要获取锁，也就和synchronized绑定
 
 ### notify() vs signal()!!
 
@@ -4341,7 +4532,7 @@ r.r2=y;
 
 ### AQS AbstractQueuedSynchronizer
 
-**抽象队列同步器，是一种锁机制**，内部是有一个state(0可以获取锁，1就得进入队列）和一个FIFO的双向队列，这个双向队列是不加锁的！通过CAS实现锁机制
+**抽象队列同步器，是一种锁机制**，内部是有一个state(0可以获取锁，1就得进入队列）和一个FIFO的双向队列，**这个双向队列是不加锁的！**通过CAS实现锁机制
 
 - ReentrantLock 阻塞式锁
 - Semaphora 信号量
@@ -5650,7 +5841,7 @@ JWT 本质上就是一组字串，通过（`.`）切分成三个为 Base64 编�
 
 Header,Payload,**Signature**
 
-Payload不加密，base64URL编码，Signature加密HS256**非对称加密**
+Payload不加密，base64URL编码，Signature不是加密！而是生成一个 **哈希值作为签名**，HS256
 
 `signature = HMAC_SHA256( base64Url(header) + "." + base64Url(payload), secret )`
 
