@@ -1,5 +1,28 @@
 Raft项目和Zookeeper，都是kv数据库，但是他们本身能寸的空间不大，比如1g左右，基本是用来做配置中心等作用的，但是可以持久化
 
+# Web accelerate
+
+ 12 种主流网站前端性能优化技巧，包括服务器、CDN、Nginx配置、HTTP 协议升级、代码压缩、加载策略、网站性能分析
+
+1. 升级带宽（**加钱！！！**）
+2. CDN缓存（媒体资源或整套网站）。缺点：流量计费贵。
+3. 浏览器缓存解决重复访问问题
+4. 升级到http/2，支持多路复用
+5. 压缩资源，如图片->webp，压缩代码等，减少20%以上体积
+6. js压缩，tree shaking静态分析把代码里没用到的压缩掉，减少js的体积
+7. gzip压缩
+8. **延迟加载**，如懒加载，适合长页面和图片较多的网站。
+9. **按需加载**，利用代码分割技术，访问哪个页面就加载哪个页面的代码
+10. **分层加载**，先快后好，实现方式一：缩略图，列表页显示低清小图，实现方式二：渐进式加载，先显示模糊的预览
+11. **预加载**，在首页先预加载一点详情内容，要权衡
+12. **请求合并**，请求聚合，所有小图标合并为一张图片等
+
+网站缓存体系，CDN解决地理距离问题，浏览器缓存解决重复访问问题，建议结合使用
+
+Http1.1 可以建立多个连接，但是每个连接内的请求必须按照顺序处理，容易产生队头阻塞问题
+
+http2 多路复用 可以同时处理多个请求
+
 # Python await/asyncio
 
 根本上只有一个执行线程？在不断看当前哪个可以执行
@@ -13,6 +36,106 @@ Raft项目和Zookeeper，都是kv数据库，但是他们本身能寸的空间�
 1. 挂起当前协程，把控制权交给事件循环；
 2. 事件循环调度其他协程；
 3. 等待的任务完成后，再切回到原协程继续执行。
+
+# MapReduce  fku!!
+
+map+shuffle+reduce
+
+在经典的 MapReduce（比如 MIT 6.824 或 Hadoop）中，每个 Map Task 的输出会被**按 key 分区**写到不同的文件中：
+
+`mr-[mapTaskId]-[reducePartitionId]`
+
+相同的 key **一定会被分到同一个 reducePartitionId**
+
+Reduce Task i 只需要读取所有 `mr-*-i` 文件
+
+但是会有中间文件数量爆炸的问题，hadoop一般会本地merge+shuffle优化
+
+**影响 MapReduce 的因素**
+
+- **哈希函数**：保证 key 分布均衡，否则可能出现数据倾斜（某个 Reduce Task 处理超多 key）
+- **文件存储与网络传输**：中间结果往往先存本地，再由 Reduce Task 拉取（shuffle 阶段），这决定了 IO 开销
+- **任务容错**：Map/Reduce 失败会重试，因此中间文件需要持久化
+- **Reduce 数量的选择**：太少 → Reduce Task 很慢；太多 → 文件过多 & 管理成本高
+
+# MapReduce VS streaming Process
+
+| 特性         | MapReduce                              | 流式处理（如 Flink, Spark Streaming）            |
+| ------------ | -------------------------------------- | ------------------------------------------------ |
+| **数据输入** | 批处理（静态文件，如 HDFS 上的 log）   | 流数据（Kafka、Socket、消息队列）                |
+| **计算模型** | Map → Shuffle → Reduce，阶段性 barrier | 持续 operator pipeline（map/filter/join/window） |
+| **延迟**     | 高（分钟级到小时级）                   | 低（毫秒到秒级）                                 |
+| **结果**     | 批量结果输出                           | 持续增量结果                                     |
+| **存储依赖** | 依赖分布式文件系统（HDFS）             | 依赖消息系统（Kafka）或内存态存储                |
+| **典型应用** | 离线日志分析、统计报表                 | 实时监控、风控、推荐系统实时更新                 |
+
+**MapReduce** 是 **大批量离线分析**
+
+**流式框架** 是 **实时计算 & 在线反馈**
+
+# Spark 与 Flink
+
+### Spark 的实现原理
+
+**核心思想：RDD (Resilient Distributed Dataset)**
+
+- RDD 是一种**不可变的分布式数据集**，由一系列分区组成。
+- 支持两类操作：
+  - **Transformation**（惰性计算，比如 map/filter/join，不会立即执行）
+  - **Action**（触发执行，比如 collect/saveAsTextFile）
+- 这让 Spark 可以在执行前构建 **DAG（有向无环图）**，优化执行计划，减少数据传输
+
+**容错机制：Lineage**
+
+- RDD 不会直接存中间结果，而是记录“如何从父数据集算出来”。
+- 如果某个分区丢了，可以**回溯 lineage**，重新计算。
+- 避免了 Hadoop 那种必须写磁盘的高 IO 开销。
+
+**执行模式**
+
+- Spark 把作业划分为 **Stage**（阶段），每个 Stage 内部是 pipeline（task 并行执行）。
+- Stage 之间由 **shuffle** 分隔（数据需要全局重新分区）。
+- 执行时，Driver 负责任务调度，Worker 节点运行 Task。
+
+**Spark Streaming**
+
+- 其实是 **微批处理 (micro-batch)**。
+- 把实时流切成小 batch（比如 1s 一批），每个 batch 当成一个 RDD 去处理。
+- 优点：复用 Spark 批处理引擎，易于实现；缺点：延迟不够低（秒级）
+
+## Flink 的实现原理
+
+**核心思想：流处理优先，批处理只是流的一种特例**
+
+- Flink 认为 **所有数据本质上都是流**：
+  - 批数据 = 有界流（文件，读取完就结束）
+  - 实时流 = 无界流（Kafka，一直有数据进来）
+- 因此，Flink 把 API 都基于 **DataStream/DataSet**。
+
+**Pipeline 执行模式**
+
+- 不像 Spark 要等到一个 Stage 完结，Flink 的 operator 是 **真正的流式管道**。
+- record 进来后就可以被下游立即消费，不需要等批次。
+- 延迟通常可以做到毫秒级。
+
+**状态管理与容错**
+
+- 流式计算需要保存 **窗口状态、聚合状态**。
+- Flink 使用 **RocksDB/内存** 作为状态后端，并通过 **checkpoint + exactly-once** 保证语义。
+- 容错机制：周期性保存快照，如果故障就回滚。
+
+**时间语义**
+
+- Flink 支持 **事件时间 (event time)**，而不仅是处理时间 (processing time)。
+- 可以处理乱序数据（比如 Kafka 消息延迟到达），通过 watermark 技术来保证窗口正确。
+
+# Batch process
+
+**Spark**：基于内存的计算，减少磁盘 IO，速度比 MapReduce 提高几十倍
+
+**Flink（有界流模式）**：把批看作“有界流”，执行上比 MapReduce 更流畅（pipeline 而不是阶段性 barrier）。
+
+**Presto / Hive on Tez**：更适合 SQL 查询场景。
 
 # HDFS
 
