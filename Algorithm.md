@@ -3384,12 +3384,36 @@ public:
 
 k &= k - 1 是一种位操作的快捷方式，用于将变量 k 的二进制表示中的最低位的 1 置为 0
 
+或者`k-=(k&-k)`
+
+这里`p[i][j]` 就是从index=i出发，前进2^j步的parent
+
+递推公式就是 
+
+```c++
+int p=pa[i][j];
+if(p!=-1){
+	pa[i][j+1]=pa[p][i];
+}
+//相当于从i出发走2^(j+1)步 = i出发走2^j步(p)+2^j
+//p=pa[i][j];
+//pa[i][j+1]=pa[p][j]
+```
+
+
+
+
+
 __builtin_ctz 计算的是一个数的最低位1之前的0的个数。**`ctz`** 是 "count trailing zeros" 的缩写。
 
 ```cpp
 __builtin_ctz(0b00100000) 会返回 5，因为有 5 个连续的0在最低位1之前。
 __builtin_ctz(0b00000001) 会返回 0，因为最低位就是1，没有0在它之前。
 ```
+
+或者用`countr_zero((unsigned)k)`
+
+
 
 ## **Cable Protection**（基环树）
 
