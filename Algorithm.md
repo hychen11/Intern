@@ -3400,9 +3400,38 @@ if(p!=-1){
 //pa[i][j+1]=pa[p][j]
 ```
 
+```c++
+class TreeAncestor {
+    vector<vector<int>> pa;
+public:
+    TreeAncestor(int n, vector<int>& parent):pa(vector(n,vector<int>(32,-1))) {
+        for(int i=0;i<n;i++){
+            pa[i][0]=parent[i];
+        }
+        for(int i=0;i<31;i++){
+            for(int j=0;j<n;j++){
+                int p=pa[j][i];
+                if(p!=-1) {
+                    pa[j][i+1]=pa[p][i];
+                }
+            }
+        }
+    }
+    
+    int getKthAncestor(int node, int k) {
+        for(;k>0&&node!=-1;k-=(k&-k)){
+            node=pa[node][countr_zero((unsigned)k)];
+        }
+        return node;
+    }
+};
 
-
-
+/**
+ * Your TreeAncestor object will be instantiated and called as such:
+ * TreeAncestor* obj = new TreeAncestor(n, parent);
+ * int param_1 = obj->getKthAncestor(node,k);
+ */
+```
 
 __builtin_ctz 计算的是一个数的最低位1之前的0的个数。**`ctz`** 是 "count trailing zeros" 的缩写。
 
@@ -3412,8 +3441,6 @@ __builtin_ctz(0b00000001) 会返回 0，因为最低位就是1，没有0在它�
 ```
 
 或者用`countr_zero((unsigned)k)`
-
-
 
 ## **Cable Protection**（基环树）
 
@@ -3982,6 +4009,28 @@ int prim(int n, vector<vector<PII>>& adj) {
 }
 ```
 
+# DFS
+
+联通区域/查看是否有环
+
+```c++
+vis[i]
+//0 not visited, 1 searching, 2 visited
+auto dfs=[&](this auto&&dfs, int x){
+		vis[x]=1;
+    for(auto &y:g[x]){
+      	if(vis[y]==1){
+						ans=false; //has ring
+          	return;    //pruning
+        }else if(vis[y]==0){
+          	dfs(y);
+            if(!ans) return;
+        }
+    }
+  	vis[x]=2; //visited
+}
+```
+
 # Kruskal算法
 
 ```c++
@@ -4055,6 +4104,59 @@ int main() {
 ```
 
 # Dijkstra算法
+
+单个点到全点ShortestPath，复杂度O(mlogn) m edge number, n node number，适合 **稀疏图**
+
+建立两两最短需要便利n，复杂度O(mn logn)
+
+Floyd适合稠密图，O(n^3)
+
+https://leetcode.cn/discuss/post/3581143/fen-xiang-gun-ti-dan-tu-lun-suan-fa-dfsb-qyux/
+
+```c++
+// 返回从起点 start 到每个点的最短路长度 dis，如果节点 x 不可达，则 dis[x] = LLONG_MAX
+// 要求：没有负数边权
+// 时间复杂度 O(n + mlogm)，注意堆中有 O(m) 个元素
+vector<long long> shortestPathDijkstra(int n, vector<vector<int>>& edges, int start) {
+    // 注：如果节点编号从 1 开始（而不是从 0 开始），可以把 n 加一
+    vector<vector<pair<int, int>>> g(n); // 邻接表
+    for (auto& e : edges) {
+        int x = e[0], y = e[1], wt = e[2];
+        g[x].emplace_back(y, wt);
+        // g[y].emplace_back(x, wt); // 无向图加上这行
+    }
+
+    vector<long long> dis(n, LLONG_MAX);
+    // 堆中保存 (起点到节点 x 的最短路长度，节点 x)
+    priority_queue<pair<long long, int>, vector<pair<long long, int>>, greater<>> pq;
+    dis[start] = 0; // 起点到自己的距离是 0
+    pq.emplace(0, start);
+
+    while (!pq.empty()) {
+        auto [dis_x, x] = pq.top();
+        pq.pop();
+        if (dis_x > dis[x]) { // x 之前出堆过
+            continue;
+        }
+        for (auto& [y, wt] : g[x]) {
+            auto new_dis_y = dis_x + wt;
+            if (new_dis_y < dis[y]) {
+                dis[y] = new_dis_y; // 更新 x 的邻居的最短路
+                // 懒更新堆：只插入数据，不更新堆中数据
+                // 相同节点可能有多个不同的 new_dis_y，除了最小的 new_dis_y，其余值都会触发上面的 continue
+                pq.emplace(new_dis_y, y);
+            }
+        }
+    }
+
+    return dis;
+}
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/discuss/post/3581143/fen-xiang-gun-ti-dan-tu-lun-suan-fa-dfsb-qyux/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
 
 #### W422 Q3
 
