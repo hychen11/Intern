@@ -1,4 +1,296 @@
-Raft项目和Zookeeper，都是kv数据库，但是他们本身能寸的空间不大，比如1g左右，基本是用来做配置中心等作用的，但是可以持久化
+Raft项目和Zookeeper，都是kv数据库，但是他们本身能存的空间不大，比如1g左右，基本是用来做配置中心等作用的，但是可以持久化
+
+在绝大多数情况下，批量插入后重建索引的效率远高于逐行插入并维护索引。
+
+# kafka实现delayqueue
+
+### 消息层面 delay
+
+检查当前时间是否 >= `deliverAt`
+
+如果到时间 → 执行业务逻辑
+
+如果未到 → 放回本地延迟队列（PriorityQueue）或者重新投回延迟 Topic / DLQ
+
+> 优点：简单可控
+>  缺点：延迟精度取决于消费者轮询频率或扫描策略
+
+### 延迟 Topic + 定时扫描
+
+- 为不同延迟等级创建不同 Topic 或分区
+- 消费者定时扫描 Topic / Partition
+- 到期的消息再转发到业务 Topic 或直接执行
+
+> 适合延迟等级固定的场景（如 1s、5s、30s）
+> 精度取决于扫描频率
+
+### DLQ（Dead Letter Queue）+ 延迟执行
+
+1. 消息到业务 Topic 后，如果延迟未到：
+   - 投递到 DLQ 暂存
+2. 定时任务或专门消费者扫描 DLQ：
+   - 消息到期 → 投回业务 Topic 执行
+
+> 优点：利用 Kafka 本身可靠存储，无需额外数据库
+>  缺点：延迟精度受扫描频率影响，消费逻辑复杂
+
+# Threadpool
+
+Core, Max 之类一般Max>=Core
+
+time，unit，blockingQueue，abortPolicy，ThreadFactory
+
+如果max==core就是线程数就固定不再增加
+
+newCachedThreadPool
+
+`ThreadPoolExecutor(0, Integer.MAX_VALUE, 60s, SynchronousQueue, defaultHandler)`
+
+newFixedThreadPool
+
+`ThreadPoolExecutor(n, n, 0L, LinkedBlockingQueue, defaultHandler)`
+
+newScheduledThreadPool
+
+`ScheduledThreadPoolExecutor(corePoolSize=n)`
+
+newSingleThreadExecutor
+
+`ThreadPoolExecutor(1, 1, 0L, LinkedBlockingQueue, defaultHandler)`
+
+| 线程池类型           | 核心线程数 | 最大线程数        | 队列类型            | 适用场景             | 参数配置策略                    |
+| -------------------- | ---------- | ----------------- | ------------------- | -------------------- | ------------------------------- |
+| CachedThreadPool     | 0          | Integer.MAX_VALUE | SynchronousQueue    | 瞬发短任务           | 默认即可，注意长任务膨胀        |
+| FixedThreadPool      | n          | n                 | LinkedBlockingQueue | 稳定线程处理持续任务 | CPU密集：核数；IO密集：核数*2~3 |
+| ScheduledThreadPool  | n          | n                 | DelayedWorkQueue    | 延迟/周期任务        | 根据任务数量和耗时估算 n        |
+| SingleThreadExecutor | 1          | 1                 | LinkedBlockingQueue | 顺序任务             | 一般不用改                      |
+
+# 线程池抛出未catch异常
+
+也就是一个线程抛出uncatchable exception，**中断执行**意味着任务立即结束 → 不会一直占用资源，也就是执行下一个任务，threadpool 相当于无事发生
+
+- **异常会直接抛到工作线程里**，线程池会调用该线程的 **UncaughtExceptionHandler**
+- 默认行为是打印异常堆栈（stderr），不会传播到调用 `execute()` 的主线程
+- 线程不会退出，而是被复用继续执行下一个任务（除非异常导致线程挂了，线程池会补充新线程）
+
+你会在日志里看到异常，但主线程不会捕获到
+
+**不会导致线程池崩溃**。线程池会认为“这个任务执行完了”，异常只是任务的事
+
+如果异常是致命的（比如 `OutOfMemoryError`），可能导致 JVM 不稳定，但那不是线程池特有的问题
+
+- 如果用 `execute`：可以给线程设置 `UncaughtExceptionHandler`。
+- 如果用 `submit`：要么显式调用 `Future.get()`，要么自定义 `ThreadFactory` 捕获异常。
+- Spring 里常用 **`afterExecute` 回调** 或 **重写 `ThreadPoolExecutor`** 来统一处理。
+
+# -Xmx和-Xms
+
+-Xms 并不会在运行时“转换”成 -Xmx。它们定义的是堆内存的两个不同边界：初始大小和最大大小。JVM 会根据需要在这两个值之间动态调整堆的大小
+
+JVM 的堆由垃圾收集器（Garbage Collector, GC）管理。当设置 `-Xms < -Xmx` 时，堆不是固定的，而是会动态增长。这个过程主要由 GC 驱动
+
+生产环境里强烈建议将 `-Xms` 和 `-Xmx` 设置为相同的值，因为扩容内存开销非常昂贵
+
+# Mutex实现read write lock
+
+```c++
+mutex m;
+mutex readm;
+int cnt=0;
+void read_lock(){
+		lock_guard<mutex> lock(readm);
+		cnt++;
+	  if(cnt==1){
+				m.lock();
+		}
+}
+void read_unlock(){
+		lock_guard<mutex> lock(readm);
+		cnt--;
+	  if(cnt==0){
+				m.unlock();
+		}
+}
+void write_lock(){
+		m.lock();
+}
+void write_unlock(){
+		m.unlock();
+}
+```
+
+# Hydfs
+
+Zipfian高频先，顺序从高到低
+
+# Static Final
+
+- `final` 修饰的变量一旦赋值，就 **不能被修改**。
+- 对象引用加 `final`，引用不可变，但对象本身可以修改。
+- 方法加 `final` → 不可被重写
+- 类加 `final` → 不可被继承
+
+# 淘宝分库分表方案（用户/商家订单）
+
+**方案设计：**
+
+*   **分库策略：**
+    *   **按业务拆分：** 创建`用户订单库`和`商家订单库`。
+    *   **按ID哈希分库：** 在`用户订单库`内部，按`用户ID`哈希分库/分表；在`商家订单库`内部，按`商家ID`哈希分库/分表。
+*   **路由层：** 引入中间件（如ShardingSphere, MyCat）或自研路由服务。根据查询条件（如`user_id`或`seller_id`）自动将请求路由到正确的数据库和表。
+*   **分布式查询：** 对于需要跨库/跨表的查询（如平台级报表），通过中间件聚合结果或导入数仓（如Hive, Spark）处理。
+
+# 高并发库存系统设计
+
+**设计思路：**
+
+* **抗读压力：** 将库存数量缓存到Redis中。读请求直接读缓存。
+
+* **保证写一致性（防超卖）：**
+
+  * **方案一（Redis原子操作）：** 在Redis中利用 `DECR` 或 `LUA` 脚本执行原子性的扣减操作，扣减结果大于等于0才成功。
+
+  * **方案二（数据库悲观锁）：** `SELECT ... FOR UPDATE` 锁住库存行，然后扣减。
+
+    * ```sql
+      -- 1. 开始事务
+      START TRANSACTION;
+      
+      -- 2. 【关键步骤】查询并锁定要购买的商品记录
+      -- 其他想要购买同一商品的事务执行到这一步会被阻塞，直到当前锁释放
+      SELECT stock FROM products WHERE id = 1 FOR UPDATE;
+      
+      -- 3. 应用层检查库存是否大于0
+      -- (假设检查通过，stock > 0)
+      
+      -- 4. 更新库存（减少1）
+      UPDATE products SET stock = stock - 1 WHERE id = 1;
+      
+      -- 5. 生成订单等后续操作...
+      -- INSERT INTO orders ... 
+      
+      -- 6. 提交事务，释放锁
+      COMMIT;
+      ```
+
+  * **方案三（数据库乐观锁）：** 在库存表中增加版本号字段，更新时带版本条件：`UPDATE stock SET quantity = quantity - 1, version = version + 1 WHERE product_id = ? AND version = ? AND quantity > 0`。
+
+    ```sql
+    -- 1. 开始事务 (有时甚至可以不用事务，取决于业务复杂度)
+    START TRANSACTION;
+    
+    -- 2. 查询商品信息和当前的版本号 (注意：这里不加锁！)
+    SELECT stock, version FROM products WHERE id = 1;
+    
+    -- 3. 应用层检查库存 (stock > 0)
+    -- (假设检查通过)
+    
+    -- 4. 【关键步骤】更新库存，并校验版本号
+    -- 在UPDATE的WHERE条件中，必须包含我们之前读取的版本号
+    UPDATE products
+    SET stock = stock - 1,
+        version = version + 1 -- 版本号自增
+    WHERE id = 1
+    AND version = #{old_version}; -- #{old_version} 是第二步查询出来的版本号值
+    
+    -- 5. 检查上一步UPDATE语句的“影响行数”(affected rows)
+    -- 如果 affected_rows == 1，说明更新成功，版本号匹配，没有冲突。
+    -- 如果 affected_rows == 0，说明更新失败！WHERE条件不成立（版本号对不上或库存不足），意味着在我们读取后，已经有其他事务成功修改了数据。
+    
+    -- 6. 如果更新成功，提交事务并生成订单。
+    COMMIT;
+    
+    -- 7. 如果更新失败，回滚事务，并告诉用户“抢购失败，请重试”。
+    -- 通常这里会配合重试机制（Retry），比如自动重试3次。
+    ROLLBACK;
+    ```
+
+    
+
+* **异步同步：**  Redis中扣减成功后，通过消息队列异步通知应用去更新数据库库存，最终保持一致。
+
+* **防恶意请求：** 在网关层或缓存层对用户/IP进行限流。
+
+# 超卖
+
+**解决思路：**
+
+*   **核心：** 将“查询库存”和“扣减库存”这两个操作做成一个**原子操作**。
+*   **方案：**
+    1.  **数据库乐观锁：** 见第16点。
+    2.  **数据库悲观锁：** `SELECT ... FOR UPDATE`。
+    3.  **Redis原子操作：** 在Redis中预存库存，利用 `DECR` 或 `LUA` 脚本扣减。
+    4.  **队列串行化：** 将所有下单请求放入一个队列，由一个进程逐个处理，自然串行。
+
+# 雪花算法数据倾斜问题
+
+这里的“分布不均”指的是**作为分片键的ID，其本身的值不够随机，导致数据无法均匀地散列到所有分片（机器）上**，从而引发**数据倾斜**问题
+
+**避免直接使用ID的低位进行取模，而是让分片路由依赖于一个更加随机均匀的散列值**。
+
+不要用 `orderId % N`，而是用 `hash(orderId) % N`
+
+如果序列号满了，时钟前拨，可能会导致超前，但是可以接受
+
+#  商品秒杀库存设计（减库存环节）
+
+**设计思路：**
+
+*   **前提：** 库存数量（1000万）提前预热到Redis中。
+*   **核心流程：**
+    1.  用户发起秒杀请求，先进行风控、验证码等校验。
+    2.  **Redis预扣库存：** 在Redis中使用 `DECR` 或 `LUA` 脚本执行原子操作：`if (redis.call('get', stock_key) >= '1') then return redis.call('decr', stock_key) else return -1 end`。扣减成功才进入下一步。
+    3.  秒杀资格写入MQ，通知后续服务异步生成订单、真实扣减数据库库存等。
+*   **优势：** Redis性能极高，原子操作防止超卖，异步处理订单缓解数据库压力。
+
+# HBase
+
+HManager 负责Region的分配及数据库的创建和删除等操作
+
+RegionServer 读写的
+
+zookeeper 负责维护集群的状态，更新本地缓存表，找到查找的region server再连接查询
+
+# es 如何检索的？如何更新？是不是有商品加入就直接存检索？如果商品数量非常大呢？全部存进去？es是db还是内存？
+
+当你搜索时，ES 并不是扫描所有文档，而是直接根据倒排表定位哪些文档包含搜索词，从而能在海量数据中快速检索。合并topk
+
+- ES 的更新机制其实是 **写入新文档 + 标记旧文档为删除**。
+- 底层是 **Lucene segment**，segment 是不可变的，一旦写好不会再修改。
+- 所以更新时：
+  1. ES 把新文档写入一个新的 segment。
+  2. 把旧文档标记为 deleted（不会立即物理删除，而是靠后续合并 `merge` 时清理）。
+- 这样做的好处是避免了随机写操作，适合高并发写入。
+
+### 是不是商品加入就直接存检索？
+
+- 是的，一般场景是 **商品服务** → **Kafka/消息队列** → **ES**。 商品新增或更新时会同步写入 ES，用来支持搜索。
+- 但并不会只存在 ES 里，通常 **业务数据库 (MySQL, PostgreSQL, etc.)** 才是主存储，ES 只是副本用于检索。
+
+### 如果商品数量非常大，怎么办？
+
+- ES 可以存非常大的数据，原理上没有“全部放内存”的限制。
+- 它的数据存储在 **磁盘 (SSD/HDD)**，同时用 **内存 (JVM heap + OS page cache)** 来加速：
+  - 倒排索引和一些数据结构会尽量缓存到内存。
+  - 热数据在内存，冷数据在磁盘，检索时按需读取。
+- 为了支撑海量数据，需要：
+  - **分片 (shard)**：一个索引可以切分成多个 shard，分布在不同节点。
+  - **集群 (cluster)**：多个节点协作，分布式存储和检索。
+  - **冷热分层 (hot/warm/cold node)**：频繁访问的数据放在 SSD 节点，历史数据放在便宜的 HDD 节点。
+
+### **ES 是 DB 还是内存？**
+
+Elasticsearch 的数据既存储在内存中，也存储在磁盘上
+
+为了查询快，会**大量依赖内存缓存**（比如 JVM heap、Lucene 的缓存、OS 的 Page Cache）
+
+热数据一般常驻内存，冷数据才会从磁盘读取
+
+- ES 本质上是一个 **分布式搜索引擎**，底层用 **Lucene** 管理数据。
+- 数据确实会持久化到 **磁盘**（不是只在内存），但同时 heavily 依赖 **内存缓存** 来保证查询速度。
+- 可以看作是 **带搜索功能的 NoSQL 数据库**，但不建议把它当作唯一的主存储。
+
+
 
 # Web accelerate
 
@@ -144,8 +436,6 @@ Reduce Task i 只需要读取所有 `mr-*-i` 文件
 
 **“如果两个部分不重叠呢？”**
  用 **区间级冲突检测**：不重叠即可直接并发提交（后到者做一次合并提交）；重叠则回滚重试或让上层排它。
-
-
 
 ### 并发协议（写 vs. 删）
 
@@ -342,8 +632,8 @@ std::mutex mtx;
 mtx.lock();
 mtx.unlock();
 
-lock_guard<mutex> lock(mtx);
-scope_lock<mutex> lock(mtx);
+lock_guard<mutex> lock(mtx);//　只能缩一个
+scope_lock<mutex> lock(mtx); //可以锁多个
 unique_lock<mutex> lock(mtx);//可以手动解锁，递归锁
 lock.unlock();
 lock.lock();
@@ -376,9 +666,19 @@ typename remove_reference<T>::type&& move(T&& t) {
 2. 系统通常不会立刻分配真正的物理内存页（即不会立即增加 RSS）；
 3. **只有你真正访问那块内存（如写入）时，才触发 page fault，系统才会分配物理页 → RSS 才会增加。**
 
+<128k sbrk立即分配，>128k mmap，mmap分配的virtual memory，不访问申请比物理内存大的都没事，但是一旦访问OOM
+
+并且mmap vm上连续，物理不连续，page table发力了奥
+
 # 如何理解page fault？ 
 
 你的程序访问了一个**在虚拟内存中存在，但物理内存中还没加载的页**
+
+一种已经在page cache，但没映射
+
+一种不在page cache，需要从disk或者swap里读，再映射
+
+
 
 系统会**中断**程序，去**磁盘（swap或者文件系统）找数据**，然后**把需要的页加载到物理内存**，再继续执行。
 
@@ -457,7 +757,7 @@ RSS反映的是**活跃在物理内存中的大小**，不是虚拟内存空间�
 
 大对象直接mmap；
 
-空闲区合并，避免碎片等）。
+空闲区合并，避免碎片等）
 
 # LSM Tree
 
@@ -481,7 +781,7 @@ LSM树以更高的写入吞吐量换取查询延迟稍高；B+树以快速的单
 
 分布式锁 = 一种保证 **“在多个节点中，同一时间只有一个客户端能持有资源访问权”** 的机制。
 
-Zookeeper 是一个支持强一致性的协调系统，它**天然适合做分布式锁**
+**Zookeeper** 是一个支持强一致性的协调系统，它**天然适合做分布式锁**
 
 ```
 创建临时顺序节点 /lock/lock-0000001、/lock-0000002 …
@@ -506,6 +806,34 @@ if redis.get(key) == uuid then
     redis.del(key)
 end
 ```
+
+```lua
+-- Lua 脚本
+if redis.call('get', KEYS[1]) == ARGV[1] then  -- 比较Redis中的值（KEYS[1]）和传入的值（ARGV[1]）
+    return redis.call('del', KEYS[1])           -- 如果匹配，删除键并返回1（成功）
+else
+    return 0                                   -- 不匹配返回0（失败）
+end
+```
+
+# Swap
+
+anonymous page -> 堆、栈、malloc/new 分配，匿名页原本在虚拟地址空间里，但物理内存里可能还没有页
+
+**虚拟地址空间里**：进程的虚拟内存已经映射了这一块页。
+
+**物理内存**：操作系统采用**懒分配（demand paging）**：
+
+- malloc / mmap 分配的匿名页，初始不占用物理页
+- 第一次访问（读/写）触发 **minor page fault** → 内核分配物理页（通常清零）
+
+**磁盘**：匿名页不对应任何文件，所以第一次分配物理页后，如果内存不足，才会被写入 **swap**，保证后续能恢复。
+
+**Swap 主要用来存储匿名页**，因为它们没有磁盘副本，如果丢了就无法恢复，所以**必须写入 swap。**
+
+**Page cache** 本质上是 **文件页在内存的缓存**，它的存在主要是为了避免频繁磁盘 I/O。
+
+内核在内存紧张时，**首先会考虑丢弃 file-backed 页（page cache）**，因为可以随时从磁盘恢复，不需要写到 swap。
 
 # vector删除头元素，迭代器会失效吗？
 
@@ -890,10 +1218,6 @@ Spring MVC 只是 Spring 中的一个子模块，用于开发 Web 层
 
 Spring Boot 是 Spring 的快速开发脚手架，简化了 Spring 项目的配置与部署流程
 
-# ZooKeeper 的分布式锁是怎么实现的
-
-
-
 # Available如何理解，有响应就必有回复！
 
 大部分新建对象（`new` 出来的）默认进入 **Eden 区**；
@@ -953,7 +1277,11 @@ a.signal();
 a.signalAll();
 ```
 
+waiting队列
 
+bocked 队列
+
+这里notify随机唤醒一个加入blocked队列，抢锁！
 
 ## `fork()` 创建子进程后，内存怎么处理？文件描述符会共享吗？
 
@@ -1442,10 +1770,6 @@ CPU 查 TLB：如果命中，直接得出物理地址
 # 如何vector既存基类A class又存B class呢
 
 vector<A*> 实现多态行为
-
-# 进程切换，上下文切换的理解
-
-# Zookeeper+Spark
 
 # 业界的kv库（TiKV）区别是什么
 
@@ -1940,10 +2264,6 @@ PC，register，stack，state，threadid，Threadlocal storage TLS
 # HDFS
 
 **HDFS（Hadoop Distributed File System）** 默认是**3副本**。一份放在本机节点，一份放在同机架的其他节点，另一份放在不同机架的节点上，保证机架级别的容灾能力。
-
-# Zookeeper？？这个原理是什么
-
-
 
 # 优惠券重复问题？
 
@@ -2786,8 +3106,6 @@ LSM 树的主要思想是将数据的写入操作视为追加操作，并且采�
 
 **消息队列里的点对点模型**：
  一条消息只能被一个消费者消费（比如 ActiveMQ 的 queue 模式）
-
-
 
 # 网络结构
 

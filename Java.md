@@ -357,6 +357,8 @@ synchronized (A.class) { ... }              // 类锁
 
 # `equals` 未改写可以直接比较两个对象是否相等
 
+浅拷贝对象是不同的，但是里面数值是引用，list，array，set 都是浅拷贝，equals都不等！但是里面的key value相等
+
 比较是否是同一个对象，比较两个对象的引用是否相同（即是否是同一个对象）
 
 ```java
@@ -4894,11 +4896,36 @@ ThreadPoolExecutor executor = new ThreadPoolExecutor(
 | **PriorityBlockingQueue**           | 优先级队列，按优先级执行任务                                 | 适用于定制任务优先级         |
 | **DelayedWorkQueue**                | 优先级队列，执行时间最靠前的先出队（每个任务都有一个到期时间 `nextExecutionTime`） | 适用于定时任务（如缓存清理） |
 
+synchronousQueue
+
+```java
+SynchronousQueue<Integer> queue = new SynchronousQueue<>();
+
+// 生产者线程
+new Thread(() -> {
+    System.out.println("put 1");
+    queue.put(1); // 阻塞，直到有消费者 take
+    System.out.println("put done");
+}).start();
+
+// 消费者线程
+new Thread(() -> {
+    try {
+        Thread.sleep(1000);
+        System.out.println("take " + queue.take());
+    } catch(Exception e) {}
+}).start();
+```
+
 ArrayBlockingQueue 线程安全，ReentrantLock
 
 在 `put` 和 `take` 等方法中，`ArrayBlockingQueue` 会在需要时自动获取 `ReentrantLock`。
 
 锁的加持是由 `ReentrantLock` 和 `Condition` 内部管理的，你无需显式地调用 `lock()` 或 `unlock()`，这些都会在队列操作中自动管理。
+
+也就是一个锁 lock，在put和take都需要获取同一个lock才行
+
+
 
 LinkedBlockingQueue 两个锁，head，tail
 
