@@ -2,6 +2,151 @@ Raft项目和Zookeeper，都是kv数据库，但是他们本身能存的空间�
 
 在绝大多数情况下，批量插入后重建索引的效率远高于逐行插入并维护索引。
 
+# raft 选举
+
+两个节点都自认为 candidate
+
+因为没人能拿到多数票 → **没有 leader**
+
+election timeout 结束后，两边都会重新发起选举，term +1 → 又可能再次冲突
+
+**无限循环**：就像你说的，可能出现 term 无限递增，但始终没有 leader → 系统无法处理写操作（只能读），这是 Raft 在少数节点不可用时的自然行为。
+
+### 避免无限递增 term
+
+Raft 有一些机制：
+
+1. **随机 election timeout**
+   - A、B 的超时不完全同步 → 某一方可能先拿到多数票（如果挂掉的节点恢复参与）
+2. **分区恢复后**
+   - 当集群多数节点恢复，正常选举可以继续
+
+如果一直少于多数节点 → leader 永远选不出来，term 可能会增长，但不会破坏一致性。
+
+# SQL
+
+```sql
+CREATE TABLE order_detail ( 
+order_id STRING COMMENT '订单id',
+buyer_id STRING COMMENT '买家id',
+amount DOUBLE COMMENT '订单金额', 
+pay_time STRING COMMENT '支付时间', 
+item_id STRING COMMENT '商品id'， 
+merchant_id STRING COMMENT '商家id' ) ; 
+```
+
+针对双十一期间的（20191111~20191113）交易，写出实现以下要求的SQL（要求1条SQL完成）： 要求：单笔订单金额超过1000.00元的订单数量超过3笔的买家 输出： 商家id，订单数, 总订单金额，总订单金额TOP 3的买家。
+
+**FROM / JOIN** → 先确定基础数据源
+
+**WHERE** → 过滤行（row-level filter）
+
+**GROUP BY** → 按某些列聚合
+
+**HAVING** → 对聚合结果再做条件筛选
+
+**SELECT** → 选择输出列
+
+**ORDER BY** → 排序
+
+**LIMIT / OFFSET** → 最终取前 N 行
+
+
+
+Where 行级过滤，having是聚合后过滤，group by 聚合
+
+**COUNT** 是聚合函数，一般出现在 **GROUP BY** 或 **HAVING** 之后
+
+order by total_amount desc limit 3;
+
+范围查找
+
+a<=b AND b<=c 或者 b between a and c;
+
+步骤一 from where
+
+select * from order_detail where pay_time between 20191111 and 20191113 and amount>1000;
+
+步骤二group by 统计每个买家在某个商家下的订单数、总金额
+
+```sql
+SELECT
+    merchant_id,
+    buyer_id,
+    COUNT(order_id) AS order_cnt,
+    SUM(amount) AS total_amount
+FROM order_detail
+WHERE pay_time BETWEEN '20191111' AND '20191113'
+  AND amount > 1000
+GROUP BY merchant_id, buyer_id
+having COUNT(order_id)>3
+order by total_amount desc
+limit 3;
+```
+
+SQL 的逻辑执行顺序
+
+FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT
+
+所以此时数据库还“不认识”`order_cnt` 这个别名，只能识别聚合函数本身
+
+但是 order by 默认asc升序，而且可以用聚合后的名次 total_amount
+
+# Thrift vs gRPC
+
+#### IDL (Interface Definition Language)
+
+定义`Service`（服务）、`Method`（方法）、`Parameter`（参数）和`Return Type`（返回类型），以及作为参数和返回值的数据结构（`Message`/`Struct`）
+
+- **gRPC**：使用 **`.proto` 文件**，语法是 Protocol Buffers。
+- **Thrift**：使用 **`.thrift` 文件**，语法是 Thrift IDL。
+
+**为什么是二进制？**：相比于 JSON、XML 等文本格式，**二进制编码**体积更小、编码解码速度更快，性能极高。
+
+Thrift 默认通常使用 TCP，跨语言支持好
+
+**gRPC** 强制protobuf HTTP/2
+
+HTTP/2，**多路复用 (Multiplexing)**：单个 TCP 连接上可以同时发送多个请求和响应，避免了 HTTP/1.1 的队头阻塞问题，极大提高了连接效率。服务器可以主动向客户端推送数据。
+
+grpc相当于 .proto 规定好parse都规格，引入proto的这个对象，就可以进行parseFrom了
+
+一旦你成功引入了由 `protoc` 编译器根据你的 `.proto` 文件生成的 Java 类（比如 `PersonProto.Person`），这个类**自身就携带了所有序列化和反序列化的能力**
+
+当你编译 `person.proto` 时，`protoc` 不仅仅生成了一个简单的数据容器（只有 `name`, `id`, `email` 字段的 POJO），它生成了一个**功能完备的类**，这个类内部包含了：
+
+1. **数据定义**：所有的字段（如 `String name`, `int id`）。
+2. **Builder 模式**：用于构建不可变对象的构建器（`Person.newBuilder()`）。
+3. **序列化逻辑**：将对象状态转换为二进制字节流的方法（`toByteArray()`）。
+4. **反序列化逻辑**：**静态工厂方法**，用于从二进制字节流重建对象（`parseFrom(byte[] data)`）。
+
+关键点在于：**`parseFrom` 是一个静态方法，它属于生成的类本身**。
+
+```java
+// 1. 引入生成的类
+import com.example.PersonProto;
+
+public class App {
+    public void handleData(byte[] binaryDataFromNetwork) {
+        try {
+            // 2. 直接使用这个类的静态方法 `parseFrom` 进行反序列化
+            // 【核心】这里不需要 new 一个解析器，PersonProto.Person 自己就是解析器！
+            PersonProto.Person person = PersonProto.Person.parseFrom(binaryDataFromNetwork);
+
+            // 3. 使用对象
+            System.out.println("Hello, " + person.getName());
+
+            // 4. 需要发送时，直接调用对象实例的方法 `toByteArray` 进行序列化
+            byte[] dataToSend = person.toByteArray();
+            // ... 发送 dataToSend ...
+
+        } catch (InvalidProtocolBufferException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
 # kafka实现delayqueue
 
 ### 消息层面 delay
@@ -290,8 +435,6 @@ Elasticsearch 的数据既存储在内存中，也存储在磁盘上
 - 数据确实会持久化到 **磁盘**（不是只在内存），但同时 heavily 依赖 **内存缓存** 来保证查询速度。
 - 可以看作是 **带搜索功能的 NoSQL 数据库**，但不建议把它当作唯一的主存储。
 
-
-
 # Web accelerate
 
  12 种主流网站前端性能优化技巧，包括服务器、CDN、Nginx配置、HTTP 协议升级、代码压缩、加载策略、网站性能分析
@@ -492,8 +635,6 @@ HDFS 的“写时不删”不是靠一个死板的互斥锁，而是：
 
 **no metadata tree structure, its like KV(key: filename, value: file)**
 
-
-
 # Zipkin
 
 * TraceId
@@ -567,8 +708,6 @@ NoSQL 的设计初衷是**优先考虑高可用性、分区容忍性（CAP 中�
 3. **事务延迟**2PC 提交 + Raft 同步复制引入额外网络往返（通常 2~10ms 级延迟）。
 4. **存储带宽翻倍**多副本（默认 3 副本）占用额外存储空间和网络带宽。
 5. **运维复杂度**需调优参数（如 RocksDB 的 `max_write_buffer_number`、Raft 的 `election_timeout`），故障恢复流程复杂。
-
-
 
 NewSQL 的强一致和分布式能力是通过 **牺牲资源效率** 换来的，适合对一致性要求严苛的场景（如金融核心系统），但普通业务可能更愿意用 **MySQL 分库分表** 或 **MongoDB** 来降低成本
 
@@ -677,8 +816,6 @@ typename remove_reference<T>::type&& move(T&& t) {
 一种已经在page cache，但没映射
 
 一种不在page cache，需要从disk或者swap里读，再映射
-
-
 
 系统会**中断**程序，去**磁盘（swap或者文件系统）找数据**，然后**把需要的页加载到物理内存**，再继续执行。
 
@@ -2914,6 +3051,8 @@ curl -X POST -H "Content-Type: application/json" -d '{"key":"value"}' http://B�
 
 固定时间窗口（比如 1s、1分钟）为单位，统计请求数量，每秒最多允许 100 个请求
 
+窗口边界效应：比如窗口每秒允许 100 个请求
+
 ### 滑动窗口  Sliding Window
 
 平滑处理突发流量，避免“边界效应”
@@ -2924,6 +3063,30 @@ curl -X POST -H "Content-Type: application/json" -d '{"key":"value"}' http://B�
 
 请求先进入漏桶，漏桶按固定速度匀速流出请求处理
 
+```java
+class LeakyBucket {
+    private final int capacity; // 漏桶容量
+    private final int leakRate; // 漏水速率，单位/ms
+    private double water = 0;   // 当前水量
+    private long lastCheck = System.currentTimeMillis();
+
+    public synchronized boolean allowRequest() {
+        long now = System.currentTimeMillis();
+        // 根据时间计算漏掉的水量
+        water = Math.max(0, water - (now - lastCheck) * leakRate / 1000.0);
+        lastCheck = now;
+
+        if (water < capacity) {
+            water++; // 接受请求
+            return true;
+        } else {
+            return false; // 桶满，拒绝请求
+        }
+    }
+}
+
+```
+
 ### 令牌桶算法 (Token Bucket)
 
 固定速率**往桶里放令牌**，请求来了**先拿令牌**，拿到就能执行，没令牌就要等待或者被丢弃
@@ -2933,8 +3096,6 @@ curl -X POST -H "Content-Type: application/json" -d '{"key":"value"}' http://B�
 比如100个令牌容量，每秒拿10个
 
 支持突发流量
-
-
 
 - **秒杀抢购**：用 **令牌桶** 提前发放令牌，限流并保障公平
 - **防爬虫、防刷接口**：用 **滑动窗口** 控制一段时间内请求频率

@@ -1,3 +1,142 @@
+乐观锁一般会使用版本号机制或 CAS 算法实现
+
+version 一般是数据库update，cas
+
+防止ABA问题，用AtomicInteger
+
+#### [只能保证一个共享变量的原子操作](#只能保证一个共享变量的原子操作)
+
+CAS 操作仅能对单个共享变量有效。当需要操作多个共享变量时，CAS 就显得无能为力。不过，从 JDK 1.5 开始，Java 提供了`AtomicReference`类，这使得我们能够保证引用对象之间的原子性。通过将多个变量封装在一个对象中，我们可以使用`AtomicReference`来执行 CAS 操作。
+
+除了 `AtomicReference` 这种方式之外，还可以利用加锁来保证。
+
+
+
+`volatile` 关键字能保证数据的可见性，但不能保证数据的原子性。`synchronized` 关键字两者都能保证。
+
+![Java 集合框架概览](https://oss.javaguide.cn/github/javaguide/java/collection/java-collection-hierarchy.png)
+
+blockingQueue 用take，offer？
+
+Queue，PriorityQueue用poll，offer？
+
+AtomicBoolean flag=new AtomicBoolean(false);
+
+flag.get(), flag.set(true);
+
+```
+Thread thread= new Thread(()->{
+	try{
+		Runnable task;
+		task=q.take();
+		task.run();
+	}catch(InterruptedException e){
+			//...
+	}
+});
+thread.start();
+
+//t.interrupt();
+t.join();
+catch(InterruptedException e){
+	Thread.currentThread().interrupt();
+}
+```
+
+
+
+**`take()`**：常用于生产者-消费者模式，消费者线程阻塞等待任务
+
+**`poll()`**：非阻塞或带超时获取，适合轮询或定时任务
+
+`PriorityQueue` 是非线程安全的
+
+且不支持存储 `NULL` 和 `non-comparable` 的对象
+
+`PriorityBlockingQueue` 可以理解为线程安全的 `PriorityQueue`
+
+分配120，0.75，120/0.75-=160，直接分配256，而不是分配128再扩容
+
+`(h=key.hashCode())^(h>>>16)`
+
+链表长度>8，数组长度小于64优先扩容，不然就转RBT
+
+为什么8，64？
+
+泊松分布表明，链表长度达到 8 的概率极低（小于千万分之一）。在绝大多数情况下，链表长度都不会超过 8。阈值设置为 8，可以保证性能和空间效率的平衡。
+
+数组长度阈值 64 同样是经过实践验证的经验值。在小数组中扩容成本低，优先扩容可以避免过早引入红黑树。数组大小达到 64 时，冲突概率较高，此时红黑树的性能优势开始显现。
+
+jdk 1.7hashMap头插会死循环，1.8尾插，但是还是会存在数据覆盖的问题，推荐ConcurrentHashMap
+
+1.7segment，1.8node，最大并发读，一个是segment数量，一般16，一个是node的个数，就是数组大小，并发更高，concurrentHashMap的kv不能null！
+
+```java
+// 线程 A
+if (!map.containsKey(key)) {
+map.put(key, value);
+}
+// 线程 B
+if (!map.containsKey(key)) {
+map.put(key, anotherValue);
+}
+```
+
+非原子性！
+
+```java
+//V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction)
+//这里 k->value模拟函数！
+map.computeIfAbsent(key,k->value);
+//or
+map.putIfAbsent(key,value)
+```
+
+
+
+
+
+# IO
+
+- `InputStream`/`Reader`: 所有的输入流的基类，前者是字节输入流，后者是字符输入流。
+- `OutputStream`/`Writer`: 所有输出流的基类，前者是字节输出流，后者是字符输出流。
+
+# Exception
+
+**受检查异常（Checked Exception）**
+
+- 继承自 `Exception`（但不包括 `RuntimeException` 及其子类）。
+- 编译器会强制要求你**显式处理**（要么 `try/catch`，要么 `throws` 抛出）。
+- 常见例子：`IOException`、`SQLException`。
+
+**不受检查异常（Unchecked Exception）**
+
+- 继承自 `RuntimeException` 或 `Error`。
+- 编译器**不强制要求处理**，可以完全忽略。
+- 常见例子：`NullPointerException`、`ArrayIndexOutOfBoundsException`、`IllegalArgumentException`。
+
+`RuntimeException` 及其子类都统称为非受检查异常，常见的有（建议记下来，日常开发中会经常用到）：
+
+- `NullPointerException`(空指针错误)
+- `IllegalArgumentException`(参数错误比如方法入参类型错误)
+- `NumberFormatException`（字符串转换为数字格式错误，`IllegalArgumentException`的子类）
+- `ArrayIndexOutOfBoundsException`（数组越界错误）
+- `ClassCastException`（类型转换错误）
+- `ArithmeticException`（算术错误）
+- `SecurityException` （安全错误比如权限不够）
+- `UnsupportedOperationException`(不支持的操作错误比如重复创建同一用户)
+
+checked exception不加catch编译都过不了
+unchecked exception里threadpool会网上抛出（不catch的话）线程直接结束，下一个任务，只不过任务执行失败了
+
+#### [try-catch-finally 如何使用？](#try-catch-finally-如何使用)
+
+- `try`块：用于捕获异常。其后可接零个或多个 `catch` 块，如果没有 `catch` 块，则必须跟一个 `finally` 块。
+- `catch`块：用于处理 try 捕获到的异常。
+- `finally` 块：无论是否捕获或处理异常，`finally` 块里的语句都会被执行。当在 `try` 块或 `catch` 块中遇到 `return` 语句时，`finally` 语句块将在方法返回之前被执行
+
+**不要在 finally 语句块中使用 return!** 当 try 语句和 finally 语句中都有 return 语句时，try 语句块中的 return 语句会被忽略。这是因为 try 语句中的 return 返回值会先被暂存在一个本地变量中，当执行到 finally 语句中的 return 之后，这个本地变量的值就变为了 finally 语句中的 return 返回值
+
 # 幂等如何实现
 
 ### 唯一业务标识（推荐首选）
@@ -355,9 +494,77 @@ synchronized (A.class) { ... }              // 类锁
 
 控制所有实例间的同步
 
+# Object
+
+```java
+/**
+ * native 方法，用于返回当前运行时对象的 Class 对象，使用了 final 关键字修饰，故不允许子类重写。
+ */
+public final native Class<?> getClass()
+/**
+ * native 方法，用于返回对象的哈希码，主要使用在哈希表中，比如 JDK 中的HashMap。
+ */
+public native int hashCode()
+/**
+ * 用于比较 2 个对象的内存地址是否相等，String 类对该方法进行了重写以用于比较字符串的值是否相等。
+ */
+public boolean equals(Object obj)
+/**
+ * native 方法，用于创建并返回当前对象的一份拷贝。
+ */
+protected native Object clone() throws CloneNotSupportedException
+/**
+ * 返回类的名字实例的哈希码的 16 进制的字符串。建议 Object 所有的子类都重写这个方法。
+ */
+public String toString()
+/**
+ * native 方法，并且不能重写。唤醒一个在此对象监视器上等待的线程(监视器相当于就是锁的概念)。如果有多个线程在等待只会任意唤醒一个。
+ */
+public final native void notify()
+/**
+ * native 方法，并且不能重写。跟 notify 一样，唯一的区别就是会唤醒在此对象监视器上等待的所有线程，而不是一个线程。
+ */
+public final native void notifyAll()
+/**
+ * native方法，并且不能重写。暂停线程的执行。注意：sleep 方法没有释放锁，而 wait 方法释放了锁 ，timeout 是等待时间。
+ */
+public final native void wait(long timeout) throws InterruptedException
+/**
+ * 多了 nanos 参数，这个参数表示额外时间（以纳秒为单位，范围是 0-999999）。 所以超时的时间还需要加上 nanos 纳秒。。
+ */
+public final void wait(long timeout, int nanos) throws InterruptedException
+/**
+ * 跟之前的2个wait方法一样，只不过该方法一直等待，没有超时时间这个概念
+ */
+public final void wait() throws InterruptedException
+/**
+ * 实例被垃圾回收器回收的时候触发的操作
+ */
+protected void finalize() throws Throwable { }
+```
+
+
+
 # `equals` 未改写可以直接比较两个对象是否相等
 
+- 对于基本数据类型来说，`==` 比较的是值。
+- 对于引用数据类型来说，`==` 比较的是对象的内存地址。
+
+**类没有重写 `equals()`方法**：通过`equals()`比较该类的两个对象时，等价于通过“==”比较这两个对象，使用的默认是 `Object`类`equals()`方法。
+
+**类重写了 `equals()`方法**：一般我们都重写 `equals()`方法来比较两个对象中的属性是否相等；若它们的属性相等，则返回 true(即，认为这两个对象相等)。
+
+
+
 浅拷贝对象是不同的，但是里面数值是引用，list，array，set 都是浅拷贝，equals都不等！但是里面的key value相等
+
+**浅拷贝**：浅拷贝会在堆上**创建一个新的对象**（区别于引用拷贝的一点），不过，如果原对象内部的属性是引用类型的话，浅拷贝会直接复制内部对象的引用地址，也就是说拷贝对象和原对象共用同一个内部对象。
+
+**深拷贝**：深拷贝会完全复制整个对象，包括这个对象所包含的内部对象
+
+也就是不改写equals则不等，改写则相等！
+
+![shallow&deep-copy](https://oss.javaguide.cn/github/javaguide/java/basis/shallow&deep-copy.png)
 
 比较是否是同一个对象，比较两个对象的引用是否相同（即是否是同一个对象）
 
@@ -368,6 +575,8 @@ public boolean equals(Object obj) {
 ```
 
 Hashcode将对象映射为一个整数，用于快速定位数据在哈希结构（如 HashMap、HashSet）中的“**桶（bucket）**”
+
+`hashCode()` 的作用是获取哈希码（`int` 整数），也称为散列码。这个哈希码的作用是确定该对象在哈希表中的索引位置。
 
 ```java
 Object a = new Object();
@@ -4061,6 +4270,24 @@ public class FutureTaskExample {
 
 ##### CompletableFuture
 
+不管上一步在哪个线程完成，这一步会交给线程池（默认 ForkJoinPool.commonPool 或者你指定的 Executor）去异步执行
+
+supplyAsync 异步跑
+
+thenApplyAsync 拿值返回值
+
+thenAcceptAsync 拿值不返回
+
+thenRunAsync 
+
+同一线程执行
+
+thenApply 拿值返回值
+
+thenAccept 那只不返回
+
+thenRun
+
 异步!!!!
 
 支持异步回调、组合、等待和取消操作
@@ -4552,6 +4779,8 @@ r.r2=y;
 
 **非公平锁**指的是**线程获取锁时不一定按照申请锁的顺序**，可能会发生**插队现象**
 
+本身这个AQS里是没有锁的
+
 ![](./Java/juc6.png)
 
 ### ReentrantLock
@@ -4839,6 +5068,10 @@ scheduledPool.scheduleAtFixedRate(() -> {
 
 ### parameters
 
+设置了存活时间的到时间就从waiting到terminated
+
+没设置一致waiting状态
+
 ```java
 ThreadPoolExecutor(
     int corePoolSize,        // 核心线程数
@@ -5115,9 +5348,55 @@ ThreadLocal会导致内存泄漏，因为ThreadLocalMap中key是弱引用、valu
 
 要主动remove释放key和value
 
-# JVM 2025.1.27 3.14二刷
+# JVM 2025.1.27 3.14 9.17三刷
 
-重点在于：**类加载过程**，**内存分区**，**垃圾回收算法**，**垃圾回收器**
+JVM内存模型就是 虚拟机栈，本地方法栈，PC，Direct Memory（Netty NIO），Metaspace，heap
+
+### JVM里的GC调优
+
+jstack固定thread信息，jmap转储heap信息，查看对象，随后jcmp查看GC日志
+
+memory leak一般伴随GC
+
+#### OOM heap
+
+ -Xmx
+
+#### metaspace 
+
+classloader，代理对象
+
+Full GC 可以释放 Metaspace 中可卸载类，但 Full GC 本身不“增加”Metaspace 使用
+
+OutOfMemoryError: Metaspace 就代表metaspace不足
+
+`jcmd <pid> GC.class_histogram` jvisualvm 查看metaspace 趋势
+
+**排查原因**：
+
+- 动态生成类（如 cglib、JDK Proxy） → 内存泄漏
+- 类加载器泄漏（Web 应用热部署）
+- 静态常量过多
+
+### Full GC时间过长
+
+CMS 
+
+old过大，Initial Mark，Remark耗时增加
+
+内存分配不合理，无法有效并发回收
+
+并发模式失败，退化serial old gc
+
+G1
+
+old过大，标记耗时过大
+
+并发标记失败，退化serial old gc
+
+晋升失败，大对象过多，碎片化
+
+
 
 ### Program Counter Register
 
@@ -5170,6 +5449,8 @@ old generation
 在 **Minor GC**（年轻代回收）时，**存活的对象**会被复制到 **Survivor** 区，然后根据年龄判断是否晋升到 **Old Generation**。
 
 对象经历多次回收后，如果仍然存活，就会从 Survivor 区晋升到 **Old Generation**
+
+大对象直接进入老年代
 
 ### 分代回收策略
 

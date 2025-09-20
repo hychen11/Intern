@@ -62,7 +62,7 @@ jmap -dump:live,format=b,file=heap.hprof <PID>
 
 ### jcmd
 
-动态查看 JVM 参数、性能数据，比如GC日志，应用日志，系统监控数据等
+动态查看 JVM 参数、性能数据，比如**GC日志**，应用日志，系统监控数据等
 
 ```shell
 # 1. 列出当前 Java 进程

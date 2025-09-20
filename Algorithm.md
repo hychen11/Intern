@@ -1,5 +1,173 @@
 https://oi-wiki.org/
 
+lower_bound & upper_bound
+
+```c++
+//lower_bound
+int l = -1, r = nums.size();
+while(l + 1 < r) {
+    int m = (l + r) / 2;
+    if(nums[m] < num)
+        l = m;
+    else
+        r = m;
+}
+//upper_bound
+int l = -1, r = nums.size();
+while(l + 1 < r) {
+    int m = (l + r) / 2;
+    if(nums[m] <= num)
+        l = m;
+    else
+        r = m;
+}
+```
+
+```c++
+vector<vector<int>> g;
+A(int row):g(row,vector<int>(row)){}
+```
+
+c++创建线程，semaphore
+
+```c++
+counting_semaphore<N>;
+binary_semaphore = counting_semaphore<1>;
+
+counting_semaphore<1> A(1);
+counting_semaphore<1> B(0);
+counting_semaphore<1> C(0);
+
+A.acquire();
+A.release();
+
+void worker(int id){
+  	A.acquire();
+  	cout<<id<<endl;
+  	A.release();
+}
+
+vector<thread> threads;
+threads.emplace_back(worker,0);
+threads.emplace_back(worker,1);
+threads.emplace_back(worker,2);
+for(auto &t:threads){
+  	t.join();
+}
+
+//or
+thread t1(worker,0);
+thread t2([](int n){},0);
+
+template <class Function, class... Args>
+explicit thread(Function&& f, Args&&... args);
+```
+
+普通函数可以直接 thread t1(worker); 这里语法糖省略了 &
+
+成员函数的话需要`thread t1(&func::worker, this);`
+
+成员函数不是普通函数，它 **多了隐式的 this 指针**：类型是 `void (ThreadPool::*)()`
+
+所以你必须显式传成员函数指针 `&ThreadPool::worker`，同时还要提供 `this` 指针
+
+```c++
+#include <iostream>
+#include <thread>
+#include <semaphore>   // C++20
+using namespace std;
+
+counting_semaphore<1> semaphoreA(1); // A 先执行
+counting_semaphore<1> semaphoreB(0);
+counting_semaphore<1> semaphoreC(0);
+
+void workerA() {
+    semaphoreA.acquire();
+    cout << "A" << endl;
+    semaphoreB.release();
+}
+
+void workerB() {
+    semaphoreB.acquire();
+    cout << "B" << endl;
+    semaphoreC.release();
+}
+
+void workerC() {
+    semaphoreC.acquire();
+    cout << "C" << endl;
+}
+
+int main() {
+  	//这个时候就已经开始执行了！！
+    thread t3(workerC);
+    thread t2(workerB);
+  	thread t1(workerA);
+
+    t1.join();
+    t2.join();
+    t3.join();
+    return 0;
+}
+```
+
+```java
+public class Main{
+  static Semaphore semaphoreA = new Semaphonre(1);
+  static Semaphore semaphoreB = new Semaphonre(0);
+  static Semaphore semaphoreC = new Semaphonre(0);
+  public static void main(){
+    Thread t1 = new Thread(()->{
+      try{
+        	semaphoreA.acquire();
+        	System.out.println("A");
+        	semaphoreB.release();
+      }catch(InterruptedException e){
+        	e.printStackTrace();
+      }
+    });
+    
+    Thread t2 = new Thread(()->{
+      try{
+        	semaphoreB.acquire();
+        	System.out.println("B");
+        	semaphoreC.release();
+      }catch(InterruptedException e){
+        	e.printStackTrace();
+      }
+    });
+    
+    Thread t3 = new Thread(()->{
+      try{
+        	semaphoreC.acquire();
+        	System.out.println("C");
+      }catch(InterruptedException e){
+        	e.printStackTrace();
+      }
+    });
+    
+    t3.start();
+    t2.start();
+    t1.start();
+  }
+}
+```
+
+```java
+class MyThread extends Thread {
+    private int id;
+
+    public MyThread(int id) {
+        this.id = id;
+    }
+
+    @Override
+    public void run() {
+        System.out.println("Thread " + id + " is running");
+    }
+}
+```
+
 # OJ
 
 ```c++
@@ -8,8 +176,6 @@ while(ss>>tmp){
   	cout<<tmp<<endl;
 }
 ```
-
-
 
 ```c++
 while(std::getline(cin,line)){
@@ -957,7 +1123,7 @@ while(l+1<r){
     int m=(l+r)/2;
     if(check(m)){
         l=m;
-    }ekse{
+    }else{
         r=m;
     }
 }
@@ -975,7 +1141,7 @@ while(l+1<r){
     int m=(l+r)/2;
     if(target<=nums[m]){
         r=m;
-    }ekse{
+    }else{
         l=m;
     }
 }
@@ -5969,6 +6135,27 @@ public:
  */
 ```
 
+使用Java JDK 1.8需要使用
+
+这里`extends LinkedHashMap<Integer,Integer> `
+
+需要删掉put
+
+```java
+//初始化
+public LRUCache(int capacity){
+		this.capacity=capacity;
+  	super(capacity,0.75f,true);
+}
+public int get(int key){
+  	return super.getOrDefault(key,-1);
+}
+@Override
+protected boolean RemoveEldestEntry(Map.Entry<Integer,Integer> eldest){
+		return size()>capacity;
+}
+```
+
 ```java
 class LRUCache extends LinkedHashMap<Integer,Integer>{
     private static final float DEFAULT_LOAD_FACTOR = 0.75f;
@@ -5996,6 +6183,49 @@ class LRUCache extends LinkedHashMap<Integer,Integer>{
  * obj.put(key,value);
  */
 ```
+
+```java
+class LRUCache {
+    private final int capacity;
+    private final Map<Integer, Integer> cache = new LinkedHashMap<>(); // 内置 LRU
+
+    public LRUCache(int capacity) {
+        this.capacity = capacity;
+    }
+
+    public int get(int key) {
+        // 删除 key，并利用返回值判断 key 是否在 cache 中
+        Integer value = cache.remove(key);
+        if (value != null) { // key 在 cache 中
+            cache.put(key, value);
+            return value;
+        }
+        // key 不在 cache 中
+        return -1;
+    }
+
+    public void put(int key, int value) {
+        // 删除 key，并利用返回值判断 key 是否在 cache 中
+        if (cache.remove(key) != null) { // key 在 cache 中
+            cache.put(key, value);
+            return;
+        }
+        // key 不在 cache 中，那么就把 key 插入 cache，插入前判断 cache 是否满了
+        if (cache.size() == capacity) { // cache 满了
+            Integer eldestKey = cache.keySet().iterator().next();
+            cache.remove(eldestKey); // 移除最久未使用 key
+        }
+        cache.put(key, value);
+    }
+}
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/lru-cache/solutions/2456294/tu-jie-yi-zhang-tu-miao-dong-lrupythonja-czgt/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+注意这里的LinkedHashMap里的linkedlist是尾插的，尾部最新，头部最老，还有dummy head！keySet().iterator()指向的就是dummy head，然后需要.next()获取最老的，然后cache.remove(key)
 
 # LFU
 
@@ -6071,6 +6301,115 @@ public:
  * int param_1 = obj->get(key);
  * obj->put(key,value);
  */
+```
+
+c++ unordered_map `auto it=m.find(key); //it->first (key), it->second (value) `
+
+```c++
+struct Entry{
+    int key,value,freq;
+};
+class LFUCache {
+public:
+    int capacity;
+    int min_freq;
+    unordered_map<int,list<Entry>::iterator> m;
+    unordered_map<int,list<Entry>> f;
+    void move(list<Entry>::iterator it){
+        Entry e = *it;
+        f[e.freq].erase(it);
+        if(f[min_freq].empty()){
+            min_freq++;
+        }
+        e.freq++;
+        f[e.freq].emplace_front(e);
+        m[e.key]=f[e.freq].begin();
+    }
+    LFUCache(int capacity) {
+        this->capacity=capacity;
+    }
+    
+    int get(int key) {
+        auto it = m.find(key);
+        if(it==m.end()) return -1;
+        int value=it->second->value;
+        move(it->second);
+        return value;
+    }
+    
+    void put(int key, int value) {
+        auto it=m.find(key);
+        if(it!=m.end()){
+            it->second->value=value;
+            move(it->second);
+            return;
+        }
+        if(m.size()==capacity){
+            auto &l = f[min_freq];
+            m.erase(l.back().key);
+            l.pop_back();
+        }
+        f[1].emplace_front(key,value,1);
+        m[key]=f[1].begin();
+        min_freq=1;
+    }
+};
+
+/**
+ * Your LFUCache object will be instantiated and called as such:
+ * LFUCache* obj = new LFUCache(capacity);
+ * int param_1 = obj->get(key);
+ * obj->put(key,value);
+ */
+```
+
+```java
+class LFUCache {
+    private final int capacity;
+    private final Map<Integer, Integer> keyToFreq = new HashMap<>();
+    private final Map<Integer, Map<Integer, Integer>> freqToMap = new HashMap<>();
+    private int minFreq;
+
+    public LFUCache(int capacity) {
+        this.capacity=capacity;
+    }
+    
+    public int get(int key) {
+        return move(key,null);
+    }
+    
+    public void put(int key, int value) {
+        if(move(key,value)!=-1){
+            return;
+        }
+        if(keyToFreq.size()==capacity){
+            Map<Integer,Integer> map=freqToMap.get(minFreq);
+            Integer oldestKey=map.keySet().iterator().next();
+            map.remove(oldestKey);
+            keyToFreq.remove(oldestKey);
+        }
+        keyToFreq.put(key,1);
+        freqToMap.computeIfAbsent(1,k->new LinkedHashMap<>()).put(key,value);
+        minFreq=1;
+    }
+    private int move(Integer key,Integer value){
+        Integer freq = keyToFreq.getOrDefault(key, null);
+        if (freq == null) { 
+            return -1;
+        }
+        Map<Integer, Integer> map = freqToMap.get(freq);
+        Integer v = map.remove(key); 
+        if (value == null) {
+            value = v;
+        }
+        if (map.size() == 0 && minFreq == freq) {
+            minFreq++;
+        }
+        keyToFreq.merge(key, 1, Integer::sum);
+        freqToMap.computeIfAbsent(freq + 1, k -> new LinkedHashMap<>()).put(key, value);
+        return value;
+    }
+}
 ```
 
 
