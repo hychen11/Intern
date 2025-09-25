@@ -1,6 +1,138 @@
+# Raft+Zookeeper
+
 Raft项目和Zookeeper，都是kv数据库，但是他们本身能存的空间不大，比如1g左右，基本是用来做配置中心等作用的，但是可以持久化
 
 在绝大多数情况下，批量插入后重建索引的效率远高于逐行插入并维护索引。
+
+Raft：etcd，tikv
+
+ZooKeeper：Hadoop HDFS，用 ZooKeeper 管理 NameNode 的主备切换，Kafka，HBase，Storm
+
+**Raft 的使用场景**：分布式配置中心、服务发现、数据库事务、主备选举、元数据存储
+
+Raft 本质上是一个 **一致性协议**，用于在分布式系统中保持多副本数据的强一致。常见场景：
+
+1. **分布式配置中心 / 服务发现**
+   - etcd、Consul
+   - 保证集群配置一致，避免出现「一部分节点更新配置，另一部分没更新」的脑裂问题。
+2. **分布式数据库 / KV 存储**
+   - CockroachDB、TiKV
+   - 事务需要保证 **强一致性**（Linearizability），比如银行转账不能出现「一个节点显示扣钱了，另一个节点还没扣」。
+3. **分布式协调 / 元数据存储**
+   - Kubernetes → etcd 存储整个集群的状态（Pod、Service、ConfigMap 等）。
+   - 元数据（谁是 leader、有哪些节点在线）必须一致，否则调度会乱。
+4. **主备选举**
+   - HDFS NameNode、Kafka Controller（新版本改用 Raft）
+   - 保证整个集群只有一个有效的 leader，避免冲突。
+
+# C++构析函数
+
+```c++
+class A{
+public:
+	A(){}
+	vritual ~A(){}
+};
+class B:public A{
+public:
+	B(){}
+	~B(){}
+};
+A *t = new B();
+delete t;
+//先A构造，B构造，B构析，A构析(前提是要有virtual)
+//不然B无法构析，cause memory leak
+```
+
+如果 `~A()` **不是 virtual**：
+
+- `delete t;` 的行为就是「静态绑定」：直接调用 **基类 A 的析构函数**。
+- 结果：`B` 的析构函数不会被执行 → **内存泄漏 / 资源未释放**。
+
+如果 `~A()` 是 `virtual`：
+
+- 析构函数地址会被放进 **虚函数表（vtable）**。
+- `delete t;` 的时候会查 vtable，**动态绑定**到实际对象的析构函数（先调 `B::~B()`，再调 `A::~A()`）。
+- 这样可以保证派生类资源得到正确释放。
+
+# STL
+
+| 容器           | 底层实现                   | 特点                                                         |
+| -------------- | -------------------------- | ------------------------------------------------------------ |
+| `vector`       | 动态数组                   | 内存连续，支持随机访问（O(1)），尾部插入/删除快（均摊O(1)），中间插入慢（O(n)） |
+| `deque`        | 分段数组（数组块指针数组） | 支持头尾插入删除快（O(1)），随机访问快（O(1)），内存不完全连续 |
+| `list`         | 双向链表                   | 内存不连续，插入/删除快（O(1)），不支持随机访问              |
+| `forward_list` | 单向链表                   | 内存不连续，插入/删除快（O(1)），节省空间（只有一个指针），不支持随机访问 |
+
+| 容器               | 底层实现                                | 特点                                                         |
+| ------------------ | --------------------------------------- | ------------------------------------------------------------ |
+| `set` / `multiset` | 红黑树（RB-tree，一种自平衡二叉搜索树） | 查找、插入、删除 O(log n)，有序存储，不能重复（set），可重复（multiset） |
+| `map` / `multimap` | 红黑树                                  | 查找、插入、删除 O(log n)，键值对存储，有序，key 唯一（map），可重复（multimap） |
+
+| 容器                                   | 底层实现                          | 特点                                         |
+| -------------------------------------- | --------------------------------- | -------------------------------------------- |
+| `unordered_set` / `unordered_multiset` | 哈希表（bucket + 链表或链地址法） | 插入/查找/删除平均 O(1)，最坏 O(n)，无序存储 |
+| `unordered_map` / `unordered_multimap` | 哈希表                            | 插入/查找/删除平均 O(1)，最坏 O(n)，无序存储 |
+
+| 容器             | 底层实现                        | 特点                            |
+| ---------------- | ------------------------------- | ------------------------------- |
+| `stack`          | `deque` 或 `vector`             | 后进先出（LIFO）                |
+| `queue`          | `deque` 或 `list`               | 先进先出（FIFO）                |
+| `priority_queue` | 堆（通常是 vector + make_heap） | 优先级队列，最大值/最小值在顶端 |
+
+set 和 multiset的区别就是 key是否唯一，set唯一，multiset允许多个
+
+迭代器是 STL 的抽象，**可以理解为对容器元素的“通用指针”**：
+
+- 对于 `vector`、`deque`，迭代器就是类似指针的对象。
+  - `vector`：迭代器就是普通指针。
+  - `deque`：迭代器内部可能保存：
+    - 当前块指针（指向元素块）
+    - 块内偏移量
+- 对于链表，迭代器是链表节点指针。
+- 对于红黑树（`set`、`map`），迭代器是树节点指针。
+
+**总结**：迭代器 ≈ “封装了容器访问方式的指针”，不同容器实现不同。
+
+queue实现stack
+
+```c++
+queue<int> q1;//always empty
+queue<int> q2;
+
+int push(int x){
+	q1.push(x);
+	while(!q2.empty()){
+		q1.push(q2.front());
+		q2.pop();
+	}
+	swap(q1,q2);
+}
+
+int pop(){
+	int r=q2.front();
+	q2.pop();
+	return r;
+}
+```
+
+# netty
+
+kafka sendfile
+
+rocketmq mmap
+
+netty 数据直接写入 direct memory，然后cpu拷贝到socket buffer -> DMA 拷贝 网卡
+
+内存池 16MB chunk = 2048个 8kb page 
+
+small subpage >512B
+
+tiny subpage <512B
+
+大内存则直接申请一个大内存区域，用完就释放release，防止内存池占用内存资源
+
+netty 事件循环器 eventloop 
 
 # raft 选举
 
@@ -149,6 +281,8 @@ public class App {
 
 # kafka实现delayqueue
 
+消息级别延时 = 消息带延迟时间 + 消费者判断延迟时间
+
 ### 消息层面 delay
 
 检查当前时间是否 >= `deliverAt`
@@ -198,6 +332,8 @@ newFixedThreadPool
 newScheduledThreadPool
 
 `ScheduledThreadPoolExecutor(corePoolSize=n)`
+
+用的delayqueue
 
 newSingleThreadExecutor
 
@@ -286,6 +422,11 @@ Zipfian高频先，顺序从高到低
 *   **分布式查询：** 对于需要跨库/跨表的查询（如平台级报表），通过中间件聚合结果或导入数仓（如Hive, Spark）处理。
 
 # 高并发库存系统设计
+
+- **悲观锁**：先上锁再操作 —— `SELECT ... FOR UPDATE`
+- **乐观锁**：先操作再校验 —— `UPDATE ... WHERE version = ?`
+
+
 
 **设计思路：**
 

@@ -1446,6 +1446,90 @@ public:
 };
 ```
 
+```c++
+class seg{
+public: 
+    vector<int> vec;
+    int n;
+    seg(const vector<int> &nums){
+        n=nums.size();
+        vec.resize(n*4);
+        build(nums,1,0,n-1);
+    }
+    void maintain(int o){
+        vec[o]=vec[o*2]+vec[o*2+1];
+        return;
+    }
+    void build(const vector<int> &nums,int o,int l,int r){
+        if(l==r) {
+            vec[o]=nums[l];
+            return;
+        }
+        int m=(l+r)>>1;
+        build(nums,o*2,l,m);
+        build(nums,o*2+1,m+1,r);
+        maintain(o);
+    }
+    void update(int o,int l,int r,int idx,int val){
+        if(l==r){
+            vec[o]=val;
+            return;
+        }
+        int m=(l+r)>>1;
+        if(m<idx){
+            update(o*2+1,m+1,r,idx,val);
+        }else{
+            update(o*2,l,m,idx,val);
+        }
+        maintain(o);
+    }
+    int query(int o,int l,int r,int L,int R){
+        if(l>=L&&r<=R){
+            return vec[o];
+        }
+        int m=(l+r)>>1;
+        if(m<L){
+            return query(o*2+1,m+1,r,L,R);
+        }
+        if(m>=R){
+            return query(o*2,l,m,L,R);
+        }
+        return query(o*2,l,m,L,R)+query(o*2+1,m+1,r,L,R);
+
+    }
+};
+class NumArray {
+public:
+    seg *t;
+    int n;
+    NumArray(vector<int>& nums) {
+        t=new seg(nums);
+        n=nums.size();
+    }
+    ~NumArray(){
+        delete t;
+    }
+    void update(int index, int val) {
+        t->update(1,0,n-1,index,val);
+    }
+    
+    int sumRange(int left, int right) {
+        return t->query(1,0,n-1,left,right);
+    }
+};
+```
+
+或者采用RAII只能指针
+
+```c++
+unique_ptr<seg> t;
+t(make_unique<seg>(nums));//构造函数
+//或者
+t=make_unique<seg>(nums);
+```
+
+
+
 #### 715 range 动态开点
 
 pushdown

@@ -1,3 +1,9 @@
+InputStream/OutputStream 字节流 8bit
+
+read/write 字符流 16bit
+
+
+
 乐观锁一般会使用版本号机制或 CAS 算法实现
 
 version 一般是数据库update，cas
@@ -262,8 +268,6 @@ WHERE id = 1 AND version = 5;
 -XX:+ExplicitGCInvokesConcurrent  # 对 G1/并发 GC 有效
 -XX:+DisableExplicitGC            # 禁止 System.gc() 的调用
 ```
-
-
 
 # 堆内内存 vs 堆外内存
 
