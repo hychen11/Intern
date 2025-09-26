@@ -4022,22 +4022,96 @@ int main() {
 }
 ```
 
-
-
 # Union and Find
+
+注意这里merge需要
+
+```c++
+bool merge(int from,int to){
+	int x=find(from);
+	int y=find(to);
+  if(x==y) return false;
+  f[x]=y;//这里把find(from)的f置为y！而不是f[from]=y!!
+  return true;
+}
+```
+
+```c++
+class UnionFind {
+    vector<int> fa; // 代表元
+
+public:
+    int cc; // 连通块个数
+
+    UnionFind(int n) : fa(n), cc(n) {
+        // 一开始有 n 个集合 {0}, {1}, ..., {n-1}
+        // 集合 i 的代表元是自己
+        ranges::iota(fa, 0);
+    }
+
+    // 返回 x 所在集合的代表元
+    // 同时做路径压缩，也就是把 x 所在集合中的所有元素的 fa 都改成代表元
+    int find(int x) {
+        // 如果 fa[x] == x，则表示 x 是代表元
+        if (fa[x] != x) {
+            fa[x] = find(fa[x]); // fa 改成代表元
+        }
+        return fa[x];
+    }
+
+    // 把 from 所在集合合并到 to 所在集合中
+    // 返回是否合并成功
+    bool merge(int from, int to) {
+        int x = find(from), y = find(to);
+        if (x == y) { // from 和 to 在同一个集合，不做合并
+            return false;
+        }
+        fa[x] = y; // 合并集合。修改后就可以认为 from 和 to 在同一个集合了
+        cc--; // 成功合并，连通块个数减一
+        return true;
+    }
+};
+
+// 计算图的最小生成树的边权之和
+// 如果图不连通，返回 LLONG_MAX
+// 节点编号从 0 到 n-1
+// 时间复杂度 O(n + mlogm)，其中 m 是 edges 的长度
+long long mstKruskal(int n, vector<vector<int>>& edges) {
+    ranges::sort(edges, {}, [](const auto& e) { return e[2]; });
+
+    UnionFind uf(n);
+    long long sum_wt = 0;
+    for (auto& e : edges) {
+        int x = e[0], y = e[1], wt = e[2];
+        if (uf.merge(x, y)) {
+            sum_wt += wt;
+        }
+    }
+
+    if (uf.cc > 1) { // 图不连通
+        return LLONG_MAX;
+    }
+    return sum_wt;
+}
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/discuss/post/3581143/fen-xiang-gun-ti-dan-tu-lun-suan-fa-dfsb-qyux/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
 
 [https://leetcode.cn/problems/minimum-cost-walk-in-weighted-graph/description/](https://leetcode.cn/problems/minimum-cost-walk-in-weighted-graph/description/)
 
 注意这里要路径压缩！
 
 ```cpp
-   int find(int x){
-        int y=fa[x];
-        if(y!=x){
-            fa[x]=find(y);
-        }
-        return fa[x];
+int find(int x){
+    int y=fa[x];
+    if(y!=x){
+        fa[x]=find(y);
     }
+    return fa[x];
+}
 ```
 
 ```cpp
@@ -4215,6 +4289,28 @@ class Solution:
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
 
+# DFS
+
+联通区域/查看是否有环
+
+```c++
+vis[i]
+//0 not visited, 1 searching, 2 visited
+auto dfs=[&](this auto&&dfs, int x){
+		vis[x]=1;
+    for(auto &y:g[x]){
+      	if(vis[y]==1){
+						ans=false; //has ring
+          	return;    //pruning
+        }else if(vis[y]==0){
+          	dfs(y);
+            if(!ans) return;
+        }
+    }
+  	vis[x]=2; //visited
+}
+```
+
 # PRIM算法
 
 ```c++
@@ -4259,29 +4355,55 @@ int prim(int n, vector<vector<PII>>& adj) {
 }
 ```
 
-# DFS
-
-联通区域/查看是否有环
+1584
 
 ```c++
-vis[i]
-//0 not visited, 1 searching, 2 visited
-auto dfs=[&](this auto&&dfs, int x){
-		vis[x]=1;
-    for(auto &y:g[x]){
-      	if(vis[y]==1){
-						ans=false; //has ring
-          	return;    //pruning
-        }else if(vis[y]==0){
-          	dfs(y);
-            if(!ans) return;
+using PII=pair<int,int>;
+class Solution {
+public:
+
+    int minCostConnectPoints(vector<vector<int>>& points) {
+        //PRIM 算法
+        int n=points.size();
+        vector<vector<PII>> edges(n);
+        vector<int> dist(n,INT_MAX/2);
+
+        for(int i=0;i<n;i++){
+            for(int j=i+1;j<n;j++){
+                int dis=abs(points[i][0]-points[j][0])+abs(points[i][1]-points[j][1]);
+                edges[i].push_back({j,dis});
+                edges[j].push_back({i,dis});
+            }
         }
+        priority_queue<PII,vector<PII>,greater<PII>> q;
+        vector<bool> vis(n,false);
+        q.push({0,0});
+        int total=0;
+        while(!q.empty()){
+            auto [dis,x]=q.top();
+            q.pop();
+            if (vis[x]) continue;
+            vis[x]=true;
+            total+=dis;
+
+            for(auto &[y,wt]:edges[x]){
+                if(!vis[y]){
+                    q.push({wt,y});
+                }
+            }
+        }
+        return total;
     }
-  	vis[x]=2; //visited
-}
+};
 ```
 
 # Kruskal算法
+
+涉及到 Kruskal 算法和 Prim 算法。前者一般用于稀疏图，后者一般用于稠密图。
+
+> 注：如果要求最大生成树，把边权从大到小排序。
+
+这里kruskal是选择全局最短！而prim是选择局部最短，也就是通过相连的node的边里选择最短的
 
 ```c++
 #include <iostream>
@@ -4529,6 +4651,89 @@ public:
             }
         }
         return dis;
+    }
+};
+```
+
+# Floyd
+
+```c++
+// 返回一个二维列表，其中 (i,j) 这一项表示从 i 到 j 的最短路长度
+// 如果无法从 i 到 j，则最短路长度为 LLONG_MAX / 2
+// 允许负数边权
+// 如果计算完毕后，存在 i，使得从 i 到 i 的最短路长度小于 0，说明图中有负环
+// 节点编号从 0 到 n-1
+// 时间复杂度 O(n^3 + m)，其中 m 是 edges 的长度
+vector<vector<long long>> shortestPathFloyd(int n, vector<vector<int>>& edges) {
+    const long long INF = LLONG_MAX / 2; // 防止加法溢出
+    vector f(n, vector<long long>(n, INF));
+    for (int i = 0; i < n; i++) {
+        f[i][i] = 0;
+    }
+
+    for (auto& e : edges) {
+        int x = e[0], y = e[1];
+        long long wt = e[2];
+        f[x][y] = min(f[x][y], wt); // 如果有重边，取边权最小值
+        f[y][x] = min(f[y][x], wt); // 无向图
+    }
+
+    for (int k = 0; k < n; k++) {
+        for (int i = 0; i < n; i++) {
+            if (f[i][k] == INF) { // 针对稀疏图的优化
+                continue;
+            }
+            for (int j = 0; j < n; j++) {
+                f[i][j] = min(f[i][j], f[i][k] + f[k][j]);
+            }
+        }
+    }
+    return f;
+}
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/discuss/post/3581143/fen-xiang-gun-ti-dan-tu-lun-suan-fa-dfsb-qyux/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+```c++
+class Graph {
+public:
+    vector<vector<int>> g;
+
+    Graph(int n, vector<vector<int>>& edges) {
+        g.resize(n,vector<int>(n,INT_MAX/3));
+        for(int i=0;i<n;i++){
+            g[i][i]=0;
+        }
+        for(auto &e:edges){
+            g[e[0]][e[1]]=e[2];
+        }    
+        for(int k=0;k<n;k++){
+            for(int i=0;i<n;i++){
+                if(g[i][k]==INT_MAX/3) continue;
+                for(int j=0;j<n;j++){
+                    g[i][j]=min(g[i][j],g[i][k]+g[k][j]);
+                }
+            }
+        }
+    }
+    
+    void addEdge(vector<int> e) {
+        int n=g.size();
+        if(e[2]>=g[e[0]][e[1]])  return;
+        g[e[0]][e[1]]=e[2];
+        for(int i=0;i<n;i++){
+            for(int j=0;j<n;j++){
+                g[i][j]=min(g[i][j],g[i][e[0]]+g[e[1]][j]+e[2]);
+            }
+        }
+    }
+    
+    int shortestPath(int node1, int node2) {
+        int ans = g[node1][node2];
+        return ans < INT_MAX/3 ? ans : -1;
     }
 };
 ```
