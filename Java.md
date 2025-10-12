@@ -1,3 +1,51 @@
+### spring事务的传播
+
+Spring 在调用方法时，如果已经有事务存在，应该怎么处理？这就是 **事务传播机制**
+
+传播机制就是规定 **方法调用时，事务要不要和上层共用，还是新开，还是挂起**
+
+**PROPAGATION_REQUIRED**（默认）比如下单减库存
+
+- 如果当前有事务，加入事务；没有则新建事务。
+- ✅ 最常用，保证整个调用链在同一个事务里。
+
+**PROPAGATION_SUPPORTS** 有就有，没有也行 查数据查余额
+
+- 有事务就加入，没有就以非事务方式执行。
+- 适合“可有可无”的事务场景。
+
+**PROPAGATION_NESTED** 父事务里加子事务，子事务失败单独回滚，父事务不影响；父事务挂了子事务全部会滚，适合允许局部失败的场景
+
+- 嵌套事务，外层回滚会回滚内层，但内层回滚不影响外层。
+- 依赖数据库对 **保存点 (Savepoint)** 的支持。
+
+
+
+
+
+**PROPAGATION_REQUIRES_NEW**
+
+- 不管外层有没有事务，**都新建一个事务**，外层事务挂起。
+- 常用在：**日志记录、补偿操作**（不能被外层事务回滚影响）。
+
+**PROPAGATION_NOT_SUPPORTED**
+
+- 强制非事务执行，外层事务会被挂起。
+
+
+
+
+
+**PROPAGATION_NEVER**
+
+- 必须在非事务中执行，如果存在事务则抛异常。
+
+**PROPAGATION_MANDATORY**
+
+- 必须在事务中执行，如果没有事务则抛异常。
+
+
+
 InputStream/OutputStream 字节流 8bit
 
 read/write 字符流 16bit
@@ -10,7 +58,7 @@ version 一般是数据库update，cas
 
 防止ABA问题，用AtomicInteger
 
-#### [只能保证一个共享变量的原子操作](#只能保证一个共享变量的原子操作)
+#### 只能保证一个共享变量的原子操作
 
 CAS 操作仅能对单个共享变量有效。当需要操作多个共享变量时，CAS 就显得无能为力。不过，从 JDK 1.5 开始，Java 提供了`AtomicReference`类，这使得我们能够保证引用对象之间的原子性。通过将多个变量封装在一个对象中，我们可以使用`AtomicReference`来执行 CAS 操作。
 
@@ -30,7 +78,7 @@ AtomicBoolean flag=new AtomicBoolean(false);
 
 flag.get(), flag.set(true);
 
-```
+```java
 Thread thread= new Thread(()->{
 	try{
 		Runnable task;
@@ -73,18 +121,18 @@ catch(InterruptedException e){
 
 数组长度阈值 64 同样是经过实践验证的经验值。在小数组中扩容成本低，优先扩容可以避免过早引入红黑树。数组大小达到 64 时，冲突概率较高，此时红黑树的性能优势开始显现。
 
-jdk 1.7hashMap头插会死循环，1.8尾插，但是还是会存在数据覆盖的问题，推荐ConcurrentHashMap
+jdk 1.7hashMap头插会死循环，原因是并发插入会导致循环指向，查询的时候就循环了，1.8尾插，但是还是会存在数据覆盖的问题，推荐ConcurrentHashMap
 
 1.7segment，1.8node，最大并发读，一个是segment数量，一般16，一个是node的个数，就是数组大小，并发更高，concurrentHashMap的kv不能null！
 
 ```java
 // 线程 A
 if (!map.containsKey(key)) {
-map.put(key, value);
+	map.put(key, value);
 }
 // 线程 B
 if (!map.containsKey(key)) {
-map.put(key, anotherValue);
+	map.put(key, anotherValue);
 }
 ```
 
@@ -97,10 +145,6 @@ map.computeIfAbsent(key,k->value);
 //or
 map.putIfAbsent(key,value)
 ```
-
-
-
-
 
 # IO
 
@@ -135,7 +179,7 @@ map.putIfAbsent(key,value)
 checked exception不加catch编译都过不了
 unchecked exception里threadpool会网上抛出（不catch的话）线程直接结束，下一个任务，只不过任务执行失败了
 
-#### [try-catch-finally 如何使用？](#try-catch-finally-如何使用)
+#### try-catch-finally 如何使用
 
 - `try`块：用于捕获异常。其后可接零个或多个 `catch` 块，如果没有 `catch` 块，则必须跟一个 `finally` 块。
 - `catch`块：用于处理 try 捕获到的异常。
@@ -217,7 +261,7 @@ CREATE TABLE idempotent_record (
 
 - **认为冲突一定会发生**，所以操作数据前要「锁住」。
 
-- 典型实现：
+- 典型实现：这里select for update就是锁住了！然后后面可以直接执行update！
 
   ```
   SELECT * FROM orders WHERE id = 1 FOR UPDATE;
@@ -230,6 +274,8 @@ CREATE TABLE idempotent_record (
 - 缺点：锁竞争严重时性能差，容易阻塞。
 
 ### 乐观锁（Optimistic Lock）
+
+先查询出数据，然后直接update where！！而不是先select for update加锁
 
 **认为冲突不常发生**，所以操作时不加锁，而是在提交时检查「有没有人动过数据」。
 
@@ -546,8 +592,6 @@ public final void wait() throws InterruptedException
  */
 protected void finalize() throws Throwable { }
 ```
-
-
 
 # `equals` 未改写可以直接比较两个对象是否相等
 
@@ -1730,7 +1774,7 @@ ZSET skiplist实现的？按照分数权重进行排序（有序的）,skiplist+
 
 当Zset的元素较少（小于一定阈值）时，使用压缩列表来节省内存 ziplist
 
-SET 无序唯一，底层使用**哈希表**
+**SET 无序唯一**，底层使用**哈希表**， ZSET有序唯一
 
 Hash，底层使用**哈希表**，通过字段和值的映射来存储
 

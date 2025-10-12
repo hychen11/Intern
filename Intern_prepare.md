@@ -1,3 +1,347 @@
+# Java from scratch
+
+基本类型 byte, short, int, long, float, double, char, boolean
+
+存在栈（stack）里，性能高，不能为 `null`
+
+一切类（`String`, `Integer`, `List` 等）
+
+存在堆（heap）里，通过引用访问
+
+可以为 `null`
+
+| 基本类型  | 包装类      |
+| --------- | ----------- |
+| `byte`    | `Byte`      |
+| `short`   | `Short`     |
+| `int`     | `Integer`   |
+| `long`    | `Long`      |
+| `float`   | `Float`     |
+| `double`  | `Double`    |
+| `char`    | `Character` |
+| `boolean` | `Boolean`   |
+
+`Integer b = Integer.valueOf(a);`
+
+Arrays.sort, Collections.sort
+
+Collections的话需要用get! append
+
+Collections.swap(list, i, j)
+
+Collections.reverse(list)
+
+Collections.sort(list)
+
+Map的话有`keySet()`, `values()`, `entrySet()`
+
+```java
+for(Map.Entry<Integer,Integer> entry: map.entrySet()){
+		entry.getKey();
+		entry.getValue();
+}
+
+map.containsKey()
+map.getOrDefault(1,"x");
+map.computeIfAbsent(1,k->new LinkedHashMap<>()).put(key,value);
+//alternative way
+map.putIfAbsent(1,new ArrayList<>());
+map.get(1).put(key,value);
+```
+
+### iterator
+
+```java
+iterator like dummy node
+map.keySet().iterator().next();
+map.merge(k,1,Integer::sum) // m[k]+=1
+```
+
+
+
+```java
+Iterator<Integer> it = map.keySet().iterator();
+while(it.hasNext()){
+  	it.next();
+}
+```
+
+```java
+map.forEach((k, v) -> System.out.println(k + " -> " + v));
+```
+
+
+
+### int[]
+
+```java
+int[][] matrix = new int[3][4];
+int[][] grid = {{1,2,3},{4,5,6},{7,8,9}};
+```
+
+```java
+Arrays.sort(nums);               // 排序
+Arrays.fill(nums, 0);            // 填充
+Arrays.copyOf(nums, newSize);    // 复制
+Arrays.binarySearch(nums, key);  // 二分查找（数组必须已排序）
+```
+
+### String
+
+```java
+StringBuilder a = new StringBuilder();
+a.append();
+a.toString();
+//删除 
+a.delete(5, 11);  //delete index from 5 to 10
+
+String ans="";//必须初始化
+ans+=...;
+```
+
+获取字符
+
+`a.charAt(0);` 不可修改
+
+`a.setCharAt(0,'h')` 如果是StringBuilder可以修改
+
+### StrngToInt, IntToString
+
+`Integer.parseInt(s);`
+
+`Integer.toString(s);`
+
+`String.valueOf()`
+
+### Compare
+
+String 比较`compareTo()`
+
+String 比较 `equals()`
+
+这里不能 `==`! 这个比较的是对象！
+
+### Object
+
+`hashCode`
+
+`equals`
+
+`getClass`
+
+`clone`
+
+`toString()`
+
+`notifyAll()`
+
+`wait()`
+
+
+
+# TimSort
+
+TimSort = MergeSort+InsertSort
+
+稳定排序
+
+- **插入排序**：对小规模数据效率很高
+- **归并排序**：对大规模数据稳定高效
+
+# 我写的全是bug的java代码！
+
+```java
+
+class Solution {
+    public String largestNumber(int[] nums) {
+        int len = nums.length;
+        String[] tmp = new ArrayList<>()
+
+        int cntZero = 0;
+        for (int i = 0; i < len; i++) {
+            if (nums[i] == 0) cntZero++;
+            tmp.add(nums[i].toString());
+        }
+
+        for (int i = 0; i < len; i++) {
+            for (int j = i + 1; j < len; j++) {
+                if ((tmp[i] + tmp[j])<(tmp[j] + tmp[i])) {
+                    String mid = tmp[i];
+                    tmp[i] = tmp[j];
+                    tmp[j] = mid;
+                }
+            }
+        }
+
+        if (cntZero == len) return "0";
+        String ans;
+        for (int i = 0; i < len; i++) {
+            ans=ans+tmp[i];
+        }
+        return ans;
+    }
+}
+
+
+import java.util.*;
+
+class Solution {
+    public String largestNumber(int[] nums) {
+        int len = nums.length;
+        String[] tmp = new String[len];
+        for(int i = 0; i < len; i++){
+            tmp[i] = String.valueOf(nums[i]);
+        }
+        // 排序
+        Arrays.sort(tmp, (a, b) -> (b + a).compareTo(a + b));
+
+        // 如果最大的元素是0，说明所有元素都是0
+        if(tmp[0].equals("0")) return "0";
+
+        StringBuilder ans = new StringBuilder();
+        for(String s : tmp){
+            ans.append(s);
+        }
+        return ans.toString();
+    }
+}
+
+```
+
+```java
+int[] nums = new int[10];
+```
+
+`int[]` 是数组类型，**只能用数组初始化**，不能直接赋值一个 `ArrayList`
+
+- `String` 是对象类型，你可以声明数组：
+
+```
+String[] arr = new String[5];  // 长度为5，元素默认是 null
+String[] arr = new ArrayList<>(); // ❌ 不合法
+```
+
+- 对象如果想用动态长度的集合，需要用 `List`：
+
+```
+List<String> list = new ArrayList<>();
+list.add("abc");
+```
+
+- `List` 可以动态扩容，而数组长度固定
+
+#### 排序
+
+**`Arrays.sort`**
+
+- **适用对象**：数组（`int[]`, `String[]`, `Integer[]` 等）
+
+```java
+Arrays.sort(arr);
+Arrays.sort(arr, (a, b) -> b.length() - a.length());
+```
+
+**`Collections.sort`**
+
+- **适用对象**：集合（`List`，如 `ArrayList`, `LinkedList` 等）
+- **调用方式**：
+
+```
+List<Integer> list = new ArrayList<>(Arrays.asList(5,2,8));
+Collections.sort(list); // 升序
+
+List<String> strs = new ArrayList<>(Arrays.asList("apple","banana"));
+Collections.sort(strs, (a,b) -> b.length() - a.length()); // 自定义排序
+```
+
+- **特点**：
+  1. 只能对 **集合（List）** 排序。
+  2. 也可以提供自定义 `Comparator`。
+  3. 底层：调用 `list.sort(comparator)`，Java 8+ 基于 **TimSort**（稳定排序）
+
+```java
+String[] tmp = new String[len];
+Arrays.sort(tmp,(a,b)->(a+b).compareTo(b+a));
+
+List<String> tmp = new ArrayList<>();
+Collections.sort(tmp,(a,b)->(a+b).compareTo(b+a))
+```
+
+然后基本类型没有toString()! 
+
+```java
+String.ValueOf(nums[i]);
+```
+
+字符串比较
+
+不能 a+b<b+a!
+
+```java
+(a+b).compareTo(b+a);
+```
+
+String ans;需要初始化！！
+
+```
+String ans="";
+```
+
+最好用StringBuilder ans=new StringBuilder();
+
+```java
+StringBuilder ans = new StringBuilder();
+for(String s : tmp){
+    ans.append(s);
+}
+return ans.toString();
+```
+
+
+
+1. 用户下单 → 订单状态：`新建`
+2. 库存扣减 → 库存锁定
+3. 订单服务发送 **延迟库存解锁消息** 到 MQ（延迟 1 分钟）
+   - 这条消息的逻辑是：**等消息到期后，如果订单还没支付，就解锁库存**
+
+订单创建成功 → 发送延迟消息（比如 1 分钟后投递）
+
+同时订单状态更新（如超时自动取消）也是异步流程
+
+MQ 或消费者有可能**先处理延迟消息，再处理订单状态更新**
+
+```
+订单创建 -> 发送延迟解锁消息（消息在 MQ 里排队）
+↓
+库存服务消费者先于订单服务处理消息
+↓
+库存服务看到订单状态是“新建”，认为不需要解锁
+↓
+订单超时取消，库存仍锁定
+```
+
+**延迟消息投递到消费者的时间** + **订单状态更新到数据库的时间** → 异步顺序不确定。
+
+1. **双重触发机制**：   - **路径1**：订单取消时 **主动发送库存解锁消息**（强触发）   - **路径2**：库存服务 **定时扫描未解锁的库存**（兜底逻辑） 2. **幂等性设计**：   - 解锁前检查库存的 **当前锁定状态**，避免重复操作。
+
+# RabbitMQ vs Kafka
+
+日志流式存储，强调**高吞吐**和**顺序存储**，消息是**持久化的 log**，消费者自己维护 offset 来决定消费到哪里了。Kafka 本质更像一个**分布式 commit log**
+
+Kafka存的offset，理论上是原数据，消息持久化在磁盘
+
+RabbitMQ存的消息
+
+rabbitmq设置队列TTL推荐，设置消息TTL不推荐（lazy update 问题，消息真正过期只有到达队列头部时才会被投递到 DLX，可能比设定延迟更久）
+
+消息在队列中超过 TTL 没有被消费，会进入死信队列（DLX: Dead Letter **Exchange**）。
+
+死信队列就是你真正要监听的“延时队列”
+
+rabbitMQ 有durable，exclusive，autoDelete没消费者时不会自动删除
+
+需要把Queue和Exchange绑定在一起
+
 # Raft+Zookeeper
 
 Raft项目和Zookeeper，都是kv数据库，但是他们本身能存的空间不大，比如1g左右，基本是用来做配置中心等作用的，但是可以持久化
