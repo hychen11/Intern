@@ -1,3 +1,12 @@
+# Python
+
+```python
+import sys
+D = list(map(int,sys.stdin.readline().split()))
+a,b,c = map(int,sys.stdin.readline().split())
+list = []
+```
+
 # Java from scratch
 
 基本类型 byte, short, int, long, float, double, char, boolean

@@ -72,7 +72,12 @@ CAS 操作仅能对单个共享变量有效。当需要操作多个共享变量�
 
 blockingQueue 用take，offer？
 
-Queue，PriorityQueue用poll，offer？
+Queue，PriorityQueue用poll，offer？peek
+
+或者你直接使用 **`Deque` 接口** 的实现（如 `LinkedBlockingDeque`），它支持：
+
+- `peekFirst()` / `peekLast()`
+- `pollFirst()` / `pollLast()`
 
 AtomicBoolean flag=new AtomicBoolean(false);
 
@@ -805,6 +810,10 @@ if (!(handler instanceof HandlerMethod)) {
 ### final, finally, finalize
 
 `final`：修饰变量、方法、类，表示不可变、不可重写或不可继承
+
+final修饰基本变量值不可改，修饰对象不可改引用
+
+修饰方法不可重写override，
 
 `finally`：用于异常处理，表示无论异常是否发生，都会执行的代码块`try catch finally`
 
