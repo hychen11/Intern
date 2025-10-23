@@ -23,7 +23,57 @@ print(a == b)  # True，内容相同
 print(a is b)  # False，不是同一对象
 ```
 
+# AB test
 
+Apache Benchmark
+
+```shell
+brew install httpd
+ab -n 10000 -c 500 http://127.0.0.1:8080/user/info
+```
+
+`-n 1000`：总共发出 **1000 个请求**
+
+`-c 100`：**并发数为 100**（即同时最多有 100 个请求进行）
+
+```shell
+Server Software:        nginx/1.18.0
+Server Hostname:        127.0.0.1
+Server Port:            8080
+
+Document Path:          /user/info
+Document Length:        123 bytes
+
+Concurrency Level:      500
+Time taken for tests:   8.312 seconds
+Complete requests:      10000
+Failed requests:        0
+Total transferred:      2350000 bytes
+HTML transferred:       1230000 bytes
+Requests per second:    1202.34 [#/sec] (mean)
+Time per request:       415.60 [ms] (mean)
+Time per request:       0.83 [ms] (mean, across all concurrent requests)
+Transfer rate:          276.84 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    1   0.5      1       4
+Processing:   100  350 100.0    320     850
+Waiting:       90  340  95.0    310     800
+Total:        101  351 100.0    321     852
+
+Percentage of the requests served within a certain time (ms)
+  50%    321
+  66%    340
+  75%    380
+  80%    400
+  90%    500
+  95%    600
+  98%    700
+  99%    800
+ 100%    852 (longest request)
+
+```
 
 
 
