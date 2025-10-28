@@ -1,3 +1,94 @@
+# 生产者消费者模型
+
+```java
+import java.util.LinkedList;
+import java.util.Queue;
+
+class MyBlockingQueue<T> {
+    private final Queue<T> queue = new LinkedList<>();
+    private final int capacity;
+
+    public MyBlockingQueue(int capacity) {
+        this.capacity = capacity;
+    }
+
+    public synchronized void put(T item) throws InterruptedException {
+        while (queue.size() == capacity) {
+            wait(); // 队列满，等待消费者消费
+        }
+        queue.add(item);
+        notifyAll(); // 通知等待的消费者
+    }
+
+    public synchronized T take() throws InterruptedException {
+        while (queue.isEmpty()) {
+            wait(); // 队列空，等待生产者生产
+        }
+        T item = queue.poll();
+        notifyAll(); // 通知等待的生产者
+        return item;
+    }
+}
+
+```
+
+`counting_semaphore<size>(init)`
+
+这里size就是预留大小，init就是初始大小
+
+一个counting_semaphore<buffer_size> p(buffer_size);生产者生产，一个counting_semaphore<buffer_size> c(0); 消费者消费
+
+```c++
+#include <iostream>
+#include <thread>
+#include <queue>
+#include <semaphore>
+#include <mutex>
+#include <chrono>
+using namespace std;
+constexpr int BUFFER_SIZE = 5;
+counting_semaphore<BUFFER_SIZE> p(BUFFER_SIZE);
+counting_semaphore<BUFFER_SIZE> c(0);
+queue<int> buffer;
+mutex mtx;
+void producer(int id){
+    for(int i=0;i<10;i++){
+        p.acquire();
+        {
+            lock_guard<mutex> lock(mtx);
+            cout<<"producer"<<id<<" produced: "<<i<<endl;
+            buffer.push(i);
+        }
+        c.release();
+    }
+}
+void consumer(int id){
+    for(int i=0;i<10;i++){
+        c.acquire();
+        {
+            lock_guard<mutex> lock(mtx);
+            int item=buffer.front();
+            buffer.pop();
+            cout<<"consumer"<<id<<" consumed: "<<item<<endl;
+        }
+        p.release();
+    }
+}
+int main(){
+    thread p1(producer,1);
+    thread p2(producer,2);
+    thread c1(consumer,1);
+    thread c2(consumer,2);
+    p1.join();
+    p2.join();
+    c1.join();
+    c2.join();
+}
+
+```
+
+
+
 vector什么情况下会迭代器失效？ 
 
 | 操作          | 迭代器是否失效             | 原因               |
@@ -12,6 +103,19 @@ vector什么情况下会迭代器失效？
 
 socket第三次握手没收到包会处于什么状态？
 
+| 状态         | 典型场景/描述                         |
+| ------------ | ------------------------------------- |
+| CLOSED       | 未连接/已关闭                         |
+| LISTEN       | 服务器监听端口                        |
+| SYN_SENT     | 客户端发起连接，等待 SYN-ACK          |
+| SYN_RECEIVED | 服务器收到 SYN，发送 SYN-ACK 等待 ACK |
+| ESTABLISHED  | 连接建立，可通信                      |
+| FIN_WAIT_1   | 主动关闭，发送 FIN，等待 ACK          |
+| FIN_WAIT_2   | 已收到 ACK，等待对方 FIN              |
+| CLOSE_WAIT   | **被动**关闭，收到 FIN，等待本地关闭  |
+| LAST_ACK     | 被动关闭，发送最后 ACK，等待对方确认  |
+| TIME_WAIT    | **主动**关闭，等待延迟报文，防止冲突  |
+
 **客户端**：认为连接建立完成（进入 `ESTABLISHED`）
 
 **服务端**：仍处于 `SYN_RCVD` 状态，等待 ACK
@@ -22,6 +126,73 @@ python的对象之间is和==什么区别
 print(a == b)  # True，内容相同
 print(a is b)  # False，不是同一对象
 ```
+
+# MySQL
+
+悲观锁，直接`SELECT ... FOR UPDATE`
+
+```sql
+START TRANSACTION;
+
+-- 锁住符合条件的行，直到事务提交或回滚
+SELECT * FROM users
+WHERE id = 1
+FOR UPDATE;
+
+-- 然后可以安全更新
+UPDATE users
+SET name = 'Alice'
+WHERE id = 1;
+
+COMMIT;
+```
+
+只对 **InnoDB** 生效
+
+锁住的是 **行级锁**
+
+防止其他事务修改这行直到你提交
+
+乐观锁
+
+```sql
+-- users 表有一个 version 列
+UPDATE users
+SET name = 'Alice', version = version + 1
+WHERE id = 1 AND version = 3;
+```
+
+
+
+
+
+```sql
+#update
+UPDATE users
+SET name = 'Alice'
+WHERE id = 1;
+
+# insert
+INSERT INTO users (name, age)
+VALUES ('Bob', 25);
+
+INSERT INTO users_backup (id, name, age)
+SELECT id, name, age
+FROM users
+WHERE id > 10;
+```
+
+```sql
+START TRANSACTION;
+-- 或者
+BEGIN;
+
+
+COMMIT;
+ROLLBACK;
+```
+
+
 
 # AB test
 
