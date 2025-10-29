@@ -1,4 +1,81 @@
+
+
+c++的priority_queue 里默认less 大顶堆也就是top是最大的
+
+这里改写
+
+```c++
+auto tmp=[&](const auto &a, const auto &b){
+	return a<b;//就是默认
+};
+//a>b 就是对应greater<> 就是小顶堆？
+```
+
+
+
 # 生产者消费者模型
+
+`ArrayBlockingQueue`（固定容量，环形数组）
+
+`LinkedBlockingQueue`（链表实现，可选容量）
+
+`PriorityBlockingQueue`（按优先级）
+
+`SynchronousQueue`（不存储元素，直接交接）
+
+Lock+Condition实现
+
+`notFull.await(2, TimeUnit.SECONDS);`
+
+```c++
+final ReentrantLock lock;
+private final Condition notFull;
+private final Condition notEmpty;
+```
+
+```
+void put(E e) {
+    lock.lock();
+    try {
+        while (count == items.length) {
+            notFull.await();   // 阻塞等待队列不满
+        }
+        enqueue(e);
+        notEmpty.signal();     // 唤醒消费者
+    } finally {
+        lock.unlock();
+    }
+}
+
+E take() {
+    lock.lock();
+    try {
+        while (count == 0) {
+            notEmpty.await();  // 阻塞等待队列不空
+        }
+        E e = dequeue();
+        notFull.signal();      // 唤醒生产者
+        return e;
+    } finally {
+        lock.unlock();
+    }
+}
+```
+
+
+
+这两个 Condition 分别控制：
+
+- **notFull**：队列满时，生产者等待；
+- **notEmpty**：队列空时，消费者等待。
+
+Condition 支持超时语义
+
+`Condition` 是 `Lock` 提供的高级等待/通知机制，它允许：
+
+- 指定超时；
+- 响应中断；
+- 精确唤醒。
 
 ```java
 import java.util.LinkedList;

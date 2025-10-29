@@ -1,26 +1,67 @@
+stl
+
+`v.insert(it,val);` 
+
+在it前插入val
+
+如果 `it == v.end()`，就是在 **末尾插入** `v.insert(v.end(), 99);`
+
+如何一边删除it一边遍历？
+
+使用`erase()`
+
+`v.erase(it)` 对于 **vector** 来说：
+
+- 删除位置 `it` 后，后面的元素都要 **向前移动** 1 位。
+- 假设 `vector` 长度为 `n`，删除第 `i` 个元素的复杂度是：
+
+```c++
+for(auto it=v.begin();it!=v.end()){
+  	if(check(it)){
+        it=v.erase(it);
+    }else{
+      	it++;
+    }
+}
+```
+
+
+
 https://oi-wiki.org/
 
 lower_bound & upper_bound
+
+```c++
+s.lower_bound(val);
+lower_bound(s.begin(),s.end(),val); 
+auto it = lower_bound(v.begin(), v.end(), val,[](int val, const auto &a){ return val > get<1>(a); });
+```
+
+
+
+
 
 ```c++
 //lower_bound
 int l = -1, r = nums.size();
 while(l + 1 < r) {
     int m = (l + r) / 2;
-    if(nums[m] < num)
-        l = m;
-    else
+    if(nums[m] >= num)
         r = m;
+    else
+        l = m;
 }
+return r;
 //upper_bound
 int l = -1, r = nums.size();
 while(l + 1 < r) {
     int m = (l + r) / 2;
-    if(nums[m] <= num)
-        l = m;
-    else
+    if(nums[m] > num)
         r = m;
+    else
+        l = m;
 }
+return r;
 ```
 
 ```c++
