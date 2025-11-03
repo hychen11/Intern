@@ -1,5 +1,45 @@
 
 
+# Redis
+
+登录 jwt token，设置EX过期时间
+
+计数器 lua脚本
+
+粉丝关注 redis set
+
+排行榜  ZSet，空间换时间
+
+幂等 防止重复下单 set NX EX 1就是1s内只能下单一次
+
+消息队列 list
+
+浏览器记录 list
+
+分布式锁  需要lua脚本，因为删除锁需要原子操作
+
+用户签到 bitmap存储
+
+网站uv统计 unique visitor  hyperloglog 就是hash 前14位作为桶，然后前置0+1作为位置，这里最多6位， 16384*6bit = 12kb大小，误差0.81%
+
+"user123" → 哈希 → "101101001011..." (64位)
+
+GBK vs UTF
+
+GBK 中文 Windows 系统，英文 1 字节，中文固定 2 字节
+
+UTF Unicode，英文 1 字节，中文 3 字节
+
+# Cookie vs Session vs Token
+
+Cookie user info，明文不安全，臃肿
+
+Session server端存储，给client Session ID，还是放cookie，cons:集群负载均衡别的server不认识（session复制，粘性会话，Redis存储）
+
+Token 无状态，server自己有一个secret key，加密后给client自己存，server接受后直接验证token有效就可以
+
+但是token存redis里的，实际上cons token未过期的话就无法吊销，退出登录不知道，因此redis存黑名单，server还是需要每次查redis(trade-off)
+
 c++的priority_queue 里默认less 大顶堆也就是top是最大的
 
 这里改写
@@ -10,8 +50,6 @@ auto tmp=[&](const auto &a, const auto &b){
 };
 //a>b 就是对应greater<> 就是小顶堆？
 ```
-
-
 
 # 生产者消费者模型
 
