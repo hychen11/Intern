@@ -1392,7 +1392,7 @@ bloom filter hash碰撞怎么办
 
 * 降级限流策略 nginx或者spring cloud gateway
 
-* 添加多级缓存 Guava或Caffeine
+* 添加多级缓存 Guava或Caffeine 本地缓存
 
 >  没有什么问题是加一层解决不了的
 
@@ -1432,7 +1432,7 @@ try{
 
 （据说Canal已经不用了，好处是不改变业务代码 ）
 
-基于Canal的异步通知，修改数据到item-service，然后写入数据库， 数据库一旦变化，cannal监听mysql的binlog（二进制日志），通知cache-service数据变化，更新缓存
+基于Canal的异步通知，修改数据到item-service，然后写入数据库， 数据库一旦变化，canal监听mysql的binlog（二进制日志），通知cache-service数据变化，更新缓存
 
 ### 持久化 （就是存到disk里）
 

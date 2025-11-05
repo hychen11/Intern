@@ -1,3 +1,5 @@
+erase(unique 这个去重是去除相邻的相同元素的！
+
 stl
 
 `v.insert(it,val);` 
@@ -5357,7 +5359,7 @@ bool starts_with(const string& s, const string& prefix) {
 
 ```c++
 vector<int> nums = {1, 1, 2, 2, 3, 3, 4};
-// unique 之后 nums 变为：{1, 2, 3, 4, ?, ?, ?}（? 是未定义旧值）
+// unique 之后 nums 变为：{1, 2, 3, 4, ?, ?, ?}（? 是未定义旧值）需要有序！
 int m = ranges::unique(nums).begin() - nums.begin();
 ```
 

@@ -2111,6 +2111,85 @@ public class CglibProxyDemo {
 
 适配器模式 :Spring AOP 的增强或通知(Advice)使用到了**适配器**模式、 spring MVC 中也是用到了适配器模式适配 **Controller** 
 
+# CICD / Github Action
+
+- 设计一个multi-tenant cI/CD 系统，用于在收到 Git 推送后调度并执行用户定义的workflow
+- workflow是由一系列顺序执行的Job组成，这些Job在每个代码库的一个固定位置的单个 YAML 文件中定义
+- 该系统通过内部服务的 API 调用接收关于推送的信息，这些信息包括代码库的 工D 以及当前代码库的状态
+- 用户应能够在job运行过程中查看其输出和状态
+
+#### Functional requirements:
+
+* user submit code to trigger workflow
+* System receive workflow and execute each job
+* User can monitor workflow status
+
+#### Non-Functional requirements:
+
+* scalability
+* low latency, near real time
+* reliability
+* Decouple control plane and data plane
+
+<img src="./sd_asset/sd14.png" style="zoom:50%;" />
+
+这个量级落盘一个NoSQL，真的想要做成event driven的架构，可以使用一个change feed或者额外加一层streaming，比如说dynamoDB支持streaming的拓展，不需要额外的组建，low latency，low cost
+
+但是复杂度上来了还是需要event bus的方案，使用kafka可以使用更复杂的路由和分区，最后要求multi-tenant
+
+大客户分到更高优先级和更多额度，更多的扩展空间
+
+<img src="./sd_asset/sd15.png" style="zoom:50%;" />
+
+**Event Bus**：事件总线，负责接收事件并分发给订阅者，可扩展：多个消费者可以订阅同一个事件，实现广播，解耦：生产者和消费者无需直接知道对方，异步：事件发出后，生产者不必等待消费者完成处理
+
+DynamoDB 是 **AWS 提供的一种 NoSQL 数据库服务**，**Key-Value / 文档存储**：数据存储形式灵活，可以用类似 JSON 的文档结构
+
+事件驱动架构里，数据变更可以触发**事件流（event stream）**，然后被其他服务消费，实现异步处理或联动。比如：
+
+- **Change Feed**：数据库提供的一种机制，用于捕获数据变化（insert/update/delete），并以流的形式发送。
+- **额外加一层 Streaming**：比如 Kafka、Kinesis 或 DynamoDB Stream，把变化数据流化，其他系统可以订阅这些事件。
+
+job执行过程中会有dependency，此外展开成DAG，如何设计data entity ，1 设计schema，2做持久化
+
+如果用nosql可以json直接存一份
+
+但是更好的存表
+
+workflow_run: 
+
++ run_id
++ Tenant_id
++ repo_id
++ Commit_SHA
++ Event_type (enum)
++ Status (queued/ running/ succeeded/ failed/ timeout)
++ Created_at
+
+Job:
+
++ job_id
++ workflow_run_id
++ name
++ Assigned_runner_id
++ status
++ dependency
++ Updated_at
+
+Dependency:
+
++ run_id
++ from_job_id
++ to_job_id
+
+使用RDBM， PostgreSQL Citus，MySQL也有Vitess方案，sharding key可以用workflow的run_id去做sharding
+
+同一个workflow的任务落在同一个分片上，从而实现强一致性，但是看所有workflow会产生跨shard_id查询，需要tenant_id去做sharding，会产生hotspot吗？有这个可能，也可以给不同用不使用相同的quota，高优先级可以使用更多。或者多级hash路由，分摊到更多的shard上去 
+
+或者使用newSQL，spanner，但是部署运营复杂度更高，RDBMS 的事务能力 + NoSQL 的分布式架构
+
+为了解耦data plane和control plane，需要runner来拉取pull，因为用户可以用自己的self-host platform 做data plane，用户有NAT或者fire wall，我push不进去
+
 # 实战例子mt实习
 
 在实习的时候使用到了工厂策略模式
