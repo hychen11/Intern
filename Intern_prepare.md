@@ -311,6 +311,8 @@ ROLLBACK;
 
 # AB test
 
+这里QPS = 并发数/request time = 500/432ms = 12000QPS
+
 Apache Benchmark
 
 ```shell

@@ -1,5 +1,344 @@
+### c 指针寻址方法
+
+```c
+int *a;
+a+i = (char*)a + i*sizeof(int);
+```
+
+### sizeof vs strlen
+
+sizeof()一个空类,输出1
+
+这是因为**C++标准要求每个对象都必须具有独一无二的内存地址。**
+
+为了满足这一要求，编译器会给每个空类分配一定的空间，通常是1字节。
+
+这样，即使是空类，也能保证每个实例都有不同的地址。
+
+
+
+1. **指针的大小永远是固定的，取决于处理器位数，32位就是 4 字节，64位就是 8 字节**
+2. **数组作为函数参数时会退化为指针，大小要按指针的计算**
+3. **struct 结构体要考虑字节对齐**
+4. **字符串数组要算上末尾的 '\0'**
+
+`sizeof` 包含`'\0'` , `strlen` 不包含
+
 ```c++
-/* 
+int func(char array[]) {
+    printf("sizeof=%d\n", sizeof(array));
+    printf("strlen=%d\n", strlen(array));
+}
+
+int main() {
+    char array[] = "Hello World";
+    printf("sizeof=%d\n", sizeof(array));
+    printf("strlen=%d\n", strlen(array));
+    func(array);
+}
+```
+
+退化的原因是因为数组作为函数参数时，**实际传递的是指向数组首元素的指针**，不可能逐个拷贝整个数组然后在栈上传递，所以编译器只知道参数是一个指针，而不知道它的长度信息
+
+当数组直接作为 `sizeof` 的参数时，它不会退化，因为 sizeof 是编译器在编译期间计算的结果，这个时候编译器是有信息知道数组的大小
+
+### const
+
+只读变量,不可修改
+
+也就是在你用到 const 变量的地方，编译器可能生成的代码直接就替换为常量的值，而不是访问一遍常量的指令
+
+### static
+
+`static` 在 C++ 里**不在堆 (heap)**，而是存放在**静态存储区 (static storage area)**，也叫**全局/静态区**
+
+static 修饰类成员变量和函数可以使得它们在所有类对象中共享，且不需要创建对象就可以直接访问。
+
+
+
+修饰全局变量,static 修饰全局变量可以将变量的作用域限定在当前文件中，使得其他文件无法访问该变量。
+
+static 修饰局部变量可以使得变量在函数调用结束后不会被销毁，而是一直存在于内存中
+
+```c++
+void foo() {
+    static int count = 0;  // static 修饰局部变量
+    count++;
+    cout << count << endl;
+}
+
+int main() {
+    foo();  // 输出 1
+    foo();  // 输出 2
+    foo();  // 输出 3
+    return 0;
+}
+```
+
+### volatile
+
+每次访问变量时都会从内存中读取其值，而不是从寄存器或缓存中读取每次访问变量时都会从内存中读取其值，而不是从寄存器或缓存中读取
+
+`volatile` 会 **禁止编译器** 对该变量的访问做优化或重排
+
+### 字节对齐
+
+结构体的总大小（`sizeof(struct)`）**必须是该结构体中最大对齐单位的整数倍**
+
+分配内存时，编译器会自动调整数据结构的内存布局，使得数据成员的起始地址与其自然对齐边界（一般为自己大小的倍数）相匹配
+
+**字节对齐有助于提高内存访问速度，因为许多处理器都优化了对齐数据的访问。但是，这可能会导致内存中的一些空间浪费。**
+
+### 大端序、小端序
+
+大端字节序是符合人类阅读习惯的顺序
+
+计算机一般little endian
+
+### explicit
+
+防止隐形转换
+
+只有一个类型T1，但是当前表达式需要类型为T2的值，如果这时候T1自动转换为了T2，那么这就是隐式类型转换
+
+```c++
+class MyInt {
+public:
+    explicit MyInt(int n) : num(n) {}
+private:
+    int num;
+};
+```
+
+### static_cast
+
+可以理解为基本类型强制转换
+
+### dynamic_cast
+
+主要应用于父子类层次结构中的安全类型转换
+
+基类指针或引用转换为派生类指针或引用
+
+如果转换失败，`dynamic_cast`将返回空指针（对于指针类型）或抛出异常（对于引用类型）
+
+### const_cast
+
+当需要修改const对象时，可以使用`const_cast`来删除const属性
+
+### reinterpret_cast
+
+对于一个地址重新解释,它仅仅是重新解释底层比特（也就是对指针所指针的那片比特位换个类型做解释），而不进行任何类型检查。
+
+### 多态
+
+**虚函数、纯虚函数和模板函数**
+
+- **必须通过基类的指针或者引用调用虚函数**
+- **被调用的函数是虚函数，且必须完成对基类虚函数的重写**
+
+### 析构函数
+
+构造函数不能virtual是因为对象每完全构造好,那构造函数里可以调用虚函数吗？可以写，但**不会触发多态**（不会调用子类的实现）
+
+```c++
+class A{
+public:
+	A(){}
+	vritual ~A(){}
+};
+class B:public A{
+public:
+	B(){}
+	~B(){}
+};
+A *t = new B();
+delete t;
+//先A构造，B构造，B构析，A构析(前提是要有virtual)
+//不然B无法构析，cause memory leak
+```
+
+`t` 的静态类型（编译期类型）：`A*`
+
+`t` 的动态类型（运行时类型）：`B`
+
+`delete t; ` 编译器根据 静态类型 判断调用哪个析构函数，也就是调用A，这里不是virtual就无法调用B就memory leak了
+
+而virtual会有vptr指向vtable，运行时通过 vptr 查找实际的析构函数，这里调用顺序就是`~B,~A`
+
+如果 `~A()` **不是 virtual**：
+
+- `delete t;` 的行为就是「静态绑定」：直接调用 **基类 A 的析构函数**。
+- 结果：`B` 的析构函数不会被执行 → **内存泄漏 / 资源未释放**。
+
+如果 `~A()` 是 `virtual`：
+
+- 析构函数地址会被放进 **虚函数表（vtable）**。
+- `delete t;` 的时候会查 vtable，**动态绑定**到实际对象的析构函数（先调 `B::~B()`，再调 `A::~A()`）。
+- 这样可以保证派生类资源得到正确释放。
+
+### forward vs move
+
+`std::move` 并 **不移动** 任何东西，它只是做了一个 **类型转换**
+
+告诉编译器 “可以把这个对象当作右值来处理”
+
+右值引用可以触发 **移动构造/移动赋值**，而不是拷贝
+
+
+
+当你写模板函数时，参数可能是：
+
+- 左值引用
+- 右值引用（或万能引用 `T&&`）
+
+如果你希望把参数 **完美转发** 给另一个函数，既保留左值/右值的属性，又不产生不必要的拷贝，就用 `std::forward`。
+
+```c++
+void f(int& x) { cout << "lvalue\n"; }
+void f(int&& x) { cout << "rvalue\n"; }
+
+template <typename T>
+void wrapper(T&& t) {
+    f(std::forward<T>(t)); // 完美转发
+}
+```
+
+### smart pointer
+
+#### unique_ptr
+
+std::unique_ptr是一个独占所有权的智能指针，它保证指向的内存只能由一个unique_ptr拥有，不能共享所有权。
+
+当unique_ptr超出作用域时，它所指向的内存会自动释放。
+
+```c++
+std::unique_ptr<int> ptr(new int(10));
+unique_ptr<int> p1 = make_unique<int>(42);
+```
+
+**不能复制**，只能移动
+
+内部自动调用 `delete`
+
+#### shared_ptr
+
+std::shared_ptr是一个共享所有权的智能指针，它允许多个shared_ptr指向同一个对象，当最后一个shared_ptr超出作用域时，所指向的内存才会被自动释放。
+
+```c++
+std::shared_ptr<int> ptr1(new int(10));
+shared_ptr<int> sp1 = make_shared<int>(42);
+std::shared_ptr<int> ptr2 = ptr1; // 通过拷贝构造函数创建一个新的shared_ptr，此时引用计数为2
+cout << sp1.use_count() << endl; // 2
+sp1.reset(); // 引用计数 -1
+cout << sp2.use_count() << endl; // 1
+```
+
+内部有 **引用计数**
+
+当最后一个 shared_ptr 销毁时，才 delete 对象
+
+引用计数本身是使用指针实现的，也就是将计数变量存储在堆上，所以共享指针的shared_ptr 就存储一个指向堆内存的指针
+
+```c++
+#include <iostream>
+
+template <typename T>
+class SimpleSharedPtr {
+private:
+    T* ptr;         // 管理的对象
+    int* ref_count; // 引用计数
+
+public:
+    // 构造
+    explicit SimpleSharedPtr(T* p = nullptr)
+        : ptr(p), ref_count(new int(1)) {}
+
+    // 拷贝构造
+    SimpleSharedPtr(const SimpleSharedPtr& other)
+        : ptr(other.ptr), ref_count(other.ref_count) {
+        (*ref_count)++; // 增加引用计数
+    }
+
+    // 赋值操作符
+    SimpleSharedPtr& operator=(const SimpleSharedPtr& other) {
+        if (this != &other) {
+            // 先减少自己的引用
+            release();
+
+            // 拷贝对方
+            ptr = other.ptr;
+            ref_count = other.ref_count;
+            (*ref_count)++;
+        }
+        return *this;
+    }
+
+    // 析构
+    ~SimpleSharedPtr() {
+        release();
+    }
+
+    T& operator*() { return *ptr; }
+    T* operator->() { return ptr; }
+
+    int use_count() const { return *ref_count; }
+
+private:
+    void release() {
+        (*ref_count)--;
+        if (*ref_count == 0) {
+            delete ptr;
+            delete ref_count;
+            ptr = nullptr;
+            ref_count = nullptr;
+        }
+    }
+};
+
+int main() {
+    SimpleSharedPtr<int> sp1(new int(42));
+    std::cout << "count: " << sp1.use_count() << std::endl; // 1
+
+    {
+        SimpleSharedPtr<int> sp2 = sp1;
+        std::cout << "count: " << sp1.use_count() << std::endl; // 2
+    }
+
+    std::cout << "count: " << sp1.use_count() << std::endl; // 1
+}
+
+```
+
+#### weak_ptr
+
+`std::weak_ptr<T>`弱引用,不影响引用计数，用于打破 shared_ptr 循环引用
+
+```c++
+#include <memory>
+#include <iostream>
+using namespace std;
+
+int main() {
+    shared_ptr<int> sp = make_shared<int>(42);
+    weak_ptr<int> wp = sp; // 不增加引用计数
+
+    if (auto p = wp.lock()) { // 临时获取 shared_ptr
+        cout << *p << endl;
+    }
+}
+```
+
+### malloc free new delete
+
+new内存分配失败时，会抛出bac_alloc异常，它不会返回NULL；malloc分配内存失败时返回NULL
+
+
+
+`lower_bound(a.begin(),a.end(),val,[](const auto &ele, int v){return ele[0]<v});`
+
+```c++
+ /* 
   你必须定义一个 `main()` 函数入口。
   you must define a `main()` function entry.
   请你选择合适的数据结构来实现一个具有以下功能的编辑器：
