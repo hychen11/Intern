@@ -1,3 +1,97 @@
+### Google
+
+Monotonic Queue解决区间最值，求窗口内 min+max、最大差值、最小差值等，维护一个 maxQueue + minQueue
+
+一个log list ， 每条log有service timestamp还有severity代表严重程度，再给定一个window 返回timewindow里面，总和加起来最严重的serviceId以及总和多少 followup是改变了一下计算策略，返回在timewindow里面，严重程度最小值+严重程度最大值最大的serviceId以及总和。
+
+```c++
+class Log{
+public:
+  string serviceId;
+  int timestamp;
+  int severity;
+  Log(string serviceId, int timestamp, int severity):serviceId(serviceId),timestamp(timestamp),severity(severity){}
+}
+struct ServiceWindow {
+    deque<int> maxDeque;
+    deque<int> minDeque;
+    deque<Log> windowLogs;
+};
+vector<Log> vec={{"1",2,3},{"2",1,3}};//ok
+vector<Log> vec = {Log("1", 2, 3),Log("2", 3, 4)};
+
+vector<int> maxSeverityWindow(vector<Log> logs, int k){
+	unordered_map<int,ServiceWindow> serviceMap;
+  string bestService;
+  int bestScore = INT_MIN;
+  
+  sort(logs.begin(),logs.end(),[](Log &a,Log &b){return a.timestamp<b.timestamp;});
+ 	
+  deque<int> qMin,qMax;
+  for(int i=0;i<logs.size();i++){
+    auto& sw = serviceMap[log.serviceId];
+		while(!sw.windowLogs.empty() && sw.windowLogs.front().timestamp < log.timestamp - windowSize) {
+        int oldSeverity = sw.windowLogs.front().severity;
+        if(!sw.maxDeque.empty() && sw.maxDeque.front() == oldSeverity) sw.maxDeque.pop_front();
+        if(!sw.minDeque.empty() && sw.minDeque.front() == oldSeverity) sw.minDeque.pop_front();
+        sw.windowLogs.pop_front();
+    }
+    // 插入新 log
+    while(!sw.maxDeque.empty() && sw.maxDeque.back() < log.severity) sw.maxDeque.pop_back();
+    sw.maxDeque.push_back(log.severity);
+
+    while(!sw.minDeque.empty() && sw.minDeque.back() > log.severity) sw.minDeque.pop_back();
+    sw.minDeque.push_back(log.severity);
+
+    sw.windowLogs.push_back(log);
+
+    // 计算 min+max
+    int score = sw.minDeque.front() + sw.maxDeque.front();
+    if(score > bestScore) {
+        bestScore = score;
+        bestService = log.serviceId;
+    }
+  }
+  return {bestService, bestScore};
+}
+
+int main() {
+    vector<Log> vec = {{"1",2,3},{"2",1,3},{"1",3,5},{"2",4,6}};
+    auto res = maxSeverityWindow(vec, 2);
+    cout << res.first << " " << res.second << endl; // 输出当前窗口 min+max 最大的 serviceId 和 score
+}
+```
+
+
+
+区间最值
+
+```c++
+class Solution {
+public:
+    vector<int> maxSlidingWindow(vector<int>& nums, int k) {
+        deque<int> q;
+        vector<int> ans;
+        for(int i=0;i<nums.size();i++){
+            if(!q.empty()&&q.front()+k==i){
+                q.pop_front();
+            }
+            while(!q.empty()&&nums[q.back()]<nums[i]){
+                q.pop_back();
+            }
+            q.push_back(i);
+            if(i>=k-1)
+                ans.push_back(nums[q.front()]);
+        }
+        return ans;
+    }
+};
+```
+
+
+
+
+
 erase(unique 这个去重是去除相邻的相同元素的！
 
 stl

@@ -59,7 +59,7 @@ JMeter？GC？
 | ------------ | ------------------------------------------------------------ |
 | **堆外内存** | Java NIO/Netty 用来进行高速 I/O 操作，不受 GC 影响，性能更好」 |
 
-直接内存+meraspace = direct memory
+直接内存+metaspace = direct memory
 
 压测内容	压测线程数	吞吐量/s	90%响应时间	99%响应时间
 Nginx（浪费CPU）	50	2120	10	1189
@@ -78,9 +78,9 @@ Gateway+简单服务	50	3124	27	61
 
 ### Optimized query performance by 40%utilizing Redis caching with Bloom filters preventing cache penetration 
 
-这里TP 90% 从260降低到120ms
+这里TP 90% 从260降低到140ms
 
-### Implemented lazy updates and distributed locks ensuring data consistency across multiple service instances。 
+### Implemented lazy updates or distributed locks ensuring data consistency across multiple service instances
 
 distributed locks主要用在缓存更新这里，如果cache超时过期，就抢分布式锁，持有锁的进行更新
 

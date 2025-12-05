@@ -1,5 +1,39 @@
 
 
+`__name__` 是Python的一个**内置属性**：
+
+- 当**直接运行**一个脚本时，`__name__` 的值是 `"__main__"`
+- 当脚本被**作为模块导入**时，`__name__` 的值是**模块名**
+
+```python
+# mymodule.py
+def hello():
+    print("Hello from mymodule")
+
+print(f"模块被导入，__name__ 的值为: {__name__}")
+
+if __name__ == "__main__":
+    print("这是直接运行mymodule.py")
+    hello()
+
+```
+
+```shell
+$ python mymodule.py
+# 输出：
+# 模块被导入，__name__ 的值为: __main__
+# 这是直接运行mymodule.py
+# Hello from mymodule
+
+# another_script.py
+import mymodule
+# 输出：
+# 模块被导入，__name__ 的值为: mymodule
+# （不会执行 if 块中的代码）
+```
+
+
+
 # Redis
 
 登录 jwt token，设置EX过期时间
